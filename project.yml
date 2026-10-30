@@ -1,0 +1,89 @@
+name: Truffle
+options:
+  bundleIdPrefix: com.vanities
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  developmentLanguage: en
+
+settings:
+  base:
+    # Default team for automatic signing (Xcode Cloud needs one). Forks override it in
+    # Config/Signing.xcconfig without touching this file.
+    DEVELOPMENT_TEAM: 8Q3RG3ULSU
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      ONLY_ACTIVE_ARCH: YES
+
+targets:
+  Truffle:
+    type: application
+    platform: iOS
+    sources:
+      - path: Truffle
+        excludes:
+          - "Resources/Info.plist"
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_NAME: Truffle
+        PRODUCT_BUNDLE_IDENTIFIER: com.vanities.truffle
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Truffle/Resources/Info.plist
+        # CarPlay audio is granted to the team (Earmark ships with it), so device builds carry it too.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Truffle/Resources/Truffle.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": Truffle/Resources/Truffle-Device.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        ENABLE_PREVIEWS: YES
+
+  TruffleTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TruffleTests
+    dependencies:
+      - target: Truffle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vanities.truffleTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Truffle.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Truffle"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  Truffle:
+    build:
+      targets:
+        Truffle: all
+        TruffleTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - TruffleTests
+    profile:
+      config: Release
+    archive:
+      config: Release
