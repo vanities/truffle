@@ -221,8 +221,10 @@ prints each screen's accessibility tree.
 
 - `MARKETING_VERSION` lives in project.yml's project-wide settings (then `make gen`), so the widget
   extension always matches the app. 1.1.0 is the first App Store release: 1.0.0 was
-  pulled from review before it started (2026-10-31) so everything since could launch with it. `appstore.py`'s
-  `VERSION` names the version `setup` edits, and renames it to.
+  pulled from review before it started (2026-10-31) so everything since could launch with it. Main moved
+  on to 1.2.0 (Siri, widgets, accessibility) while 1.1.0 (build 12) was in review: once a version is
+  approved, App Store Connect refuses new builds that carry its number. `appstore.py`'s `VERSION` names
+  the version `setup` edits, and renames it to; it stays 1.1.0 until 1.2.0's listing is set up.
 - Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
   lands in TestFlight. Xcode Cloud numbers builds itself, from 1. The workflow lives in App Store
   Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
