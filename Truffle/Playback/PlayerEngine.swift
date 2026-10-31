@@ -1,34 +1,14 @@
+// swiftlint:disable file_length - one state machine over two decks; splitting it opens its private state to the module
 import AVFoundation
 import Foundation
 import Observation
 import os
 
-/// What's playing, as the user picked it.
-struct PlaySource: Codable, Hashable, Sendable {
-    enum Kind: String, Codable, Sendable {
-        case album, artist, playlist, mix, shuffleAll, liked, search, songs
-    }
-
-    var kind: Kind
-    var title: String
-    var id: String?
-    /// An album played front to back keeps the album's own loudness (see `Loudness`).
-    var albumInOrder = false
-
-    static let shuffleAll = PlaySource(kind: .shuffleAll, title: "Shuffle All")
-}
-
-/// The queue saved between launches, so the car's play button picks up where you left off.
-struct PlayerState: Codable, Sendable {
-    var queue: PlayQueue
-    var time: TimeInterval
-    var source: PlaySource?
-    var feed: ShuffleFeed?
-    var savedAt: Date
-}
-
-/// Plays the queue through an AVQueuePlayer holding the current song and the next one, so songs
-/// run into each other without a gap.
+/// Plays the queue through two AVQueuePlayers, or decks. The main deck holds the current song and, when
+/// the next one follows without a crossfade, that one too, so songs run into each other without a gap.
+/// In a shuffle with Crossfade on, the next song waits on the spare deck instead. Near the end of the
+/// current song it starts there, the two overlap (`Crossfade` has the rules and the curves), and the
+/// decks trade places: the queue, Now Playing and Plex move to the new song while the old one fades out.
 @MainActor @Observable
 final class PlayerEngine {
     private(set) var queue = PlayQueue()
@@ -37,6 +17,8 @@ final class PlayerEngine {
     private(set) var isLoading = false
     private(set) var currentTime: TimeInterval = 0
     private(set) var errorMessage: String?
+    /// What the current song streams as; the player shows when it's Data Saver.
+    private(set) var stream: StreamMode = .original
     /// Shuffle All (or a big playlist's shuffle): the queue tops itself up as it runs low.
     private(set) var feed: ShuffleFeed?
     var isEndless: Bool { feed != nil }
@@ -60,10 +42,19 @@ final class PlayerEngine {
 
     @ObservationIgnored private let library: MusicLibrary
     @ObservationIgnored private let settings: AppSettings
+    @ObservationIgnored private let network: NetworkCost
     @ObservationIgnored private let reporter: PlexReporter
-    @ObservationIgnored private let player = AVQueuePlayer()
-    /// The preloaded item and the queue position it plays.
+    /// The main deck: the current song, and the next one when it follows gaplessly.
+    @ObservationIgnored private var player = AVQueuePlayer()
+    /// The spare deck: empty, holding the next song for a crossfade, or fading out the last one.
+    @ObservationIgnored private var spare = AVQueuePlayer()
+    /// The song preloaded on the main deck and the queue position it plays.
     @ObservationIgnored private var nextItem: (item: AVPlayerItem, index: Int)?
+    @ObservationIgnored private var staged: Staged?
+    @ObservationIgnored private var fading: Fading?
+    @ObservationIgnored private var fadeStart: (deck: AVQueuePlayer, token: Any)?
+    @ObservationIgnored private var fadeTicks: (deck: AVQueuePlayer, token: Any)?
+    @ObservationIgnored private var fadeWatchdog: Task<Void, Never>?
     /// The server address the current item streams from; a different one means it has to be rebuilt.
     @ObservationIgnored private var currentItemBase: URL?
     @ObservationIgnored private var pendingSeek: TimeInterval?
@@ -77,21 +68,63 @@ final class PlayerEngine {
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
     @ObservationIgnored private var itemObservers: [NSKeyValueObservation] = []
     @ObservationIgnored private var playerObservers: [NSKeyValueObservation] = []
-    @ObservationIgnored private var timeObserver: Any?
+    @ObservationIgnored private var timeObservers: [Any] = []
     @ObservationIgnored private var enriching: Set<String> = []
-    /// The song each loaded item plays; a natural end reports that song as played.
-    @ObservationIgnored private var itemTracks: [ObjectIdentifier: Track] = [:]
+    /// What each loaded item plays and how: a natural end reports its song as played, and letting it go
+    /// stops its transcode on the server.
+    @ObservationIgnored private var itemInfo: [ObjectIdentifier: ItemInfo] = [:]
     /// One failure is often reported twice (status and notification); count it once.
     @ObservationIgnored private var failedItem: ObjectIdentifier?
 
     private static let stateFile = "player.json"
 
-    init(library: MusicLibrary, settings: AppSettings) {
+    private struct ItemInfo {
+        let track: Track
+        let mode: StreamMode
+        let endpoint: PlexEndpoint
+        /// The transcode session, for Data Saver.
+        let session: String?
+    }
+
+    /// The next song, waiting on the spare deck to fade in over the end of `after`.
+    private struct Staged {
+        let item: AVPlayerItem
+        let index: Int
+        let track: Track
+        let after: AVPlayerItem
+        var plan: Crossfade.Plan
+    }
+
+    /// The last song, fading out on the spare deck while the current one fades in.
+    private struct Fading {
+        let item: AVPlayerItem
+        let track: Track
+        let start: TimeInterval
+        let length: TimeInterval
+        /// Its leveled volume, which the fade-out scales down from.
+        let level: Float
+        var loggedStep = 0
+    }
+
+    private enum FadeEnd: String {
+        /// Played out under the new song.
+        case completed, ended
+        /// Pause, skip, seek or a new queue: the old song stops where it is.
+        case cut
+        /// The old song stopped moving (stalled); don't hold the new one back.
+        case timeout
+    }
+
+    init(library: MusicLibrary, settings: AppSettings, network: NetworkCost? = nil) {
         self.library = library
         self.settings = settings
+        self.network = network ?? NetworkCost()
         reporter = PlexReporter(library: library)
-        player.actionAtItemEnd = .advance
-        player.automaticallyWaitsToMinimizeStalling = true
+        for deck in [player, spare] {
+            deck.actionAtItemEnd = .advance
+            deck.automaticallyWaitsToMinimizeStalling = true
+        }
+        spare.volume = 0
         installObservers()
         restore()
         library.onEndpointChanged = { [weak self] endpoint in self?.endpointChanged(endpoint) }
@@ -101,6 +134,7 @@ final class PlayerEngine {
             self.queue.update(track)
             self.notify()
         }
+        self.network.onChange = { [weak self] metered in self?.networkCostChanged(metered) }
     }
 
     // MARK: - Starting things
@@ -109,9 +143,11 @@ final class PlayerEngine {
         guard !tracks.isEmpty else { return }
         var list = tracks
         var start = index
+        var source = source
         if shuffled {
             list.shuffle()
             start = 0
+            source.shuffled = true
         }
         Logger.player.info("[player] play \(source.kind.rawValue, privacy: .public) \"\(source.title, privacy: .public)\" \(list.count) songs from \(start) shuffled=\(shuffled)")
         feed = nil
@@ -127,7 +163,7 @@ final class PlayerEngine {
 
     /// A playlist in a true random order. Big ones are walked by position, not downloaded.
     func shuffle(_ playlist: Playlist) async {
-        let source = PlaySource(kind: .playlist, title: playlist.title, id: playlist.id)
+        let source = PlaySource(kind: .playlist, title: playlist.title, id: playlist.id, shuffled: true)
         if playlist.isLarge {
             await startShuffle(.playlist(id: playlist.id, total: playlist.trackCount), source: source)
             return
@@ -241,7 +277,7 @@ final class PlayerEngine {
 
     func jump(to index: Int) {
         guard queue.tracks.indices.contains(index) else { return }
-        reportStopped()
+        leaveCurrent()
         queue.move(to: index)
         load(autoplay: true)
     }
@@ -258,6 +294,13 @@ final class PlayerEngine {
         preloadNext()
         save()
         notify()
+    }
+
+    /// Crossfade or Data Saver changed in Settings: the next song gets readied again under the new rules.
+    func playbackSettingsChanged() {
+        Logger.player.info("[player] settings: crossfade \(self.settings.crossfadeSeconds)s, data saver \(self.settings.dataSaver)")
+        guard player.currentItem != nil else { return }
+        preloadNext()
     }
 
     // MARK: - Transport
@@ -280,6 +323,8 @@ final class PlayerEngine {
     }
 
     func pause() {
+        // A pause mid-blend ends the blend: on Play, the new song carries on alone.
+        endFade(.cut)
         playWhenReady = false
         player.pause()
         if let track = current { reporter.report(.paused, track: track, time: currentTime) }
@@ -296,8 +341,11 @@ final class PlayerEngine {
             }
             return
         }
-        reportStopped()
-        if let preloaded = nextItem, preloaded.index == index, player.items().count > 1 {
+        leaveCurrent()
+        if let staged, staged.index == index {
+            Logger.player.info("[player] next → staged \(index)")
+            cutToStaged()
+        } else if let preloaded = nextItem, preloaded.index == index, player.items().count > 1 {
             Logger.player.info("[player] next → preloaded \(index)")
             player.advanceToNextItem()
             if !playWhenReady { play() }
@@ -316,12 +364,13 @@ final class PlayerEngine {
             seek(to: 0)
             return
         }
-        reportStopped()
+        leaveCurrent()
         queue.move(to: index)
         load(autoplay: true)
     }
 
     func seek(to time: TimeInterval) {
+        endFade(.cut)
         let target = max(0, min(time, max(0, duration - 0.5)))
         currentTime = target
         if needsLoad || player.currentItem == nil {
@@ -364,13 +413,16 @@ final class PlayerEngine {
 
     /// Signing out, or the queue emptied.
     func stop(clearing: Bool) {
-        reportStopped()
+        leaveCurrent()
+        dropStaged()
         player.pause()
-        player.removeAllItems()
+        removeAllItems(from: player)
         nextItem = nil
+        retireLeftovers()
         playWhenReady = false
         isPlaying = false
         isLoading = false
+        stream = .original
         if clearing {
             queue = PlayQueue()
             source = nil
@@ -392,8 +444,11 @@ final class PlayerEngine {
         }
         needsLoad = false
         errorMessage = nil
-        player.removeAllItems()
+        endFade(.cut, thenPrepare: false)
+        dropStaged()
+        removeAllItems(from: player)
         nextItem = nil
+        retireLeftovers()
         guard let item = makeItem(for: track) else {
             // Not connected yet: connect, then try again.
             needsLoad = true
@@ -411,17 +466,17 @@ final class PlayerEngine {
             }
             return
         }
-        currentItemBase = library.endpoint?.baseURL
+        currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL
         player.insert(item, after: nil)
-        itemTracks = [ObjectIdentifier(item): track]
         failedItem = nil
         observe(item)
         currentTime = startTime
         pendingSeek = startTime > 1 ? startTime : nil
+        stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
         applyVolume()
         preloadNext()
         recoveryAttempts = 0
-        Logger.player.info("[player] load \(self.queue.index + 1)/\(self.queue.tracks.count) \"\(track.title, privacy: .public)\" by \(track.artist, privacy: .public) [\(track.codec ?? "?", privacy: .public)] autoplay=\(autoplay)")
+        Logger.player.info("[player] load \(self.queue.index + 1)/\(self.queue.tracks.count) \"\(track.title, privacy: .public)\" by \(track.artist, privacy: .public) [\(track.codec ?? "?", privacy: .public)\(self.stream == .dataSaver ? ", data saver \(DataSaver.kbps) kbps HLS" : "", privacy: .public)] autoplay=\(autoplay)")
         if autoplay {
             isLoading = true
             play()
@@ -432,67 +487,147 @@ final class PlayerEngine {
         notify()
     }
 
+    /// The original file, or with Data Saver on a metered connection, Plex's transcode (a session per song).
     private func makeItem(for track: Track) -> AVPlayerItem? {
         guard let client = library.client, let partKey = track.partKey else { return nil }
-        let asset = AVURLAsset(url: client.streamURL(partKey: partKey))
-        let item = AVPlayerItem(asset: asset)
+        let mode = newSongMode
+        var session: String?
+        let url: URL
+        switch mode {
+        case .original:
+            url = client.streamURL(partKey: partKey)
+        case .dataSaver:
+            let id = UUID().uuidString.lowercased()
+            session = id
+            url = client.transcodeURL(ratingKey: track.id, session: id)
+        }
+        let item = AVPlayerItem(asset: AVURLAsset(url: url))
         item.preferredForwardBufferDuration = 30
+        itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session)
         return item
     }
 
-    /// Keeps the song after the current one loaded in the AVQueuePlayer (none for Repeat One, which
-    /// replays the current song when it ends).
+    private var newSongMode: StreamMode {
+        DataSaver.mode(enabled: settings.dataSaver, metered: network.isMetered)
+    }
+
+    /// Readies the song after the current one: on the main deck right behind it (gapless), or on the spare
+    /// deck to fade in over its end (a crossfade). Nothing for Repeat One, which replays the current song.
+    /// An item already readied for the same song, address and stream mode stays.
     private func preloadNext() {
-        if let existing = nextItem {
-            player.remove(existing.item)
-            itemTracks[ObjectIdentifier(existing.item)] = nil
-            nextItem = nil
-        }
+        // The queue player just moved on to the preloaded song; currentItemChanged readies the one after.
+        if let preloaded = nextItem, preloaded.item === player.currentItem { return }
         guard queue.repeatMode != .one, let index = queue.indexAfterEnd(), let track = queue.tracks[safe: index],
-              let current = player.currentItem, let item = makeItem(for: track) else { return }
-        player.insert(item, after: current)
-        itemTracks[ObjectIdentifier(item)] = track
-        nextItem = (item, index)
-        Logger.player.debug("[player] preloaded \(index + 1): \(track.title, privacy: .public)")
+              let current = player.currentItem, let playing = queue.current else {
+            dropPreloaded()
+            dropStaged()
+            return
+        }
+        switch crossfadeDecision(from: playing, item: current, to: track) {
+        case .fade(let plan):
+            dropPreloaded()
+            if var kept = staged, kept.index == index, kept.after === current, isFresh(kept.item, for: track) {
+                kept.plan = plan
+                staged = kept
+                armCrossfade()
+                return
+            }
+            dropStaged()
+            guard fading == nil else {
+                Logger.player.debug("[crossfade] \(index + 1) waits for the last fade to finish")
+                return
+            }
+            guard let item = makeItem(for: track) else { return }
+            stage(item, index: index, track: track, after: current, plan: plan)
+        case .gapless(let reason):
+            dropStaged()
+            if let kept = nextItem, kept.index == index, isFresh(kept.item, for: track) { return }
+            dropPreloaded()
+            guard let item = makeItem(for: track) else { return }
+            player.insert(item, after: current)
+            nextItem = (item, index)
+            if reason == .off {
+                Logger.player.debug("[player] preloaded \(index + 1): \(track.title, privacy: .public)")
+            } else {
+                Logger.player.info("[player] preloaded \(index + 1): \(track.title, privacy: .public), gapless (\(reason.rawValue, privacy: .public))")
+            }
+        }
+    }
+
+    private func isFresh(_ item: AVPlayerItem, for track: Track) -> Bool {
+        guard item.status != .failed, let info = itemInfo[ObjectIdentifier(item)] else { return false }
+        return info.track.id == track.id && info.endpoint == library.endpoint && info.mode == newSongMode
+    }
+
+    private func dropPreloaded() {
+        guard let preloaded = nextItem else { return }
+        nextItem = nil
+        player.remove(preloaded.item)
+        retire(preloaded.item)
     }
 
     /// The AVQueuePlayer moved on by itself (a song ended and the preloaded one started).
     private func currentItemChanged() {
-        guard let item = player.currentItem else { return }
-        if let preloaded = nextItem, preloaded.item === item {
-            // No play report here: a skip to the preloaded song lands here too (see itemEnded).
-            let loaded = Set(player.items().map(ObjectIdentifier.init))
-            itemTracks = itemTracks.filter { loaded.contains($0.key) }
-            failedItem = nil
-            queue.move(to: preloaded.index)
-            nextItem = nil
-            currentItemBase = library.endpoint?.baseURL
-            observe(item)
-            currentTime = 0
-            applyVolume()
-            preloadNext()
-            trimHistory()
-            enrichSoon()
-            topUpIfNeeded()
-            save()
-            Logger.player.info("[player] advanced to \(self.queue.index + 1)/\(self.queue.tracks.count) \"\(self.current?.title ?? "", privacy: .public)\"")
-            notify()
-        }
+        guard let item = player.currentItem, let preloaded = nextItem, preloaded.item === item else { return }
+        // No play report here: a skip to the preloaded song lands here too (see itemEnded).
+        let loaded = Set((player.items() + spare.items()).map(ObjectIdentifier.init))
+        for key in Array(itemInfo.keys) where !loaded.contains(key) { retire(key) }
+        queue.move(to: preloaded.index)
+        nextItem = nil
+        settle(on: item, how: "advanced")
     }
 
-    /// The current song ended with nothing preloaded: Repeat One, an endless shuffle that ran dry,
-    /// or the end of the queue.
+    /// Bookkeeping once `item`, already on the main deck, is the current song.
+    private func settle(on item: AVPlayerItem, how: String) {
+        failedItem = nil
+        currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL ?? library.endpoint?.baseURL
+        observe(item)
+        currentTime = 0
+        stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
+        applyVolume()
+        // Before preloading: trimming shifts the queue's positions, and the preload remembers one.
+        trimHistory()
+        preloadNext()
+        enrichSoon()
+        topUpIfNeeded()
+        save()
+        Logger.player.info("[player] \(how, privacy: .public) to \(self.queue.index + 1)/\(self.queue.tracks.count) \"\(self.current?.title ?? "", privacy: .public)\"\(self.stream == .dataSaver ? " (data saver)" : "", privacy: .public)")
+        notify()
+    }
+
+    /// The current song ended with nothing preloaded behind it: Repeat One, a crossfade that never got to
+    /// start, an endless shuffle that ran dry, or the end of the queue.
     private func itemEnded(_ item: AVPlayerItem) {
-        // Only a song that played to its end lands here, so this is what counts as a play.
-        if let track = itemTracks[ObjectIdentifier(item)] {
-            reporter.report(.stopped, track: track, time: track.duration)
+        if let fading, fading.item === item {
+            endFade(.ended)
+            return
         }
+        // Only a song that played to its end lands here, so this is what counts as a play. An item that was
+        // already let go (skipped, or a fade that just finished) has nothing left to do.
+        guard let track = itemInfo[ObjectIdentifier(item)]?.track else { return }
+        reporter.report(.stopped, track: track, time: track.duration)
         // With a song preloaded, the queue player has already moved on (currentItemChanged).
-        guard nextItem == nil else { return }
+        guard nextItem == nil else {
+            retire(item)
+            return
+        }
         if queue.repeatMode == .one {
             Logger.player.info("[player] repeat one")
             player.seek(to: .zero)
             player.play()
+            return
+        }
+        retire(item)
+        if staged != nil {
+            Logger.player.info("[crossfade] the song ended before its fade could start; cutting over")
+            cutToStaged()
+            return
+        }
+        if let index = queue.indexAfterEnd() {
+            // Nothing was readied: the next song couldn't be made, or its crossfade fell through.
+            Logger.player.info("[player] nothing preloaded; loading \(index + 1)")
+            queue.move(to: index)
+            load(autoplay: true)
             return
         }
         if isEndless {
@@ -511,13 +646,226 @@ final class PlayerEngine {
 
     private func applyVolume() {
         guard let track = current else { return }
+        var gain: Float = 1
+        if let fading {
+            gain = Crossfade.gains(at: Crossfade.progress(at: spare.currentTime().seconds, start: fading.start, length: fading.length)).incoming
+        }
+        let volume = leveledVolume(for: track) * gain
+        player.volume = volume
+        Logger.player.debug("[player] volume \(volume, format: .fixed(precision: 2)) (loudness \(track.loudness ?? .nan, format: .fixed(precision: 1)))")
+    }
+
+    /// A song's volume from Even Out Volume, before any fade.
+    private func leveledVolume(for track: Track) -> Float {
         var volume = settings.evenOutVolume ? Loudness.volume(for: track, albumMode: source?.albumInOrder == true) : 1
         #if DEBUG
         // `-TruffleMute YES`: test runs against a real library play silently.
         if UserDefaults.standard.bool(forKey: "TruffleMute") { volume = 0 }
         #endif
-        player.volume = volume
-        Logger.player.debug("[player] volume \(volume, format: .fixed(precision: 2)) (loudness \(track.loudness ?? .nan, format: .fixed(precision: 1)))")
+        return volume
+    }
+
+    private func removeAllItems(from deck: AVQueuePlayer) {
+        let items = deck.items()
+        deck.removeAllItems()
+        for item in items { retire(item) }
+    }
+
+    /// An item that's done (ended, skipped or replaced): forget it, and end its transcode on the server.
+    private func retire(_ item: AVPlayerItem) {
+        retire(ObjectIdentifier(item))
+    }
+
+    private func retire(_ key: ObjectIdentifier) {
+        guard let info = itemInfo.removeValue(forKey: key), let session = info.session else { return }
+        let client = PlexClient(endpoint: info.endpoint, identity: library.identity)
+        Task {
+            do {
+                try await client.stopTranscode(session: session)
+                Logger.player.info("[datasaver] stopped transcode \(String(session.prefix(8)), privacy: .public) for \"\(info.track.title, privacy: .public)\"")
+            } catch {
+                Logger.player.info("[datasaver] stopping transcode \(String(session.prefix(8)), privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// Items the decks already dropped on their own (a song that ended at the end of the queue).
+    private func retireLeftovers() {
+        for key in Array(itemInfo.keys) { retire(key) }
+    }
+
+    // MARK: - Crossfade
+
+    private func crossfadeDecision(from track: Track, item: AVPlayerItem, to next: Track) -> Crossfade.Decision {
+        Crossfade.decide(seconds: settings.crossfadeSeconds, source: source, repeatMode: queue.repeatMode,
+                         from: track, length: Self.length(of: item, track: track), to: next, length: next.duration)
+    }
+
+    /// The item's own length once it's loaded (Plex's can be off by a fraction of a second), else Plex's.
+    private static func length(of item: AVPlayerItem, track: Track) -> TimeInterval {
+        let seconds = item.duration.seconds
+        return seconds.isFinite && seconds > 0 ? seconds : track.duration
+    }
+
+    private func stage(_ item: AVPlayerItem, index: Int, track: Track, after current: AVPlayerItem, plan: Crossfade.Plan) {
+        removeAllItems(from: spare)
+        spare.volume = 0
+        spare.insert(item, after: nil)
+        staged = Staged(item: item, index: index, track: track, after: current, plan: plan)
+        armCrossfade()
+        Logger.player.info("[crossfade] staged \(index + 1) \"\(track.title, privacy: .public)\": \(plan.length, format: .fixed(precision: 1))s from \(plan.start, format: .fixed(precision: 1))s")
+    }
+
+    private func dropStaged() {
+        disarmCrossfade()
+        guard let staged else { return }
+        self.staged = nil
+        spare.remove(staged.item)
+        retire(staged.item)
+    }
+
+    /// Starts the crossfade when the current song reaches the plan's start.
+    private func armCrossfade() {
+        disarmCrossfade()
+        guard let staged, let item = player.currentItem, staged.after === item else { return }
+        let deck = player
+        let time = NSValue(time: CMTime(seconds: staged.plan.start, preferredTimescale: 600))
+        let token = deck.addBoundaryTimeObserver(forTimes: [time], queue: .main) { [weak self] in
+            MainActor.assumeIsolated { self?.crossfadeDue() }
+        }
+        fadeStart = (deck, token)
+    }
+
+    private func disarmCrossfade() {
+        guard let fadeStart else { return }
+        fadeStart.deck.removeTimeObserver(fadeStart.token)
+        self.fadeStart = nil
+    }
+
+    private func crossfadeDue() {
+        guard let staged, fading == nil, player.currentItem === staged.after else { return }
+        beginCrossfade(at: player.currentTime().seconds)
+    }
+
+    /// The boundary only fires when playback runs across it, so a seek or a resume past it lands here.
+    private func catchUpOnCrossfade(at time: TimeInterval) {
+        guard let staged, fading == nil, isPlaying, player.currentItem === staged.after,
+              time >= staged.plan.start + 0.5 else { return }
+        Logger.player.info("[crossfade] caught up at \(time, format: .fixed(precision: 1))s")
+        beginCrossfade(at: time)
+    }
+
+    /// The staged song starts on the spare deck at silence, the decks trade places, and the fade ticks
+    /// bring one up as the other goes down.
+    private func beginCrossfade(at time: TimeInterval) {
+        guard let staged, fading == nil, let outgoingItem = player.currentItem, let outgoing = queue.current else { return }
+        disarmCrossfade()
+        guard staged.item.status != .failed else {
+            Logger.player.error("[crossfade] \"\(staged.track.title, privacy: .public)\" didn't load; it starts fresh when this song ends")
+            dropStaged()
+            return
+        }
+        let length = min(staged.plan.length, Self.length(of: outgoingItem, track: outgoing) - time)
+        // Too close to the end to blend: it cuts over when this song ends (itemEnded).
+        guard length >= Crossfade.minimumLength else { return }
+        self.staged = nil
+        let outgoingDeck = player
+        player = spare
+        spare = outgoingDeck
+        fading = Fading(item: outgoingItem, track: outgoing, start: time, length: length, level: leveledVolume(for: outgoing))
+        Logger.player.info("[crossfade] start \"\(outgoing.title, privacy: .public)\" → \"\(staged.track.title, privacy: .public)\" over \(length, format: .fixed(precision: 1))s at \(time, format: .fixed(precision: 1))s")
+        player.volume = 0
+        player.play()
+        startFadeTicks(length: length)
+        queue.move(to: staged.index)
+        settle(on: staged.item, how: "crossfading")
+    }
+
+    private func startFadeTicks(length: TimeInterval) {
+        stopFadeTicks()
+        let deck = spare
+        let token = deck.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] time in
+            MainActor.assumeIsolated { self?.fadeTick(CMTimeGetSeconds(time)) }
+        }
+        fadeTicks = (deck, token)
+        fadeWatchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(length + 5))
+            guard !Task.isCancelled else { return }
+            self?.endFade(.timeout)
+        }
+    }
+
+    private func stopFadeTicks() {
+        if let fadeTicks { fadeTicks.deck.removeTimeObserver(fadeTicks.token) }
+        fadeTicks = nil
+        fadeWatchdog?.cancel()
+        fadeWatchdog = nil
+    }
+
+    /// Driven by the outgoing song's own clock, so the curve stays put if it stalls.
+    private func fadeTick(_ time: TimeInterval) {
+        guard var fading, time.isFinite else { return }
+        let progress = Crossfade.progress(at: time, start: fading.start, length: fading.length)
+        let gains = Crossfade.gains(at: progress)
+        spare.volume = fading.level * gains.outgoing
+        player.volume = (current.map(leveledVolume(for:)) ?? 1) * gains.incoming
+        let step = Int(progress * 4)
+        if step > fading.loggedStep {
+            fading.loggedStep = step
+            self.fading = fading
+            Logger.player.info("[crossfade] \(step * 25)%: out \(gains.outgoing, format: .fixed(precision: 2)) in \(gains.incoming, format: .fixed(precision: 2))")
+        }
+        if progress >= 1 { endFade(.completed) }
+    }
+
+    /// The old song stops and goes to Plex as played (it ran out under the new one) or as far as it got
+    /// (cut short). The new song plays on at its own level, and the spare deck is free for the next blend.
+    private func endFade(_ how: FadeEnd, thenPrepare: Bool = true) {
+        guard let fading else { return }
+        self.fading = nil
+        stopFadeTicks()
+        let reached = spare.currentTime().seconds
+        let playedThrough = how == .completed || how == .ended
+        let reportedTime = playedThrough ? fading.track.duration : (reached.isFinite ? reached : fading.start)
+        reporter.report(.stopped, track: fading.track, time: reportedTime)
+        spare.pause()
+        removeAllItems(from: spare)
+        spare.volume = 0
+        retire(fading.item)
+        applyVolume()
+        Logger.player.info("[crossfade] done \"\(fading.track.title, privacy: .public)\" (\(how.rawValue, privacy: .public)), reported at \(Int(reportedTime))s")
+        if thenPrepare, nextItem == nil, staged == nil { preloadNext() }
+    }
+
+    /// The staged song takes over at once at its own level: Next before the blend, or the song ended before
+    /// it could start. It's buffered on the spare deck already, so there's no gap.
+    private func cutToStaged() {
+        guard let staged else { return }
+        disarmCrossfade()
+        self.staged = nil
+        guard staged.item.status != .failed else {
+            spare.remove(staged.item)
+            retire(staged.item)
+            queue.move(to: staged.index)
+            load(autoplay: true)
+            return
+        }
+        let finished = player
+        player = spare
+        spare = finished
+        removeAllItems(from: spare)
+        nextItem = nil
+        queue.move(to: staged.index)
+        settle(on: staged.item, how: "cut")
+        play()
+    }
+
+    /// Before the queue moves somewhere new: a blend in progress ends (the old song goes to Plex first),
+    /// then the current song is reported stopped where it is.
+    private func leaveCurrent() {
+        endFade(.cut, thenPrepare: false)
+        guard let track = current, player.currentItem != nil else { return }
+        reporter.report(.stopped, track: track, time: currentTime)
     }
 
     // MARK: - Shuffle top-up, details
@@ -589,6 +937,14 @@ final class PlayerEngine {
         }
     }
 
+    /// On or off cellular: with Data Saver on, the next song is readied again in the other mode. The one
+    /// playing finishes the way it started.
+    private func networkCostChanged(_ metered: Bool) {
+        guard settings.dataSaver, player.currentItem != nil else { return }
+        Logger.player.info("[datasaver] \(metered ? "on cellular: the next song streams the transcode" : "off cellular: the next song streams the original", privacy: .public)")
+        preloadNext()
+    }
+
     private func rebuildCurrent(reason: String) {
         let resume = playWhenReady
         Logger.player.info("[player] rebuilding current item at \(Int(self.currentTime))s: \(reason, privacy: .public)")
@@ -596,6 +952,11 @@ final class PlayerEngine {
     }
 
     private func itemFailed(_ item: AVPlayerItem, _ error: (any Error)?) {
+        if let fading, fading.item === item {
+            Logger.player.error("[crossfade] \"\(fading.track.title, privacy: .public)\" failed while fading out: \(error?.localizedDescription ?? "unknown error", privacy: .public)")
+            endFade(.cut)
+            return
+        }
         guard item === player.currentItem, failedItem != ObjectIdentifier(item) else { return }
         failedItem = ObjectIdentifier(item)
         let message = error?.localizedDescription ?? "unknown error"
@@ -621,15 +982,22 @@ final class PlayerEngine {
     // MARK: - Observers
 
     private func installObservers() {
-        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 2), queue: .main) { [weak self] time in
-            MainActor.assumeIsolated { self?.tick(CMTimeGetSeconds(time)) }
+        // Both decks report; only the main deck's clock, status and current item steer the engine.
+        for deck in [player, spare] {
+            let id = ObjectIdentifier(deck)
+            timeObservers.append(deck.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 2), queue: .main) { [weak self] time in
+                MainActor.assumeIsolated {
+                    guard let self, ObjectIdentifier(self.player) == id else { return }
+                    self.tick(CMTimeGetSeconds(time))
+                }
+            })
+            playerObservers.append(deck.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor [weak self] in self?.syncPlayingState() }
+            })
+            playerObservers.append(deck.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor [weak self] in self?.currentItemChanged() }
+            })
         }
-        playerObservers.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
-            Task { @MainActor [weak self] in self?.syncPlayingState() }
-        })
-        playerObservers.append(player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
-            Task { @MainActor [weak self] in self?.currentItemChanged() }
-        })
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: nil, queue: .main) { [weak self] note in
             guard let item = note.object as? AVPlayerItem else { return }
@@ -640,9 +1008,11 @@ final class PlayerEngine {
             let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? any Error
             MainActor.assumeIsolated { self?.itemFailed(item, error) }
         })
-        observers.append(center.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: nil, queue: .main) { [weak self] _ in
+        observers.append(center.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: nil, queue: .main) { [weak self] note in
+            let item = note.object as? AVPlayerItem
             MainActor.assumeIsolated {
-                guard let self else { return }
+                // A fading song that stalls just stops moving its fade; the watchdog ends it.
+                guard let self, item == nil || item === self.player.currentItem else { return }
                 Logger.player.info("[player] stalled")
                 if let endpoint = self.library.endpoint, endpoint.baseURL != self.currentItemBase {
                     self.rebuildCurrent(reason: "stalled, server address changed")
@@ -680,6 +1050,8 @@ final class PlayerEngine {
                 player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                 Logger.player.info("[player] resumed at \(Int(seek))s")
             }
+            // Its own length is known now: plan the crossfade again from it.
+            if staged != nil { preloadNext() }
         case .failed:
             itemFailed(item, item.error)
         default:
@@ -692,9 +1064,11 @@ final class PlayerEngine {
         currentTime = seconds
         ticks += 1
         if isPlaying, let track = current {
-            reporter.report(.playing, track: track, time: seconds)
+            // While the last song fades out, its "stopped" goes to Plex first, as between gapless songs.
+            if fading == nil { reporter.report(.playing, track: track, time: seconds) }
             if ticks % 20 == 0 { save() }
         }
+        catchUpOnCrossfade(at: seconds)
         if ticks % 10 == 0 { stateDidChange?() }
     }
 
@@ -707,7 +1081,7 @@ final class PlayerEngine {
         isLoading = loading && playWhenReady
         if playing {
             recoveryAttempts = 0
-            if let track = current { reporter.report(.playing, track: track, time: currentTime) }
+            if fading == nil, let track = current { reporter.report(.playing, track: track, time: currentTime) }
         }
         Logger.player.debug("[player] status playing=\(playing) loading=\(loading)")
         notify()
@@ -726,11 +1100,6 @@ final class PlayerEngine {
         default:
             break
         }
-    }
-
-    private func reportStopped() {
-        guard let track = current, player.currentItem != nil else { return }
-        reporter.report(.stopped, track: track, time: currentTime)
     }
 
     private func notify() {

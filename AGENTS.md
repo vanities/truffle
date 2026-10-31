@@ -27,8 +27,9 @@ Truffle/
               ConnectionPicker (home network > remote > relay, raced), PlexQuery, PlexModels, Keychain
   Models/     Track/Album/Artist/Playlist, AppSettings
   Library/    MusicLibrary (+Browse, +Mixes, +Edits), ShuffleWalk, Seasons, Mixes, LibraryStore
-  Playback/   PlayerEngine (AVQueuePlayer, gapless preload), PlayQueue (pure rules), Loudness,
-              PlexReporter (timeline), NowPlayingController, ArtworkCache, AudioSessionManager
+  Playback/   PlayerEngine (two AVQueuePlayer decks: gapless preload, crossfades in shuffles), PlayQueue and
+              Crossfade (pure rules), DataSaver (+ NetworkCost), Loudness, PlexReporter (timeline),
+              NowPlayingController, ArtworkCache, AudioSessionManager
   CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing: back 15,
               heart, repeat, and the album name opens the album)
   Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
@@ -64,6 +65,10 @@ up to today, where the Python server's ends on 2026-10-29. **When Truffle starts
 something new, teach both demo servers to answer it**, or the demo, and App Review with it, breaks.
 `-demo.active YES` launches straight into it; Sign Out leaves it.
 
+Debug switches for playback: `-settings.crossfade 6`, `-settings.dataSaver YES`, `-TruffleCellular YES` (acts
+as if on cellular), and `-TruffleScene crossfade|crossfade-cut|album`, which jump near the end of a song so the
+transition shows in the logs within seconds. Taps from simulator automation often don't land; use these.
+
 ## Testing against Adam's real server
 
 Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do it like this:
@@ -89,6 +94,11 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
 - `sort=id` gives a stable order where new songs append, which is what makes `ShuffleWalk`'s
   positions survive library growth. `sort=random` is fine for sampling mood pools.
 - Moods live mostly on albums (`album.mood=`); `,` is OR. Plex's photo resizer is `/photo/:/transcode`.
+- Data Saver's transcode: `GET /music/:/transcode/universal/start.m3u8?path=%2Flibrary%2Fmetadata%2F<id>&…&protocol=hls&musicBitrate=192&session=<per song>`
+  answers an HLS multivariant playlist with one 182 kbps variant at `session/<session>/base/index.m3u8`;
+  `GET /video/:/transcode/universal/stop?session=` ends it (`PlexClient.transcodeURL`). `start.mp3` ignores
+  byte ranges, so HLS it is. The demo servers serve each song as that one segment (moov first, or AVPlayer
+  can't read it).
 - On Adam's network the plain `http://<LAN IP>:32400` address answers first; the `*.plex.direct`
   names may not resolve at home, which is why `PlexServerInfo` adds the plain address.
 

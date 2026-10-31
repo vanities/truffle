@@ -17,6 +17,8 @@ actor DemoServer {
     private var listener: NWListener?
     private var port: UInt16?
     private var listening = false
+    /// Data Saver's transcode sessions: session → the song it plays, until the app stops it.
+    private var transcodes: [String: String] = [:]
 
     init(assets: URL? = Bundle.main.url(forResource: "DemoLibrary", withExtension: nil),
          catalog: URL? = Bundle.main.url(forResource: "demo-catalog", withExtension: "json")) {
@@ -56,6 +58,7 @@ actor DemoServer {
         listening = false
         port = nil
         library = nil
+        transcodes = [:]
         Logger.demo.info("[demo] stopped")
     }
 
@@ -244,6 +247,7 @@ actor DemoServer {
         if let match = path.wholeMatch(of: #/\/library\/parts\/(\d+)\/\d+\/file\.m4a/#) {
             return file(lib.track(String(match.1)).map { "audio/song-\($0.song).m4a" }, type: "audio/mp4", request: request)
         }
+        if let answer = transcode(path, query, request, in: lib) { return answer }
         if path == "/playlists", request.method == "GET" {
             return .json(Self.container(items: lib.playlists.map(lib.json)))
         }
@@ -335,6 +339,31 @@ actor DemoServer {
             return .empty(200)
         }
         return .empty(404)
+    }
+
+    /// Data Saver's HLS: `start.m3u8` opens a session for a song, the session's folder serves its playlist and
+    /// its one segment, and `stop` ends it. nil for anything else.
+    private func transcode(_ path: String, _ query: [String: String], _ request: DemoRequest, in lib: DemoLibrary) -> DemoResponse? {
+        if path == "/music/:/transcode/universal/start.m3u8" {
+            guard let session = query["session"], !session.isEmpty,
+                  let id = query["path"]?.wholeMatch(of: #/\/library\/metadata\/(\d+)/#).map({ String($0.1) }),
+                  lib.track(id) != nil else { return .empty(400) }
+            transcodes[session] = id
+            Logger.demo.info("[demo] transcode \(String(session.prefix(8)), privacy: .public) started for \(lib.track(id)?.title ?? "?", privacy: .public) at \(query["musicBitrate"] ?? "?", privacy: .public) kbps")
+            return .playlist(Self.multivariantPlaylist(session: session))
+        }
+        if let match = path.wholeMatch(of: #/\/music\/:\/transcode\/universal\/session\/([^\/]+)\/base\/(index\.m3u8|00000\.m4a)/#) {
+            guard let id = transcodes[String(match.1)], let track = lib.track(id) else { return .empty(404) }
+            if match.2 == "index.m3u8" { return .playlist(Self.mediaPlaylist(seconds: DemoLibrary.songLengths[track.song])) }
+            return file("audio/song-\(track.song).m4a", type: "audio/mp4", request: request)
+        }
+        if path == "/video/:/transcode/universal/stop" {
+            let session = query["session"] ?? ""
+            let known = transcodes.removeValue(forKey: session) != nil
+            Logger.demo.info("[demo] transcode \(String(session.prefix(8)), privacy: .public) stopped (known=\(known))")
+            return .empty(200)
+        }
+        return nil
     }
 
     private func libraryAll(_ query: [String: String], in lib: DemoLibrary) -> [String: Any] {
@@ -438,6 +467,32 @@ actor DemoServer {
     }
 
     // MARK: - Shapes
+
+    /// What PMS answers `start.m3u8` with: one AAC variant, in a folder named for the session.
+    static func multivariantPlaylist(session: String) -> String {
+        """
+        #EXTM3U
+        #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=182000,CODECS="mp4a.40.2"
+        session/\(session)/base/index.m3u8
+
+        """
+    }
+
+    /// The whole song as one segment: the bundled .m4a, which AVPlayer plays as a segment (checked on iOS
+    /// 27.2), where PMS cuts AAC into ten-second pieces.
+    static func mediaPlaylist(seconds: Int) -> String {
+        """
+        #EXTM3U
+        #EXT-X-VERSION:3
+        #EXT-X-TARGETDURATION:\(seconds + 1)
+        #EXT-X-MEDIA-SEQUENCE:0
+        #EXT-X-PLAYLIST-TYPE:VOD
+        #EXTINF:\(seconds).000,
+        00000.m4a
+        #EXT-X-ENDLIST
+
+        """
+    }
 
     private static func container(items: [[String: Any]]? = nil, total: Int? = nil, directories: [[String: Any]]? = nil,
                                   extra: [String: Any] = [:]) -> [String: Any] {
@@ -593,13 +648,17 @@ struct DemoResponse: Sendable {
         DemoResponse(status: status, headers: [], body: Data())
     }
 
+    static func playlist(_ text: String) -> DemoResponse {
+        DemoResponse(status: 200, headers: [("Content-Type", "application/vnd.apple.mpegurl")], body: Data(text.utf8))
+    }
+
     static func json(_ object: [String: Any]) -> DemoResponse {
         let body = (try? JSONSerialization.data(withJSONObject: object)) ?? Data("{}".utf8)
         return DemoResponse(status: 200, headers: [("Content-Type", "application/json")], body: body)
     }
 
     func encoded() -> Data {
-        let reason = [200: "OK", 206: "Partial Content", 404: "Not Found", 416: "Range Not Satisfiable", 503: "Service Unavailable"][status] ?? "Status"
+        let reason = [200: "OK", 206: "Partial Content", 400: "Bad Request", 404: "Not Found", 416: "Range Not Satisfiable", 503: "Service Unavailable"][status] ?? "Status"
         var head = "HTTP/1.1 \(status) \(reason)\r\n"
         for (name, value) in headers { head += "\(name): \(value)\r\n" }
         head += "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"

@@ -20,6 +20,11 @@ final class AppSettings {
     var appIcon: AppIconChoice { didSet { defaults.set(appIcon.rawValue, forKey: Keys.appIcon) } }
     /// The note icon in the fall, whatever `appIcon` says.
     var seasonalIcon: Bool { didSet { defaults.set(seasonalIcon, forKey: Keys.seasonalIcon) } }
+    /// Seconds two shuffled songs overlap; 0 is off. Albums, and anything else played in order, stay
+    /// gapless (see `Crossfade`).
+    var crossfadeSeconds: Int { didSet { defaults.set(crossfadeSeconds, forKey: Keys.crossfade) } }
+    /// On cellular, new songs stream as Plex's 192 kbps transcode instead of the original file.
+    var dataSaver: Bool { didSet { defaults.set(dataSaver, forKey: Keys.dataSaver) } }
 
     private enum Keys {
         static let evenOutVolume = "settings.evenOutVolume"
@@ -30,6 +35,8 @@ final class AppSettings {
         static let sectionID = "settings.sectionID"
         static let appIcon = "settings.appIcon"
         static let seasonalIcon = "settings.seasonalIcon"
+        static let crossfade = "settings.crossfade"
+        static let dataSaver = "settings.dataSaver"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -42,6 +49,9 @@ final class AppSettings {
         sectionID = defaults.string(forKey: Keys.sectionID)
         appIcon = defaults.string(forKey: Keys.appIcon).flatMap(AppIconChoice.init(rawValue:)) ?? .record
         seasonalIcon = defaults.object(forKey: Keys.seasonalIcon) as? Bool ?? true
+        let fade = defaults.integer(forKey: Keys.crossfade)
+        crossfadeSeconds = Crossfade.choices.contains(fade) ? fade : 0
+        dataSaver = defaults.bool(forKey: Keys.dataSaver)
     }
 
     var isSouthern: Bool { hemisphere.isSouthern() }

@@ -62,12 +62,13 @@ struct RootView: View {
     #if DEBUG
     /// `-TruffleScene mixes|player|albums|icons|stats|settings|album`: opens straight to a screen, for
     /// store screenshots; `car` and `shuffle` run checks that can't be tapped through in the simulator.
-    /// With `stats`, `-TruffleScroll months|mostPlayed|habits|dayOne` scrolls down to a card.
+    /// With `stats` or `settings`, `-TruffleScroll <id>` scrolls down to a card or section.
     /// Playlists: `playlists`, `playlistNew` (the empty editor), `playlistFilled` (the editor with a
     /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
     /// that draft for real and opens it), `addToNewPlaylist` (Add to Playlist handing its songs to the
     /// editor), `liked`, `artists`, `playlist` (the first of yours). A sort comes from launch arguments:
-    /// `-sort.liked mostPlayed`.
+    /// `-sort.liked mostPlayed`. Playback: `crossfade`, `crossfade-cut` and `albumEnd` jump near the end
+    /// of a Shuffle All song or an album's first song, so the transition shows up in the logs within seconds.
     private func openDebugScene() async {
         guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
         try? await Task.sleep(for: .seconds(4))
@@ -86,8 +87,8 @@ struct RootView: View {
             tab = .settings
             try? await Task.sleep(for: .seconds(1))
             router.scrollTarget = "appIcon"
-        case "stats":
-            tab = .stats
+        case "stats", "settings":
+            tab = scene == "stats" ? .stats : .settings
             guard let target = UserDefaults.standard.string(forKey: "TruffleScroll") else { break }
             try? await Task.sleep(for: .seconds(3))
             router.scrollTarget = target
@@ -137,6 +138,28 @@ struct RootView: View {
             await connectCarTwice()
         case "shuffle":
             await skipThroughShuffleAll()
+        case "crossfade":
+            await player.shuffleAll()
+            try? await Task.sleep(for: .seconds(3))
+            player.seek(to: player.duration - 12)
+            router.showsPlayer = true
+        case "crossfade-cut":
+            // Next two seconds into one blend, then Pause two seconds into the next: each ends its blend.
+            await player.shuffleAll()
+            router.showsPlayer = true
+            for step in 0..<2 {
+                try? await Task.sleep(for: .seconds(3))
+                player.seek(to: player.duration - 12)
+                try? await Task.sleep(for: .seconds(8))
+                if step == 0 { player.next() } else { player.pause() }
+            }
+        case "albumEnd":
+            guard let album = library.albums.first(where: { ($0.trackCount ?? 0) > 1 }),
+                  let tracks = try? await library.tracks(of: album) else { break }
+            player.play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
+            try? await Task.sleep(for: .seconds(3))
+            player.seek(to: player.duration - 12)
+            router.showsPlayer = true
         default:
             break
         }

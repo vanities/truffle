@@ -113,6 +113,22 @@ struct PlexClient: Sendable {
         url(partKey, includeToken: true)
     }
 
+    /// Data Saver: Plex transcodes the song to `kbps` AAC and serves it as HLS, a master playlist with one
+    /// variant at `session/<session>/base/index.m3u8` (PMS 1.43.5, 2026-10-30). HLS rather than `start.mp3`,
+    /// which ignores byte ranges, so AVPlayer can seek. One session per song; `stopTranscode` ends it.
+    func transcodeURL(ratingKey: String, session: String, kbps: Int = DataSaver.kbps) -> URL {
+        url("/music/:/transcode/universal/start.m3u8", PlexQuery([
+            ("path", "/library/metadata/\(ratingKey)"), ("mediaIndex", "0"), ("partIndex", "0"), ("protocol", "hls"),
+            ("directPlay", "0"), ("directStream", "0"), ("musicBitrate", String(kbps)), ("maxAudioBitrate", String(kbps)),
+            ("session", session), ("X-Plex-Client-Identifier", identity.clientIdentifier),
+            ("X-Plex-Product", PlexIdentity.product), ("X-Plex-Platform", "iOS"),
+        ]), includeToken: true)
+    }
+
+    func stopTranscode(session: String) async throws {
+        try await send("GET", "/video/:/transcode/universal/stop", PlexQuery([("session", session)]))
+    }
+
     /// Plex's own resizer: a 300 px cover is ~19 KB instead of the 135 KB original.
     func artworkURL(_ thumb: String, size: Int) -> URL {
         url("/photo/:/transcode", PlexQuery([

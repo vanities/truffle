@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(SeasonClock.self) private var season
     @Environment(AppRouter.self) private var router
+    @Environment(PlayerEngine.self) private var player
     @State private var confirmingSignOut = false
     @State private var confirmingNewRound = false
 
@@ -42,6 +43,22 @@ struct SettingsView: View {
                 } footer: {
                     Text("Keeps loud songs from shouting.")
                 }
+
+                Section {
+                    Picker("Crossfade", selection: $settings.crossfadeSeconds) {
+                        ForEach(Crossfade.choices, id: \.self) { seconds in
+                            Text(seconds == 0 ? "Off" : "\(seconds) sec").tag(seconds)
+                        }
+                    }
+                    .onChange(of: settings.crossfadeSeconds) { player.playbackSettingsChanged() }
+                    Toggle("Data Saver", isOn: $settings.dataSaver)
+                        .onChange(of: settings.dataSaver) { player.playbackSettingsChanged() }
+                } header: {
+                    Text("Shuffle & Cellular")
+                } footer: {
+                    Text("Shuffles melt into each other; albums never do. On cellular, Data Saver sips 192 kbps.")
+                }
+                .id("shuffleCellular")
 
                 Section {
                     if let progress = library.shuffleProgress {

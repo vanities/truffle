@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import Truffle
 
@@ -85,6 +86,64 @@ final class DemoServerTests: XCTestCase {
         XCTAssertEqual(data.count, 100)
         XCTAssertTrue(http.value(forHTTPHeaderField: "Content-Range")?.hasPrefix("bytes 0-99/") == true)
         XCTAssertEqual(http.value(forHTTPHeaderField: "Content-Type"), "audio/mp4")
+    }
+
+    /// Data Saver asks for Plex's HLS transcode: the app's own request, the server's playlists, a real
+    /// AVPlayer playing and seeking in them, and the session gone once it's stopped.
+    @MainActor
+    func testDataSaverStreamsHLSThatAVPlayerPlays() async throws {
+        let catalog = try XCTUnwrap(Bundle.main.url(forResource: "demo-catalog", withExtension: "json"))
+        let song = try XCTUnwrap(DemoLibrary(catalogURL: catalog).track("3000")?.song)
+        let client = PlexClient(endpoint: PlexEndpoint(baseURL: base, kind: .local, machineIdentifier: DemoLibrary.machineIdentifier, token: "demo"),
+                                identity: PlexIdentity(clientIdentifier: "tests", version: "1", platformVersion: "27", deviceName: "d", model: "iPhone"))
+        let id = "test-\(UUID().uuidString.lowercased())"
+        let url = client.transcodeURL(ratingKey: "3000", session: id)
+
+        let (variants, response) = try await session.data(from: url)
+        XCTAssertEqual((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type"), "application/vnd.apple.mpegurl")
+        XCTAssertTrue(try XCTUnwrap(String(bytes: variants, encoding: .utf8)).contains("\nsession/\(id)/base/index.m3u8\n"))
+        let media = try XCTUnwrap(URL(string: base.absoluteString + "/music/:/transcode/universal/session/\(id)/base/index.m3u8"))
+        let (playlist, _) = try await session.data(from: media)
+        XCTAssertTrue(try XCTUnwrap(String(bytes: playlist, encoding: .utf8)).contains("#EXTINF:\(DemoLibrary.songLengths[song]).000,\n00000.m4a\n#EXT-X-ENDLIST"))
+
+        let item = AVPlayerItem(url: url)
+        let player = AVPlayer(playerItem: item)
+        player.volume = 0
+        let deadline = Date().addingTimeInterval(10)
+        while item.status == .unknown, Date() < deadline { try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertEqual(item.status, .readyToPlay, item.error.map { String(describing: $0) } ?? "timed out")
+        XCTAssertEqual(item.duration.seconds, Double(DemoLibrary.songLengths[song]), accuracy: 0.5)
+        player.play()
+        try await Task.sleep(for: .seconds(1.5))
+        XCTAssertGreaterThan(player.currentTime().seconds, 0.3, "it plays")
+        let landed = await player.seek(to: CMTime(seconds: 60, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        XCTAssertTrue(landed)
+        XCTAssertEqual(player.currentTime().seconds, 60, accuracy: 1, "and seeks")
+        player.pause()
+
+        try await client.stopTranscode(session: id)
+        let (_, gone) = try await session.data(from: media)
+        XCTAssertEqual((gone as? HTTPURLResponse)?.statusCode, 404, "a stopped session is over")
+    }
+
+    /// The bundled songs double as Data Saver's HLS segments, which AVPlayer reads from the start: each one's
+    /// moov has to come before its audio (ffmpeg's `-movflags +faststart`), or the demo's Data Saver goes silent.
+    func testBundledSongsKeepTheirIndexUpFront() throws {
+        let assets = try XCTUnwrap(Bundle.main.url(forResource: "DemoLibrary", withExtension: nil))
+        for song in DemoLibrary.songLengths.indices {
+            let data = try Data(contentsOf: assets.appending(path: "audio/song-\(song).m4a"))
+            var atoms: [String] = []
+            var offset = 0
+            while offset + 8 <= data.count {
+                let size = data[offset..<offset + 4].reduce(0) { $0 << 8 | Int($1) }
+                atoms.append(String(bytes: data[offset + 4..<offset + 8], encoding: .ascii) ?? "?")
+                guard size >= 8 else { break }
+                offset += size
+            }
+            let moov = try XCTUnwrap(atoms.firstIndex(of: "moov"), "song-\(song): \(atoms)")
+            let mdat = try XCTUnwrap(atoms.firstIndex(of: "mdat"), "song-\(song): \(atoms)")
+            XCTAssertLessThan(moov, mdat, "song-\(song): \(atoms)")
+        }
     }
 
     func testPlaylistsAndLikesChangeLikeOnAServer() async throws {

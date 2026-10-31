@@ -287,6 +287,15 @@ struct ScrubberView: View {
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
+            .overlay {
+                if player.stream == .dataSaver {
+                    Text("DATA SAVER")
+                        .font(.caption2.weight(.heavy))
+                        .tracking(1.2)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityLabel("Data Saver")
+                }
+            }
         }
     }
 }
