@@ -620,6 +620,29 @@
             "Bonfire on the Beach",
             "Last Wave"
           ]
+        },
+        {
+          "title": "A Low Tide Christmas",
+          "year": 2025,
+          "style": "lights",
+          "moods": [
+            "Wintry",
+            "Warm",
+            "Sentimental"
+          ],
+          "colors": [
+            "#0F2A1D",
+            "#8E1B2B",
+            "#F4D35E"
+          ],
+          "tracks": [
+            "Santa Hangs Ten",
+            "Sleigh Bells on the Boardwalk",
+            "Mistletoe Marina",
+            "Silent Night Swim",
+            "Frosty the Sandman",
+            "Last Swim of the Year"
+          ]
         }
       ]
     }

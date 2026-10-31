@@ -26,7 +26,8 @@ final class DemoServerTests: XCTestCase {
         for file in files {
             XCTAssertTrue(FileManager.default.fileExists(atPath: assets.appending(path: file).path), "missing \(file)")
         }
-        XCTAssertEqual(library.tracks.count, 148)
+        // 148 songs, plus "A Low Tide Christmas" (6) for holiday music.
+        XCTAssertEqual(library.tracks.count, 154)
     }
 
     func testHistoryRunsUpToNowWithThisWeekInIt() throws {
@@ -45,14 +46,14 @@ final class DemoServerTests: XCTestCase {
 
         let page = try await json("/library/sections/1/all?type=10&sort=id&X-Plex-Container-Start=0&X-Plex-Container-Size=5")
         XCTAssertEqual((page["Metadata"] as? [[String: Any]])?.count, 5)
-        XCTAssertEqual(page["totalSize"] as? Int, 148)
+        XCTAssertEqual(page["totalSize"] as? Int, 154)
 
         // Truffle encodes comparison filters into the name: userRating%3E=8.
         let liked = try await json("/library/sections/1/all?type=10&userRating%3E=8")
-        XCTAssertEqual(liked["totalSize"] as? Int, 22, "every seventh song is loved")
+        XCTAssertEqual(liked["totalSize"] as? Int, 22, "every seventh song is loved; the holiday album's six stop short of a 23rd")
 
         let albums = try await json("/library/sections/1/all?type=9")
-        XCTAssertEqual(albums["totalSize"] as? Int, 22)
+        XCTAssertEqual(albums["totalSize"] as? Int, 23)
 
         // Home's Recently Played shelf.
         let played = try await json("/library/sections/1/all?type=9&sort=lastViewedAt:desc&X-Plex-Container-Size=30")
@@ -60,6 +61,19 @@ final class DemoServerTests: XCTestCase {
         XCTAssertFalse(stamps.isEmpty)
         XCTAssertEqual(stamps, stamps.sorted(by: >), "newest first")
         XCTAssertGreaterThan(stamps[0], Int(Date().timeIntervalSince1970) - 7 * 86_400, "something played this week")
+    }
+
+    func testTitleSearchMatchesAnyPartOfATitleLikePlex() async throws {
+        // Truffle counts holiday music with `title=` searches; PMS reads a plain string filter as
+        // "contains", without case.
+        let songs = try await json("/library/sections/1/all?type=10&title=SLEIGH&X-Plex-Container-Start=0&X-Plex-Container-Size=500")
+        XCTAssertEqual(titles(songs), ["Sleigh Bells on the Boardwalk"])
+        let silent = try await json("/library/sections/1/all?type=10&title=silent%20night")
+        XCTAssertEqual(titles(silent), ["Silent Night Swim"])
+        let albums = try await json("/library/sections/1/all?type=9&title=christmas")
+        XCTAssertEqual(titles(albums), ["A Low Tide Christmas"])
+        let none = try await json("/library/sections/1/all?type=10&title=rudolph")
+        XCTAssertEqual(none["totalSize"] as? Int, 0)
     }
 
     func testStreamsAudioInByteRanges() async throws {
@@ -174,6 +188,10 @@ final class DemoServerTests: XCTestCase {
             guard let slot = item["playlistItemID"] as? Int, let track = item["ratingKey"] as? String else { return nil }
             return (slot, track)
         }
+    }
+
+    private func titles(_ container: [String: Any]) -> [String] {
+        ((container["Metadata"] as? [[String: Any]]) ?? []).compactMap { $0["title"] as? String }
     }
 
     private func url(_ path: String, _ query: [String: String]) throws -> URL {

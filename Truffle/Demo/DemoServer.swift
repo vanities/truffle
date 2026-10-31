@@ -366,6 +366,8 @@ actor DemoServer {
             }
         }
         if let ratingFloor { items = items.filter { $0.userRating >= ratingFloor } }
+        // PMS reads a plain string filter as "contains", without case.
+        if let needle = query["title"]?.lowercased() { items = items.filter { $0.title.lowercased().contains(needle) } }
 
         let sort = query["sort"] ?? ""
         let descending = sort.hasSuffix(":desc")
@@ -479,6 +481,14 @@ private enum DemoItem {
         case .artist(let artist): artist.id
         case .album(let album): album.id
         case .track(let track): track.id
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .artist(let artist): artist.name
+        case .album(let album): album.title
+        case .track(let track): track.title
         }
     }
 

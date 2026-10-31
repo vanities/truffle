@@ -5,7 +5,7 @@
 """A stand-in Plex Media Server for the simulator and screenshots.
 
 Serves the invented library in scripts/demo-catalog.json the way PMS 1.43 answers the requests
-Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `userRating>=`, `viewedAt>=`),
+Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `userRating>=`, `viewedAt>=`, `title=`),
 paging, the sorts Truffle asks for, the photo resizer, history, ratings, playlists (made, renamed,
 described, given a cover, songs added, removed and moved), and audio with byte ranges.
 
@@ -551,6 +551,10 @@ class Handler(BaseHTTPRequestHandler):
         if "userRating>" in query:
             floor = float(query["userRating>"])
             items = [i for i in items if i.get("userRating", 0) >= floor]
+        if "title" in query:
+            # PMS reads a plain string filter as "contains", without case.
+            needle = query["title"].lower()
+            items = [i for i in items if needle in i["title"].lower()]
         sort = query.get("sort", "")
         field, _, direction = sort.partition(":")
         descending = direction == "desc"

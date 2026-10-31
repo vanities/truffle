@@ -159,6 +159,36 @@ func drawArt(_ ctx: CGContext, style: String, colors c: [CGColor], random: inout
         ctx.restoreGState()
         ctx.setFillColor(c[1])
         ctx.fill(CGRect(x: center.x - 55, y: center.y - 240, width: 110, height: 180))
+    case "lights":
+        // A string of bulbs sagging across a pine-to-cranberry night, with snow drifting behind.
+        gradient(ctx, [c[0], c[0], c[1]], from: top, to: bottom)
+        for _ in 0..<60 {
+            let x = random.next() * side, y = side * 0.3 + random.next() * side * 0.7, r = 1.5 + random.next() * 3.5
+            ctx.setFillColor(CGColor(gray: 1, alpha: 0.25 + random.next() * 0.45))
+            ctx.fillEllipse(in: CGRect(x: x, y: y, width: r, height: r))
+        }
+        let bulbColors = [c[2], CGColor(srgbRed: 0.93, green: 0.2, blue: 0.25, alpha: 1),
+                          CGColor(srgbRed: 0.3, green: 0.82, blue: 0.45, alpha: 1), CGColor(srgbRed: 0.45, green: 0.7, blue: 1, alpha: 1)]
+        for (row, height) in [0.86, 0.62].enumerated() {
+            let left = CGPoint(x: -20, y: side * height), right = CGPoint(x: side + 20, y: side * (height - 0.04))
+            let sag = CGPoint(x: side / 2, y: side * (height - 0.2))
+            ctx.setStrokeColor(CGColor(gray: 0.05, alpha: 0.9))
+            ctx.setLineWidth(3)
+            ctx.move(to: left)
+            ctx.addQuadCurve(to: right, control: sag)
+            ctx.strokePath()
+            for bulb in 0..<9 {
+                let t = (CGFloat(bulb) + 0.5 + CGFloat(row) * 0.5) / 9.5
+                let x = (1 - t) * (1 - t) * left.x + 2 * (1 - t) * t * sag.x + t * t * right.x
+                let y = (1 - t) * (1 - t) * left.y + 2 * (1 - t) * t * sag.y + t * t * right.y
+                let color = bulbColors[(bulb + row) % bulbColors.count]
+                glow(ctx, center: CGPoint(x: x, y: y - 22), radius: 46, color: color.copy(alpha: 0.55)!)
+                ctx.setFillColor(CGColor(gray: 0.1, alpha: 1))
+                ctx.fill(CGRect(x: x - 5, y: y - 9, width: 10, height: 9))
+                ctx.setFillColor(color)
+                ctx.fillEllipse(in: CGRect(x: x - 10, y: y - 38, width: 20, height: 30))
+            }
+        }
     case "petals":
         gradient(ctx, [c[1], c[0]], from: top, to: bottom)
         for _ in 0..<26 {
