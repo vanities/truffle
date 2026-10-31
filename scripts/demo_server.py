@@ -7,7 +7,8 @@
 Serves the invented library in scripts/demo-catalog.json the way PMS 1.43 answers the requests
 Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `userRating>=`, `viewedAt>=`, `title=`),
 paging, the sorts Truffle asks for, the photo resizer, history, ratings, playlists (made, renamed,
-described, given a cover, songs added, removed and moved), and audio with byte ranges.
+described, given a cover, songs added, removed and moved), audio with byte ranges, and Data Saver's
+HLS transcode (start, the session's playlist and segment, stop).
 
     make demo-library            # covers (Swift) and audio (ffmpeg) into ./demo-library
     scripts/demo_server.py       # http://127.0.0.1:32499
@@ -55,24 +56,33 @@ def slug(text: str) -> str:
 
 
 def make_audio() -> None:
-    """Soft chord pads with ffmpeg, one file per progression, made once."""
+    """Soft chord pads with ffmpeg, one file per progression, made once. Data Saver's HLS gets a copy with the
+    moov atom up front (audio/hls): AVPlayer reads a segment from its start, and ffmpeg writes moov last."""
     folder = LIBRARY / "audio"
-    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "hls").mkdir(parents=True, exist_ok=True)
     for index, (chords, seconds) in enumerate(PROGRESSIONS):
         target = folder / f"song-{index}.m4a"
-        if target.exists():
-            continue
-        def note(n: int) -> str:
-            freq = (f"if(lt(mod(t,16),4),{chords[0][n]},if(lt(mod(t,16),8),{chords[1][n]},"
-                    f"if(lt(mod(t,16),12),{chords[2][n]},{chords[3][n]})))")
-            return f"sin(2*PI*{freq}*t)"
-        envelope = "(1-exp(-mod(t,4)*5))*(0.55+0.45*exp(-mod(t,4)*0.6))"
-        pad = f"0.16*({note(0)}+{note(1)}+{note(2)})*{envelope}"
-        started = time.monotonic()
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"aevalsrc=exprs='{pad}':s=44100:d={seconds}",
-                        "-af", "afade=t=in:d=2,afade=t=out:st=" + str(seconds - 3) + ":d=3,aecho=0.8:0.7:300:0.25",
-                        "-ac", "2", "-c:a", "aac", "-b:a", "96k", str(target)], check=True)
-        log.info("[audio] made %s (%ds) in %.1fs", target.name, seconds, time.monotonic() - started)
+        if not target.exists():
+            make_song(target, chords, seconds)
+        segment = folder / "hls" / target.name
+        if not segment.exists():
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), "-c", "copy", "-movflags", "+faststart",
+                            str(segment)], check=True)
+            log.info("[audio] made hls/%s", segment.name)
+
+
+def make_song(target: Path, chords: list[list[float]], seconds: int) -> None:
+    def note(n: int) -> str:
+        freq = (f"if(lt(mod(t,16),4),{chords[0][n]},if(lt(mod(t,16),8),{chords[1][n]},"
+                f"if(lt(mod(t,16),12),{chords[2][n]},{chords[3][n]})))")
+        return f"sin(2*PI*{freq}*t)"
+    envelope = "(1-exp(-mod(t,4)*5))*(0.55+0.45*exp(-mod(t,4)*0.6))"
+    pad = f"0.16*({note(0)}+{note(1)}+{note(2)})*{envelope}"
+    started = time.monotonic()
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"aevalsrc=exprs='{pad}':s=44100:d={seconds}",
+                    "-af", "afade=t=in:d=2,afade=t=out:st=" + str(seconds - 3) + ":d=3,aecho=0.8:0.7:300:0.25",
+                    "-ac", "2", "-c:a", "aac", "-b:a", "96k", str(target)], check=True)
+    log.info("[audio] made %s (%ds) in %.1fs", target.name, seconds, time.monotonic() - started)
 
 
 class Library:
@@ -83,6 +93,8 @@ class Library:
         self.moods: dict[str, str] = {}
         self.artists, self.albums, self.tracks = [], [], []
         self.playlists: list[dict] = []
+        # Data Saver's transcode sessions: session -> the song's ratingKey, until the app stops it.
+        self.transcodes: dict[str, str] = {}
         album_index = 0
         for artist_index, artist in enumerate(catalog["artists"]):
             artist_id = str(1000 + artist_index)
@@ -269,6 +281,19 @@ def album_sort(item: dict) -> str:
     return (item.get("parentTitle", "") if item.get("type") == "track" else item.get("title", "")).lower()
 
 
+def multivariant_playlist(session: str) -> str:
+    """What PMS answers start.m3u8 with: one AAC variant, in a folder named for the session."""
+    return ("#EXTM3U\n#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=182000,CODECS=\"mp4a.40.2\"\n"
+            f"session/{session}/base/index.m3u8\n")
+
+
+def media_playlist(seconds: int) -> str:
+    """The whole song as one segment: the demo .m4a (moov first), which AVPlayer plays as a segment, where PMS
+    cuts AAC into ten-second pieces."""
+    return (f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{seconds + 1}\n#EXT-X-MEDIA-SEQUENCE:0\n"
+            f"#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:{seconds}.000,\n00000.m4a\n#EXT-X-ENDLIST\n")
+
+
 def page(items: list, query: dict) -> tuple[list, int]:
     start = int(query.get("X-Plex-Container-Start", 0))
     size = query.get("X-Plex-Container-Size")
@@ -286,6 +311,14 @@ class Handler(BaseHTTPRequestHandler):
         data = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_text(self, text: str, content_type: str) -> None:
+        data = text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -438,6 +471,29 @@ class Handler(BaseHTTPRequestHandler):
         if (match := re.fullmatch(r"/library/parts/(\d+)/\d+/file\.m4a", path)):
             track = lib.by_id.get(match.group(1))
             return self.send_file(LIBRARY / "audio" / f"song-{track['_song']}.m4a", "audio/mp4") if track else self.send_empty(404)
+        if path == "/music/:/transcode/universal/start.m3u8":
+            match = re.fullmatch(r"/library/metadata/(\d+)", query.get("path", ""))
+            session = query.get("session", "")
+            if not match or not session or match.group(1) not in lib.by_id:
+                return self.send_empty(400)
+            with lib.lock:
+                lib.transcodes[session] = match.group(1)
+            log.info("[transcode] %s started for %s at %s kbps", session[:8], lib.by_id[match.group(1)]["title"],
+                     query.get("musicBitrate"))
+            return self.send_text(multivariant_playlist(session), "application/vnd.apple.mpegurl")
+        if (match := re.fullmatch(r"/music/:/transcode/universal/session/([^/]+)/base/(index\.m3u8|00000\.m4a)", path)):
+            track = lib.by_id.get(lib.transcodes.get(match.group(1), ""))
+            if not track:
+                return self.send_empty(404)
+            if match.group(2) == "index.m3u8":
+                return self.send_text(media_playlist(PROGRESSIONS[track["_song"]][1]), "application/vnd.apple.mpegurl")
+            return self.send_file(LIBRARY / "audio" / "hls" / f"song-{track['_song']}.m4a", "audio/mp4")
+        if path == "/video/:/transcode/universal/stop":
+            session = query.get("session", "")
+            with lib.lock:
+                known = lib.transcodes.pop(session, None) is not None
+            log.info("[transcode] %s stopped (known=%s)", session[:8], known)
+            return self.send_empty(200)
         if path == "/playlists" and method == "GET":
             return self.send_json(container([lib.playlist_public(p) for p in lib.playlists]))
         if path == "/playlists" and method == "POST":
