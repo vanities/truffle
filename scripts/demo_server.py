@@ -129,23 +129,54 @@ class Library:
                                    "_summary": playlist.get("summary"), "_poster": playlist.get("poster")})
 
     def _make_history(self, rng: random.Random) -> list[dict]:
-        """~900 plays since March 2024, each song played mostly in the seasons its album's moods suit."""
+        """Listening sessions from March 2024 up to now, in this machine's time zone: the drive in, lunch, the
+        drive home and evenings on weekdays, lazier weekends. A few songs or most of an album at a time, each
+        song played mostly in the seasons its album's moods suit. Tracks get viewCount and lastViewedAt from it,
+        as PMS reports them."""
         seasons = {"Autumnal": [9, 10, 11], "Spooky": [10], "Eerie": [10, 11], "Nostalgic": [9, 10, 11],
                    "Wintry": [12, 1, 2], "Cold": [12, 1, 2], "Ethereal": [12, 1, 2], "Summery": [6, 7, 8],
                    "Carefree": [6, 7, 8], "Springlike": [3, 4, 5], "Pastoral": [3, 4, 5], "Romantic": [2]}
-        start = dt.date(2024, 3, 1)
-        days = (dt.date(2026, 10, 29) - start).days
+
+        def suits(track: dict, month: int) -> bool:
+            months = {m for mood in track["_album"]["_moods"] for m in seasons.get(mood, [])}
+            return not months or month in months
+
+        albums: dict[str, list[dict]] = {}
+        for track in self.tracks:
+            albums.setdefault(track["parentRatingKey"], []).append(track)
+        # (hour, chance of a session starting around then)
+        weekday = [(7.6, 0.4), (12.3, 0.12), (17.4, 0.35), (21.0, 0.3)]
+        weekend = [(10.8, 0.35), (15.0, 0.3), (20.5, 0.3)]
+        now = dt.datetime.now()
+        day = dt.date(2024, 3, 1)
         plays = []
-        for _ in range(900):
-            track = rng.choice(self.tracks)
-            months = sorted({m for mood in track["_album"]["_moods"] for m in seasons.get(mood, [])})
-            for _attempt in range(12):
-                day = start + dt.timedelta(days=rng.randrange(days))
-                if not months or day.month in months:
-                    break
-            moment = dt.datetime(day.year, day.month, day.day, rng.randint(7, 23), rng.randint(0, 59), tzinfo=dt.timezone.utc)
-            plays.append({"ratingKey": track["ratingKey"], "key": track["key"], "type": "track", "title": track["title"],
-                          "librarySectionID": SECTION, "viewedAt": int(moment.timestamp()), "accountID": 1, "deviceID": 7})
+        while day <= now.date():
+            for hour, chance in weekend if day.weekday() >= 5 else weekday:
+                if rng.random() >= chance:
+                    continue
+                if rng.random() < 0.3:
+                    album = rng.choice([songs for songs in albums.values() if suits(songs[0], day.month)])
+                    session = album[:rng.randint(3, len(album))]
+                else:
+                    session = []
+                    for _ in range(rng.randint(2, 5)):
+                        for _attempt in range(12):
+                            track = rng.choice(self.tracks)
+                            if suits(track, day.month):
+                                break
+                        session.append(track)
+                moment = dt.datetime.combine(day, dt.time()) + dt.timedelta(hours=hour + rng.uniform(-1.0, 1.0))
+                for track in session:
+                    moment += dt.timedelta(milliseconds=track["duration"])
+                    if moment > now:
+                        break
+                    plays.append({"ratingKey": track["ratingKey"], "key": track["key"], "type": "track", "title": track["title"],
+                                  "librarySectionID": SECTION, "viewedAt": int(moment.timestamp()), "accountID": 1, "deviceID": 7})
+            day += dt.timedelta(days=1)
+        for play in plays:
+            track = self.by_id[play["ratingKey"]]
+            track["viewCount"] = track.get("viewCount", 0) + 1
+            track["lastViewedAt"] = max(track.get("lastViewedAt", 0), play["viewedAt"])
         return sorted(plays, key=lambda play: play["viewedAt"])
 
     # MARK: shapes
