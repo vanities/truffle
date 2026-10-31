@@ -16,6 +16,7 @@ extension Logger {
     static let store = Logger(subsystem: subsystem, category: "store")
     static let ui = Logger(subsystem: subsystem, category: "ui")
     static let demo = Logger(subsystem: subsystem, category: "demo")
+    static let stats = Logger(subsystem: subsystem, category: "stats")
 }
 
 /// Cheap elapsed-time helper for log lines: `let sw = Stopwatch(); ...; sw.ms`.

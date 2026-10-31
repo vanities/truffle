@@ -3,7 +3,7 @@ import os
 
 struct RootView: View {
     enum AppTab: Hashable {
-        case home, library, settings, search
+        case home, library, stats, settings, search
     }
 
     @Environment(MusicLibrary.self) private var library
@@ -55,7 +55,8 @@ struct RootView: View {
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|albums|icons`: opens straight to a screen, for store screenshots.
+    /// `-TruffleScene mixes|player|albums|icons|stats`: opens straight to a screen, for store screenshots.
+    /// With `stats`, `-TruffleScroll months|mostPlayed|habits|dayOne` scrolls down to a card.
     private func openDebugScene() async {
         guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
         try? await Task.sleep(for: .seconds(4))
@@ -74,6 +75,11 @@ struct RootView: View {
             tab = .settings
             try? await Task.sleep(for: .seconds(1))
             router.scrollTarget = "appIcon"
+        case "stats":
+            tab = .stats
+            guard let target = UserDefaults.standard.string(forKey: "TruffleScroll") else { break }
+            try? await Task.sleep(for: .seconds(3))
+            router.scrollTarget = target
         default:
             break
         }
@@ -87,6 +93,9 @@ struct RootView: View {
             }
             Tab("Library", systemImage: "square.stack.fill", value: AppTab.library) {
                 LibraryView()
+            }
+            Tab("Stats", systemImage: "chart.bar", value: AppTab.stats) {
+                StatsView()
             }
             Tab("Settings", systemImage: "gearshape.fill", value: AppTab.settings) {
                 SettingsView()

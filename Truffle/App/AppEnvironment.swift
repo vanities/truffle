@@ -12,6 +12,7 @@ final class AppEnvironment {
     let nowPlaying: NowPlayingController
     let season: SeasonClock
     let router: AppRouter
+    let stats: StatsModel
 
     private init() {
         let sw = Stopwatch()
@@ -22,6 +23,7 @@ final class AppEnvironment {
         nowPlaying = NowPlayingController(player: player, library: library)
         season = SeasonClock(settings: settings)
         router = AppRouter()
+        stats = StatsModel(library: library)
         nowPlaying.activate()
         #if DEBUG
         let arguments = UserDefaults.standard
