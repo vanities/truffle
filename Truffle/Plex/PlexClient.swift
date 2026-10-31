@@ -113,17 +113,23 @@ struct PlexClient: Sendable {
         url(partKey, includeToken: true)
     }
 
-    /// Data Saver: Plex transcodes the song to `kbps` AAC and serves it as HLS, a master playlist with one
-    /// variant at `session/<session>/base/index.m3u8` (PMS 1.43.5, 2026-10-30). HLS rather than `start.mp3`,
-    /// which ignores byte ranges, so AVPlayer can seek. One session per song; `stopTranscode` ends it.
+    /// Data Saver: Plex transcodes the song to `kbps` AAC and serves it as HLS, a multivariant playlist with
+    /// one variant at `session/<session>/base/index.m3u8` (PMS 1.43.5, 2026-10-30). HLS rather than
+    /// `start.mp3`, which ignores byte ranges, so AVPlayer can seek. One session per song; `stopTranscode`
+    /// ends it. The variant and its MPEG-TS segments answer without the token, so AVPlayer can follow them.
     func transcodeURL(ratingKey: String, session: String, kbps: Int = DataSaver.kbps) -> URL {
         url("/music/:/transcode/universal/start.m3u8", PlexQuery([
             ("path", "/library/metadata/\(ratingKey)"), ("mediaIndex", "0"), ("partIndex", "0"), ("protocol", "hls"),
             ("directPlay", "0"), ("directStream", "0"), ("musicBitrate", String(kbps)), ("maxAudioBitrate", String(kbps)),
             ("session", session), ("X-Plex-Client-Identifier", identity.clientIdentifier),
             ("X-Plex-Product", PlexIdentity.product), ("X-Plex-Platform", "iOS"),
+            ("X-Plex-Client-Profile-Extra", Self.hlsMusicProfile),
         ]), includeToken: true)
     }
+
+    /// Without it, PMS 1.43 answered `start.m3u8` with a 400 now and then ("Transcode=4005, No conversion
+    /// profile found for protocol hls", profile iOS); with it, 4 of 4 tries worked (2026-10-30).
+    static let hlsMusicProfile = "add-transcode-target(type=musicProfile&context=streaming&protocol=hls&container=mpegts&audioCodec=aac)"
 
     func stopTranscode(session: String) async throws {
         try await send("GET", "/video/:/transcode/universal/stop", PlexQuery([("session", session)]))

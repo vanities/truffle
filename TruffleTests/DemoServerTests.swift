@@ -99,6 +99,13 @@ final class DemoServerTests: XCTestCase {
         let id = "test-\(UUID().uuidString.lowercased())"
         let url = client.transcodeURL(ratingKey: "3000", session: id)
 
+        // Like PMS 1.43 without the HLS music profile.
+        let bare = try XCTUnwrap(URL(string: url.absoluteString.replacingOccurrences(
+            of: "&X-Plex-Client-Profile-Extra=" + PlexQuery.escape(PlexClient.hlsMusicProfile), with: "")))
+        XCTAssertNotEqual(bare, url)
+        let (_, turnedDown) = try await session.data(from: bare)
+        XCTAssertEqual((turnedDown as? HTTPURLResponse)?.statusCode, 400, "no conversion profile for protocol hls")
+
         let (variants, response) = try await session.data(from: url)
         XCTAssertEqual((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type"), "application/vnd.apple.mpegurl")
         XCTAssertTrue(try XCTUnwrap(String(bytes: variants, encoding: .utf8)).contains("\nsession/\(id)/base/index.m3u8\n"))

@@ -73,8 +73,14 @@ final class PlayerEngine {
     /// What each loaded item plays and how: a natural end reports its song as played, and letting it go
     /// stops its transcode on the server.
     @ObservationIgnored private var itemInfo: [ObjectIdentifier: ItemInfo] = [:]
+    /// Data Saver's transcodes so far: a song whose transcode failed plays its original, and a run of
+    /// failures rests them for a while.
+    @ObservationIgnored private var transcodes = TranscodeHealth()
     /// One failure is often reported twice (status and notification); count it once.
     @ObservationIgnored private var failedItem: ObjectIdentifier?
+    /// The current song's item. The queue player drops an item that fails, so `player.currentItem` can't
+    /// say which song a failure belongs to.
+    @ObservationIgnored private var playingItem: AVPlayerItem?
 
     private static let stateFile = "player.json"
 
@@ -84,6 +90,8 @@ final class PlayerEngine {
         let endpoint: PlexEndpoint
         /// The transcode session, for Data Saver.
         let session: String?
+        /// A transcode's status, watched while it waits its turn.
+        let watch: NSKeyValueObservation?
     }
 
     /// The next song, waiting on the spare deck to fade in over the end of `after`.
@@ -418,6 +426,7 @@ final class PlayerEngine {
         player.pause()
         removeAllItems(from: player)
         nextItem = nil
+        playingItem = nil
         retireLeftovers()
         playWhenReady = false
         isPlaying = false
@@ -469,6 +478,7 @@ final class PlayerEngine {
         currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL
         player.insert(item, after: nil)
         failedItem = nil
+        playingItem = item
         observe(item)
         currentTime = startTime
         pendingSeek = startTime > 1 ? startTime : nil
@@ -490,7 +500,7 @@ final class PlayerEngine {
     /// The original file, or with Data Saver on a metered connection, Plex's transcode (a session per song).
     private func makeItem(for track: Track) -> AVPlayerItem? {
         guard let client = library.client, let partKey = track.partKey else { return nil }
-        let mode = newSongMode
+        let mode = newSongMode(for: track)
         var session: String?
         let url: URL
         switch mode {
@@ -503,12 +513,37 @@ final class PlayerEngine {
         }
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
         item.preferredForwardBufferDuration = 30
-        itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session)
+        let watch = mode == .dataSaver ? item.observe(\.status, options: [.new]) { [weak self] item, _ in
+            Task { @MainActor [weak self] in self?.readiedItemChanged(item) }
+        } : nil
+        itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session, watch: watch)
         return item
     }
 
-    private var newSongMode: StreamMode {
-        DataSaver.mode(enabled: settings.dataSaver, metered: network.isMetered)
+    private func newSongMode(for track: Track) -> StreamMode {
+        DataSaver.mode(enabled: settings.dataSaver, metered: network.isMetered, song: track.id, health: transcodes, now: .now)
+    }
+
+    /// A transcode readied ahead (preloaded or staged) failed before its turn: its song is readied again
+    /// from the original, so the queue never reaches a dead item.
+    private func readiedItemChanged(_ item: AVPlayerItem) {
+        guard item.status == .failed, item === nextItem?.item || item === staged?.item,
+              let track = itemInfo[ObjectIdentifier(item)]?.track else { return }
+        transcodeFailed(track, error: item.error)
+        preloadNext()
+    }
+
+    /// The song plays its original from now on, and a run of failures rests Data Saver. The error's domain
+    /// and code go to the log, never its URL.
+    private func transcodeFailed(_ track: Track, error: (any Error)?) {
+        let rests = transcodes.failed(track.id, at: .now)
+        let nsError = error.map { $0 as NSError }
+        let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError
+        let reason = [nsError, underlying].compactMap { $0.map { "\($0.domain) \($0.code)" } }.joined(separator: " / ")
+        Logger.player.error("[datasaver] transcode failed for \"\(track.title, privacy: .public)\" (\(reason.isEmpty ? "no error" : reason, privacy: .public)); playing the original")
+        if rests {
+            Logger.player.error("[datasaver] \(TranscodeHealth.limit) transcodes failed in a row; originals for the next \(Int(TranscodeHealth.rest / 60)) min")
+        }
     }
 
     /// Readies the song after the current one: on the main deck right behind it (gapless), or on the spare
@@ -556,7 +591,7 @@ final class PlayerEngine {
 
     private func isFresh(_ item: AVPlayerItem, for track: Track) -> Bool {
         guard item.status != .failed, let info = itemInfo[ObjectIdentifier(item)] else { return false }
-        return info.track.id == track.id && info.endpoint == library.endpoint && info.mode == newSongMode
+        return info.track.id == track.id && info.endpoint == library.endpoint && info.mode == newSongMode(for: track)
     }
 
     private func dropPreloaded() {
@@ -575,11 +610,14 @@ final class PlayerEngine {
         queue.move(to: preloaded.index)
         nextItem = nil
         settle(on: item, how: "advanced")
+        // It failed while it waited; its status observer only reports changes from here on.
+        if item.status == .failed { itemFailed(item, item.error) }
     }
 
     /// Bookkeeping once `item`, already on the main deck, is the current song.
     private func settle(on item: AVPlayerItem, how: String) {
         failedItem = nil
+        playingItem = item
         currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL ?? library.endpoint?.baseURL
         observe(item)
         currentTime = 0
@@ -957,8 +995,14 @@ final class PlayerEngine {
             endFade(.cut)
             return
         }
-        guard item === player.currentItem, failedItem != ObjectIdentifier(item) else { return }
+        guard item === playingItem, failedItem != ObjectIdentifier(item) else { return }
         failedItem = ObjectIdentifier(item)
+        if let info = itemInfo[ObjectIdentifier(item)], DataSaver.onFailure(of: info.mode) == .playOriginal {
+            // Data Saver never costs a song: the original takes over from the same spot.
+            transcodeFailed(info.track, error: error ?? item.error)
+            load(autoplay: playWhenReady, startTime: currentTime)
+            return
+        }
         let message = error?.localizedDescription ?? "unknown error"
         Logger.player.error("[player] item failed (attempt \(self.recoveryAttempts + 1)): \(message, privacy: .public)")
         recoveryAttempts += 1
@@ -1042,7 +1086,7 @@ final class PlayerEngine {
     }
 
     private func itemStatusChanged(_ item: AVPlayerItem) {
-        guard item === player.currentItem else { return }
+        guard item === playingItem else { return }
         switch item.status {
         case .readyToPlay:
             if let seek = pendingSeek {
@@ -1081,6 +1125,7 @@ final class PlayerEngine {
         isLoading = loading && playWhenReady
         if playing {
             recoveryAttempts = 0
+            if stream == .dataSaver { transcodes.played() }
             if fading == nil, let track = current { reporter.report(.playing, track: track, time: currentTime) }
         }
         Logger.player.debug("[player] status playing=\(playing) loading=\(loading)")

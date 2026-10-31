@@ -97,8 +97,13 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
 - Data Saver's transcode: `GET /music/:/transcode/universal/start.m3u8?path=%2Flibrary%2Fmetadata%2F<id>&…&protocol=hls&musicBitrate=192&session=<per song>`
   answers an HLS multivariant playlist with one 182 kbps variant at `session/<session>/base/index.m3u8`;
   `GET /video/:/transcode/universal/stop?session=` ends it (`PlexClient.transcodeURL`). `start.mp3` ignores
-  byte ranges, so HLS it is. The demo servers serve each song as that one segment (moov first, or AVPlayer
-  can't read it).
+  byte ranges, so HLS it is. It needs `X-Plex-Client-Profile-Extra=add-transcode-target(type=musicProfile&…)`
+  as one escaped value: without it PMS answers 400 now and then ("No conversion profile found for protocol
+  hls"). The variant and its MPEG-TS segments answer without the token. A transcode that fails plays the
+  original instead; two in a row rest Data Saver for 5 minutes (`TranscodeHealth`). Stopping a session that
+  never started is a 404. The demo servers serve each song as one segment (moov first, or AVPlayer can't
+  read it) and turn down a request without the profile; `-TruffleTranscodeFails YES` (in-app) and
+  `DEMO_TRANSCODE_FAILS=1` (Python) turn them all down, to watch the fallback.
 - On Adam's network the plain `http://<LAN IP>:32400` address answers first; the `*.plex.direct`
   names may not resolve at home, which is why `PlexServerInfo` adds the plain address.
 

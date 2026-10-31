@@ -12,16 +12,67 @@ enum StreamMode: String, Sendable {
 }
 
 /// Data Saver: on cellular (or a hotspot, which iOS marks expensive) new songs stream as Plex's 192 kbps
-/// transcode instead of the original file. Wi-Fi keeps the originals.
+/// transcode instead of the original file. Wi-Fi keeps the originals. A transcode that fails never costs
+/// the song: it plays the original instead.
 enum DataSaver {
     static let kbps = 192
+
+    enum FailureResponse: Equatable, Sendable {
+        /// Play the same song from its original file, from where it was.
+        case playOriginal
+        /// The usual recovery: rebuild and retry, then skip.
+        case recover
+    }
 
     static func mode(enabled: Bool, metered: Bool) -> StreamMode {
         enabled && metered ? .dataSaver : .original
     }
 
+    /// The mode for one song: originals while transcodes rest, and for a song whose transcode failed.
+    static func mode(enabled: Bool, metered: Bool, song: String, health: TranscodeHealth, now: Date) -> StreamMode {
+        guard !health.isResting(at: now), !health.failedSongs.contains(song) else { return .original }
+        return mode(enabled: enabled, metered: metered)
+    }
+
+    static func onFailure(of mode: StreamMode) -> FailureResponse {
+        mode == .dataSaver ? .playOriginal : .recover
+    }
+
     static func isMetered(cellular: Bool, expensive: Bool) -> Bool {
         cellular || expensive
+    }
+}
+
+/// How Data Saver's transcodes are going this session. On 2026-10-30 PMS 1.43 turned down `start.m3u8`
+/// with a 400 now and then, so: a song whose transcode fails plays its original from then on, and after
+/// `limit` failures in a row transcodes rest for `rest` before Data Saver tries again.
+struct TranscodeHealth: Equatable, Sendable {
+    static let limit = 2
+    static let rest: TimeInterval = 5 * 60
+
+    /// Rating keys of songs whose transcode failed.
+    private(set) var failedSongs: Set<String> = []
+    private(set) var failuresInARow = 0
+    private(set) var restingUntil: Date?
+
+    func isResting(at now: Date) -> Bool {
+        restingUntil.map { now < $0 } ?? false
+    }
+
+    /// True when this failure starts a rest.
+    @discardableResult
+    mutating func failed(_ song: String, at now: Date) -> Bool {
+        failedSongs.insert(song)
+        failuresInARow += 1
+        guard failuresInARow >= Self.limit else { return false }
+        failuresInARow = 0
+        restingUntil = now.addingTimeInterval(Self.rest)
+        return true
+    }
+
+    /// A transcode played, so the run of failures is over.
+    mutating func played() {
+        failuresInARow = 0
     }
 }
 

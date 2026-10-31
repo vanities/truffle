@@ -19,11 +19,18 @@ actor DemoServer {
     private var listening = false
     /// Data Saver's transcode sessions: session → the song it plays, until the app stops it.
     private var transcodes: [String: String] = [:]
+    /// `-TruffleTranscodeFails YES` (debug): every transcode is turned down, to watch Data Saver fall back.
+    private let failTranscodes: Bool
 
     init(assets: URL? = Bundle.main.url(forResource: "DemoLibrary", withExtension: nil),
          catalog: URL? = Bundle.main.url(forResource: "demo-catalog", withExtension: "json")) {
         self.assets = assets
         self.catalog = catalog
+        #if DEBUG
+        failTranscodes = UserDefaults.standard.bool(forKey: "TruffleTranscodeFails")
+        #else
+        failTranscodes = false
+        #endif
     }
 
     /// The server's address. Starts it, or restarts it after iOS closed the socket while the app was
@@ -345,6 +352,11 @@ actor DemoServer {
     /// its one segment, and `stop` ends it. nil for anything else.
     private func transcode(_ path: String, _ query: [String: String], _ request: DemoRequest, in lib: DemoLibrary) -> DemoResponse? {
         if path == "/music/:/transcode/universal/start.m3u8" {
+            // Like PMS 1.43 without the HLS music profile: "No conversion profile found for protocol hls", a 400.
+            guard query["X-Plex-Client-Profile-Extra"]?.contains("protocol=hls") == true, !failTranscodes else {
+                Logger.demo.info("[demo] transcode turned down (\(self.failTranscodes ? "-TruffleTranscodeFails" : "no hls profile", privacy: .public))")
+                return .empty(400)
+            }
             guard let session = query["session"], !session.isEmpty,
                   let id = query["path"]?.wholeMatch(of: #/\/library\/metadata\/(\d+)/#).map({ String($0.1) }),
                   lib.track(id) != nil else { return .empty(400) }

@@ -472,6 +472,12 @@ class Handler(BaseHTTPRequestHandler):
             track = lib.by_id.get(match.group(1))
             return self.send_file(LIBRARY / "audio" / f"song-{track['_song']}.m4a", "audio/mp4") if track else self.send_empty(404)
         if path == "/music/:/transcode/universal/start.m3u8":
+            # Like PMS 1.43 without the HLS music profile: "No conversion profile found for protocol hls", a 400.
+            # DEMO_TRANSCODE_FAILS=1 turns every transcode down, to watch Data Saver fall back.
+            failing = bool(os.environ.get("DEMO_TRANSCODE_FAILS"))
+            if failing or "protocol=hls" not in query.get("X-Plex-Client-Profile-Extra", ""):
+                log.info("[transcode] turned down (%s)", "DEMO_TRANSCODE_FAILS" if failing else "no hls profile")
+                return self.send_empty(400)
             match = re.fullmatch(r"/library/metadata/(\d+)", query.get("path", ""))
             session = query.get("session", "")
             if not match or not session or match.group(1) not in lib.by_id:
