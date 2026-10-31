@@ -11,6 +11,7 @@ struct StatsView: View {
     @Environment(AppRouter.self) private var router
     @State private var period: ListeningStats.Period = .month
     @State private var startingSong: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         NavigationStack {
@@ -98,7 +99,8 @@ struct StatsView: View {
 
     private func headline(_ stats: ListeningStats) -> some View {
         let all = stats.total(.all)
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+        // One tile across at the accessibility text sizes, so the numbers and their names fit.
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 300 : 150), spacing: 12)], spacing: 12) {
             StatTile(all.plays.grouped, "Plays", systemImage: "play.circle.fill")
             StatTile(all.seconds.statsDuration, "Listening", systemImage: "headphones")
             StatTile(stats.currentStreak.counted("day"), "Current streak", systemImage: "flame.fill")
@@ -241,6 +243,7 @@ struct StatsView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
+                .accessibilityAddTraits(.isHeader)
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     rankLink(item, rank: index + 1, kind: kind, in: items)
@@ -311,7 +314,7 @@ struct StatsView: View {
                             Text(artist)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .lineLimit(1, atAccessibilitySizes: nil)
                         }
                         Text(first.date.formatted(date: .long, time: .omitted))
                             .font(.caption)
@@ -325,6 +328,7 @@ struct StatsView: View {
                             Image(systemName: "play.circle.fill")
                                 .font(.title)
                                 .foregroundStyle(.tint)
+                                .accessibilityHidden(true)
                         }
                     }
                     .frame(width: 44, height: 44)

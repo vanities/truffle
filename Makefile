@@ -5,7 +5,7 @@ SIM     ?= $(shell cat $(SIM_FILE) 2>/dev/null)
 DEST     = id=$(SIM)
 APP      = build/DerivedData/Build/Products/Debug-iphonesimulator/Truffle.app
 
-.PHONY: gen sim build test lint icon demo-library demo-server demo clean
+.PHONY: gen sim build test a11y-sim a11y lint icon demo-library demo-server demo clean
 
 gen:            ## Regenerate Truffle.xcodeproj from project.yml
 	xcodegen generate
@@ -19,6 +19,25 @@ build: gen sim  ## Build for the simulator
 
 test: gen sim   ## Unit tests on the simulator
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' -derivedDataPath build/DerivedData test | tail -20
+
+# The audit gets its own simulator: it signs in to the demo, and the "Truffle" one is signed in to a real server.
+A11Y_SIM_FILE = build/.a11y-sim-udid
+A11Y = xcodebuild -project $(PROJECT) -scheme TruffleAccessibility -destination id=$$(cat $(A11Y_SIM_FILE)) -derivedDataPath build/DerivedData
+
+a11y-sim:       ## Create the "Truffle A11y" simulator the audit runs on
+	@test -s $(A11Y_SIM_FILE) || (mkdir -p build && xcrun simctl create "Truffle A11y" "iPhone 18 Pro" com.apple.CoreSimulator.SimRuntime.iOS-27-2 > $(A11Y_SIM_FILE))
+	@xcrun simctl boot $$(cat $(A11Y_SIM_FILE)) 2>/dev/null || true
+
+a11y: gen a11y-sim ## Accessibility audit of every screen: light and dark, Increase Contrast off and on (about 20 min)
+	$(A11Y) build-for-testing | tail -1
+	@set -o pipefail; for run in light,disabled,both dark,disabled,default light,enabled,default dark,enabled,default; do \
+	  look=$${run%%,*}; rest=$${run#*,}; contrast=$${rest%%,*}; sizes=$${rest#*,}; \
+	  echo "[a11y] $$look, Increase Contrast $$contrast, text sizes: $$sizes"; \
+	  xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) appearance $$look; \
+	  xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast $$contrast; \
+	  TEST_RUNNER_TRUFFLE_SIZES=$$sizes $(A11Y) test-without-building 2>&1 | grep -E '^\[a11y\].*finding|error:|\*\* TEST' \
+	    || { xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast disabled; exit 1; }; \
+	done; xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast disabled
 
 lint:           ## SwiftLint
 	swiftlint lint --quiet

@@ -6,6 +6,7 @@ struct AlbumView: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(PlayerEngine.self) private var player
     @Environment(AppRouter.self) private var router
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var tracks: [Track] = []
     @State private var loading = true
 
@@ -22,9 +23,20 @@ struct AlbumView: View {
                     Text(album.title)
                         .font(.title2.weight(.bold))
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
                     if let artist = library.albumArtist(for: album) {
                         NavigationLink(value: Route.artist(artist)) {
-                            Text(album.artist).font(.title3).foregroundStyle(.tint)
+                            HStack(spacing: 4) {
+                                Text(album.artist)
+                                // Without color to go on, the chevron says it's a link.
+                                if differentiateWithoutColor {
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.bold))
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                            .font(.title3)
+                            .foregroundStyle(.tint)
                         }
                         .buttonStyle(.plain)
                     } else {
@@ -97,6 +109,7 @@ struct AlbumView: View {
 struct ArtistView: View {
     let artist: Artist
     @Environment(MusicLibrary.self) private var library
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(PlayerEngine.self) private var player
     @Environment(AppRouter.self) private var router
     @State private var albums: [Album] = []
@@ -111,9 +124,10 @@ struct ArtistView: View {
                 Text(artist.title)
                     .font(.largeTitle.weight(.bold))
                     .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
                 PlayShuffleButtons(play: { playAll(shuffled: false) }, shuffle: { playAll(shuffled: true) })
                     .padding(.horizontal, 20)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 20) {
+                LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                     ForEach(albums) { album in
                         NavigationLink(value: Route.album(album)) {
                             AlbumTile(album: album, width: 160)
@@ -174,6 +188,7 @@ struct PlaylistView: View {
                     Text(current.title)
                         .font(.title2.weight(.bold))
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
                     if let blurb = current.blurb {
                         Text(blurb)
                             .font(.subheadline)

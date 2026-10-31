@@ -119,6 +119,21 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Truffle.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Truffle"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  # Xcode's accessibility audit on every screen of the demo library (`make a11y`). Its own scheme, so
+  # `make test` and Xcode Cloud's archive stay as quick as they were.
+  TruffleUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: TruffleUITests
+    dependencies:
+      - target: Truffle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vanities.truffleUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Truffle
+
 schemes:
   Truffle:
     build:
@@ -136,3 +151,12 @@ schemes:
       config: Release
     archive:
       config: Release
+  TruffleAccessibility:
+    build:
+      targets:
+        Truffle: all
+        TruffleUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - TruffleUITests

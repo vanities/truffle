@@ -12,6 +12,7 @@ struct RootView: View {
     @Environment(AppRouter.self) private var router
     @Environment(AppSettings.self) private var settings
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tab: AppTab = .home
 
     var body: some View {
@@ -25,7 +26,6 @@ struct RootView: View {
             }
         }
         .animation(.smooth, value: library.phase == .signedOut)
-        .tint(season.theme.accentColor)
         .modifier(PlayerPresentation(isPresented: $router.showsPlayer))
         .sheet(item: Binding(get: { router.sheet }, set: { if $0 == nil { router.dismissSheet() } })) { sheet in
             switch sheet {
@@ -57,11 +57,15 @@ struct RootView: View {
             // Signing in again (after signing out from Settings) starts at Home.
             if signedOut { tab = .home }
         }
+        // Last, so the sheets and the player get the season's tint too.
+        .tint(season.theme.tintColor)
+        .environment(\.onTintColor, season.theme.onTintColor)
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|albums|icons|stats|settings|album`: opens straight to a screen, for
-    /// store screenshots; `car` and `shuffle` run checks that can't be tapped through in the simulator.
+    /// `-TruffleScene mixes|player|library|albums|icons|stats|settings|search|album`: opens straight to a
+    /// screen, for store screenshots and the accessibility audit; `car` and `shuffle` run checks that
+    /// can't be tapped through in the simulator.
     /// With `stats` or `settings`, `-TruffleScroll <id>` scrolls down to a card or section.
     /// Playlists: `playlists`, `playlistNew` (the empty editor), `playlistFilled` (the editor with a
     /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
@@ -73,13 +77,10 @@ struct RootView: View {
         guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
         try? await Task.sleep(for: .seconds(4))
         Logger.ui.info("[debug] scene \(scene, privacy: .public)")
+        if await openPlaybackScene(scene) { return }
         switch scene {
         case "mixes":
             router.scrollTarget = "quick"
-        case "player":
-            if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
-            try? await Task.sleep(for: .seconds(2))
-            router.showsPlayer = true
         case "albums":
             tab = .library
             router.libraryPath = [.albums]
@@ -94,30 +95,16 @@ struct RootView: View {
             try? await Task.sleep(for: .seconds(3))
             router.scrollTarget = target
         case "playlists", "playlistNew", "playlistFilled", "playlistCreated":
-            tab = .library
-            router.libraryPath = [.playlists]
-            try? await Task.sleep(for: .seconds(1))
-            if scene == "playlistNew" {
-                router.editingPlaylist = .new(opensWhenSaved: true)
-            } else if scene != "playlists" {
-                let draft = await debugDraft()
-                if scene == "playlistFilled" {
-                    router.editingPlaylist = draft
-                } else {
-                    do {
-                        let result = try await library.save(draft)
-                        router.say("Made \(result.playlist.title)")
-                        router.open(result.playlist)
-                    } catch {
-                        Logger.ui.error("[debug] save failed: \(error.localizedDescription, privacy: .public)")
-                    }
-                }
-            }
+            await openPlaylistScene(scene)
         case "addToNewPlaylist":
             let songs = Array(((try? await library.likedTracks()) ?? []).prefix(3))
             router.addingToPlaylist = songs
             try? await Task.sleep(for: .seconds(2))
             router.startNewPlaylist(with: songs)
+        case "library":
+            tab = .library
+        case "search":
+            tab = .search
         case "liked", "artists":
             tab = .library
             router.libraryPath = [scene == "liked" ? .liked : .artists]
@@ -130,6 +117,18 @@ struct RootView: View {
             guard let album = library.albums.first(where: { $0.title == title }) else { break }
             tab = .library
             router.libraryPath = [.albums, .album(album)]
+        default:
+            break
+        }
+    }
+
+    /// The scenes that start something playing; false for any other scene.
+    private func openPlaybackScene(_ scene: String) async -> Bool {
+        switch scene {
+        case "player":
+            if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
+            try? await Task.sleep(for: .seconds(2))
+            router.showsPlayer = true
         case "car":
             await connectCarTwice()
         case "shuffle":
@@ -151,13 +150,36 @@ struct RootView: View {
             }
         case "albumEnd":
             guard let album = library.albums.first(where: { ($0.trackCount ?? 0) > 1 }),
-                  let tracks = try? await library.tracks(of: album) else { break }
+                  let tracks = try? await library.tracks(of: album) else { return true }
             player.play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
             try? await Task.sleep(for: .seconds(3))
             player.seek(to: player.duration - 12)
             router.showsPlayer = true
         default:
-            break
+            return false
+        }
+        return true
+    }
+
+    private func openPlaylistScene(_ scene: String) async {
+        tab = .library
+        router.libraryPath = [.playlists]
+        try? await Task.sleep(for: .seconds(1))
+        if scene == "playlistNew" {
+            router.editingPlaylist = .new(opensWhenSaved: true)
+        } else if scene != "playlists" {
+            let draft = await debugDraft()
+            if scene == "playlistFilled" {
+                router.editingPlaylist = draft
+            } else {
+                do {
+                    let result = try await library.save(draft)
+                    router.say("Made \(result.playlist.title)")
+                    router.open(result.playlist)
+                } catch {
+                    Logger.ui.error("[debug] save failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
         }
     }
 
@@ -240,7 +262,7 @@ struct RootView: View {
                 .padding(.vertical, 12)
                 .glassEffect(.regular, in: .capsule)
                 .padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                 .onTapGesture { router.toast = nil }
                 .accessibilityAddTraits(.isStaticText)
         }

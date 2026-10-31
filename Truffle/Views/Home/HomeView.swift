@@ -7,13 +7,23 @@ struct HomeView: View {
     @Environment(SeasonClock.self) private var season
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var startingMix: String?
     /// Whether any of the header's backdrop is still on screen (the cards with props sit inside it).
     @State private var backdropInView = true
+    @ScaledMetric(relativeTo: .largeTitle) private var greetingSize: CGFloat = 38
 
-    /// The backdrop starts this far above the content (behind the status bar) and runs this tall.
+    /// The backdrop starts this far above the content (behind the status bar) and runs at least this tall.
     private static let backdropRise: CGFloat = 200
     private static let backdropHeight: CGFloat = 640
+    /// Where the backdrop starts fading into the page, as a share of its height.
+    private static let backdropFade = 0.68
+    @State private var headerHeight: CGFloat = 0
+
+    /// Tall enough that the header's white words never reach the fade, however big the text.
+    private var backdropHeight: CGFloat {
+        max(Self.backdropHeight, (headerHeight + Self.backdropRise) / Self.backdropFade + 24)
+    }
 
     var body: some View {
         NavigationStack {
@@ -54,7 +64,7 @@ struct HomeView: View {
             // The season's colors run up under the status bar.
             .scrollClipDisabled()
             .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top < Self.backdropHeight - Self.backdropRise
+                geometry.contentOffset.y + geometry.contentInsets.top < backdropHeight - Self.backdropRise
             } action: { _, inView in
                 backdropInView = inView
             }
@@ -78,17 +88,19 @@ struct HomeView: View {
             Text(season.theme.label)
                 .font(.caption.weight(.heavy))
                 .tracking(1.6)
-                .foregroundStyle(.white.opacity(0.8))
             Text(SeasonCalendar.greeting(for: season.now))
-                .font(.system(size: 38, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: greetingSize, weight: .heavy, design: .rounded))
             Text(season.theme.greeting)
                 .font(.title3.weight(.medium))
-                .foregroundStyle(.white.opacity(0.85))
         }
+        .foregroundStyle(.white)
+        // Fireflies, sunbeams and the moon drift behind the words; the shadow keeps them readable.
+        .shadow(color: .black.opacity(0.45), radius: 5, y: 1)
         .padding(.horizontal, 20)
         .padding(.top, 64)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     /// The season's colors behind the top of the screen, fading into the page, with its particles. The
@@ -98,8 +110,8 @@ struct HomeView: View {
             season.theme.gradient
             SeasonalBackdrop(theme: season.theme, skyTop: Self.backdropRise)
         }
-        .frame(height: Self.backdropHeight)
-        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.68),
+        .frame(height: backdropHeight)
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: Self.backdropFade),
                                      .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
         .offset(y: -Self.backdropRise)
     }
@@ -117,6 +129,7 @@ struct HomeView: View {
     private var mixesGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("For \(season.theme.title)").font(.title3.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
                 ForEach(Array(season.mixes.enumerated()), id: \.element.id) { index, mix in
                     Button {
@@ -126,6 +139,7 @@ struct HomeView: View {
                                 curated: library.curatedPlaylist(for: mix), width: nil)
                     }
                     .buttonStyle(PressableStyle())
+                    .accessibilityInputLabels([library.curatedPlaylist(for: mix)?.title ?? mix.title])
                 }
             }
         }
@@ -140,14 +154,38 @@ struct HomeView: View {
                 QuickLabel(title: "Liked", detail: library.likedCount > 0 ? library.likedCount.grouped : nil, symbol: "heart.fill")
             }
             .buttonStyle(.plain)
+            .accessibilityInputLabels(["Liked", "Liked Songs"])
         }
     }
 
+    @ViewBuilder
     private var mixesShelf: some View {
+        if typeSize.isAccessibilitySize {
+            // Big text gets the cards one under another, full width, instead of a sideways shelf.
+            VStack(alignment: .leading, spacing: 12) {
+                ShelfHeader(title: "For \(season.theme.title)")
+                ForEach(Array(season.mixes.enumerated()), id: \.element.id) { index, mix in
+                    Button {
+                        start(mix)
+                    } label: {
+                        MixCard(mix: mix, theme: season.theme, variant: index, isStarting: startingMix == mix.id,
+                                curated: library.curatedPlaylist(for: mix), width: nil)
+                    }
+                    .buttonStyle(PressableStyle())
+                    .accessibilityInputLabels([library.curatedPlaylist(for: mix)?.title ?? mix.title])
+                    .padding(.horizontal, 20)
+                }
+            }
+        } else {
+            shelfOfMixes
+        }
+    }
+
+    private var shelfOfMixes: some View {
         VStack(alignment: .leading, spacing: 12) {
             ShelfHeader(title: "For \(season.theme.title)")
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
                     ForEach(Array(season.mixes.enumerated()), id: \.element.id) { index, mix in
                         Button {
                             start(mix)
@@ -156,6 +194,7 @@ struct HomeView: View {
                                     curated: library.curatedPlaylist(for: mix))
                         }
                         .buttonStyle(PressableStyle())
+                        .accessibilityInputLabels([library.curatedPlaylist(for: mix)?.title ?? mix.title])
                     }
                 }
                 .padding(.horizontal, 20)
@@ -198,7 +237,7 @@ struct HomeView: View {
                                     .frame(width: 140, height: 140)
                                 Text(playlist.title)
                                     .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
+                                    .lineLimit(1, atAccessibilitySizes: nil)
                                 Text(playlist.trackCount.counted("song"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -234,65 +273,89 @@ struct ShuffleAllCard: View {
     let isPlaying: Bool
     let isStarting: Bool
     let action: () -> Void
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 34
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                DriftingGradient(colors: theme.colors + [theme.accentColor])
-                Image(systemName: "shuffle")
-                    .font(.system(size: 150, weight: .black))
-                    .foregroundStyle(.white.opacity(0.12))
-                    .rotationEffect(.degrees(-12))
-                    .offset(x: 30, y: 40)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Group {
-                            if isStarting {
-                                ProgressView().tint(.white)
-                            } else {
-                                Image(systemName: isActive && isPlaying ? "waveform" : "shuffle")
-                                    .symbolEffect(.variableColor.iterative, isActive: isActive && isPlaying)
-                            }
-                        }
-                        .font(.system(size: 26, weight: .bold))
-                        .frame(width: 58, height: 58)
-                        .background(.white.opacity(0.2), in: Circle())
-                        Spacer()
-                        if isActive {
-                            Text(isPlaying ? "PLAYING" : "PAUSED")
-                                .font(.caption.weight(.heavy))
-                                .tracking(1.2)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(.white.opacity(0.22), in: Capsule())
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Group {
+                        if isStarting {
+                            ProgressView().tint(.white)
+                        } else {
+                            Image(systemName: isActive && isPlaying ? "waveform" : "shuffle")
+                                .symbolEffect(.variableColor.iterative, isActive: isActive && isPlaying)
                         }
                     }
-                    Spacer(minLength: 0)
-                    Text("Shuffle All")
-                        .font(.system(size: 34, weight: .heavy, design: .rounded))
-                    Text(trackCount > 0 ? "\(trackCount.grouped) songs. No favorites." : "No favorites.")
-                        .font(.subheadline.weight(.medium))
-                        .opacity(0.9)
-                    if let progress, progress.total > 0 {
-                        ProgressView(value: Double(progress.played), total: Double(progress.total))
-                            .tint(.white)
-                            .padding(.top, 4)
-                        Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped)")
-                            .font(.caption.weight(.medium))
-                            .opacity(0.8)
+                    .font(.system(size: 26, weight: .bold))
+                    .frame(width: 58, height: 58)
+                    .background(.white.opacity(0.2), in: Circle())
+                    Spacer()
+                    if isActive {
+                        Text(isPlaying ? "PLAYING" : "PAUSED")
+                            .font(.caption.weight(.heavy))
+                            .tracking(1.2)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(.black.opacity(0.3), in: Capsule())
                     }
                 }
-                .padding(22)
-                .foregroundStyle(.white)
+                Spacer(minLength: 0)
+                Text("Shuffle All")
+                    .font(.system(size: titleSize, weight: .heavy, design: .rounded))
+                Text(trackCount > 0 ? "\(trackCount.grouped) songs. No favorites." : "No favorites.")
+                    .font(.subheadline.weight(.semibold))
+                if let progress, progress.total > 0 {
+                    ProgressView(value: Double(progress.played), total: Double(progress.total))
+                        .tint(.white)
+                        .padding(.top, 4)
+                    Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped)")
+                        .font(.caption.weight(.semibold))
+                }
             }
-            .frame(height: 236)
+            .padding(22)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // At the accessibility text sizes the card grows with its words instead of cutting them off.
+            .frame(height: typeSize.isAccessibilitySize ? nil : 236)
+            .background {
+                ZStack(alignment: .topTrailing) {
+                    DriftingGradient(colors: theme.colors + [theme.accentColor])
+                    // The seasons' brightest colors (Halloween's orange, summer's yellow) wash out white
+                    // text; the shade under the words keeps them readable.
+                    LinearGradient(stops: [.init(color: .clear, location: 0.2),
+                                           .init(color: .black.opacity(contrast == .increased ? 0.62 : 0.42), location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 150, weight: .black))
+                        .foregroundStyle(.white.opacity(0.12))
+                        .rotationEffect(.degrees(-12))
+                        .offset(x: 30, y: 40)
+                        .accessibilityHidden(true)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
             .shadow(color: theme.colors[1].opacity(0.45), radius: 24, y: 12)
             .seasonalPerch(theme, spot: .shuffleAll, cornerRadius: 30)
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("Shuffle All")
+        .accessibilityValue(spokenState)
         .accessibilityHint("Every song, no favorites")
+    }
+
+    /// What the card shows besides its name: playing or paused, the songs, how far through the round.
+    private var spokenState: String {
+        var parts: [String] = []
+        if isActive { parts.append(isPlaying ? "Playing" : "Paused") }
+        if trackCount > 0 { parts.append("\(trackCount.grouped) songs") }
+        if let progress, progress.total > 0 {
+            parts.append("round \(progress.round), \(progress.played.grouped) of \(progress.total.grouped) played")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -306,6 +369,8 @@ struct MixCard: View {
     var curated: Playlist?
     /// Fixed on the phone's shelf; nil fills a grid cell.
     var width: CGFloat? = 168
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorSchemeContrast) private var contrast
 
     private var hasArt: Bool { curated?.thumb != nil || mix.art.flatMap { UIImage(named: "Mix-\($0)") } != nil }
 
@@ -328,6 +393,7 @@ struct MixCard: View {
                 if !hasArt {
                     Image(systemName: mix.symbol)
                         .font(.system(size: 30, weight: .semibold))
+                        .accessibilityHidden(true)
                 }
                 Spacer()
                 if isStarting { ProgressView().tint(.white) }
@@ -335,30 +401,36 @@ struct MixCard: View {
             Spacer(minLength: 0)
             Text(curated?.title ?? mix.title)
                 .font(.headline)
-                .lineLimit(2)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             Text(curated?.blurb ?? mix.subtitle)
-                .font(.caption.weight(.medium))
-                .opacity(0.85)
-                .lineLimit(2)
+                .font(.caption.weight(.semibold))
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
         }
+        .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
         .padding(16)
-        .frame(width: width, height: 196, alignment: .leading)
+        // At the accessibility text sizes the card grows with its words instead of cutting them off.
+        .frame(width: width, height: typeSize.isAccessibilitySize ? nil : 196, alignment: .leading)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .foregroundStyle(.white)
         .background {
-            let fade = LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.72), location: 1)],
+            // Light art and the brighter season colors both need the shade under white words, and it has
+            // to be dark already where the title starts.
+            let fade = LinearGradient(stops: [.init(color: .clear, location: 0.15),
+                                              .init(color: .black.opacity(contrast == .increased ? 0.75 : 0.6), location: 0.5),
+                                              .init(color: .black.opacity(contrast == .increased ? 0.9 : 0.8), location: 1)],
                                       startPoint: .top, endPoint: .bottom)
-            if let poster = curated?.thumb {
-                ArtworkView(thumb: poster, pixels: 600, cornerRadius: 0)
-                    .overlay(fade)
-            } else if let art = mix.art, UIImage(named: "Mix-\(art)") != nil {
-                Image("Mix-\(art)")
-                    .resizable()
-                    .scaledToFill()
-                    .overlay(fade)
-            } else {
-                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            Group {
+                if let poster = curated?.thumb {
+                    ArtworkView(thumb: poster, pixels: 600, cornerRadius: 0)
+                } else if let art = mix.art, UIImage(named: "Mix-\(art)") != nil {
+                    Image(decorative: "Mix-\(art)")
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
             }
+            .overlay(fade)
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: colors[1].opacity(0.35), radius: 12, y: 6)
@@ -390,7 +462,7 @@ private struct QuickLabel: View {
     var body: some View {
         HStack(spacing: 10) {
             Group {
-                if isStarting { ProgressView() } else { Image(systemName: symbol).foregroundStyle(.tint) }
+                if isStarting { ProgressView() } else { Image(systemName: symbol).foregroundStyle(.tint).accessibilityHidden(true) }
             }
             .font(.title3)
             .frame(width: 26)
@@ -437,12 +509,15 @@ struct DriftingGradient: View {
     }
 }
 
-/// A little press-down spring for cards.
+/// A little press-down spring for cards; with Reduce Motion, a dim instead.
 struct PressableStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.spring(duration: 0.25, bounce: 0.4), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.75 : 1)
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.25, bounce: 0.4), value: configuration.isPressed)
     }
 }
 

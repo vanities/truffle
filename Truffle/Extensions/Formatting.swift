@@ -9,6 +9,12 @@ extension TimeInterval {
         return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, seconds) : String(format: "%d:%02d", minutes, seconds)
     }
 
+    /// "3 minutes, 7 seconds": what VoiceOver says for 3:07.
+    var spokenDuration: String {
+        guard isFinite, self >= 0 else { return "0 seconds" }
+        return Duration.seconds(Int(rounded(.down))).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide))
+    }
+
     /// "3 hr 12 min", "47 min".
     var shortDurationString: String {
         guard isFinite, self > 0 else { return "0 min" }

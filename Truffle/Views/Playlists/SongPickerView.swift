@@ -7,6 +7,7 @@ struct SongPickerView: View {
     @Binding var songs: [PlaylistDraft.Song]
     @Environment(MusicLibrary.self) private var library
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.onTintColor) private var onTint
     @State private var text: String
     @State private var results: [Track] = []
     @State private var searching = false
@@ -54,6 +55,7 @@ struct SongPickerView: View {
                 Button { dismiss() } label: {
                     Label("\(songs.count) picked", systemImage: "checkmark")
                         .font(.headline)
+                        .foregroundStyle(onTint)
                         .frame(minHeight: 34)
                         .padding(.horizontal, 8)
                 }
@@ -76,17 +78,18 @@ struct SongPickerView: View {
                 ArtworkView(thumb: track.thumb, pixels: 120, cornerRadius: 6)
                     .frame(width: 46, height: 46)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title).lineLimit(1)
+                    Text(track.title).lineLimit(1, atAccessibilitySizes: nil)
                     Text([track.artist, track.album].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(1, atAccessibilitySizes: nil)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: picked ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(picked ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(picked ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                     .contentTransition(.symbolEffect(.replace))
+                    .accessibilityHidden(true)
             }
             .frame(minHeight: 52)
             .contentShape(Rectangle())

@@ -49,6 +49,8 @@ final class AppRouter {
 
     func say(_ message: String) {
         toast = message
+        // The toast is gone in three seconds, often before VoiceOver would get to it.
+        AccessibilityNotification.Announcement(message).post()
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(3))
             if self?.toast == message { self?.toast = nil }

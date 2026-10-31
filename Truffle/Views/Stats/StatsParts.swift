@@ -16,6 +16,7 @@ struct StatCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
+                .accessibilityAddTraits(.isHeader)
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -41,6 +42,7 @@ struct StatTile: View {
             Image(systemName: systemImage)
                 .font(.headline)
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text(value)
                 .font(.title2.weight(.bold))
                 .fontDesign(.rounded)
@@ -50,12 +52,15 @@ struct StatTile: View {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(1, atAccessibilitySizes: nil)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18, style: .continuous))
-        .accessibilityElement(children: .combine)
+        // "Plays, 6,922": what it counts, then the number.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
@@ -97,12 +102,12 @@ struct RankRow: View {
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .lineLimit(1)
+                    .lineLimit(1, atAccessibilitySizes: nil)
                 if let line = detail ?? item.subtitle {
                     Text(line)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(1, atAccessibilitySizes: nil)
                 }
             }
             Spacer(minLength: 8)

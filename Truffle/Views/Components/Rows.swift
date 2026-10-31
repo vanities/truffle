@@ -25,12 +25,12 @@ struct TrackRow: View {
                 Text(track.title)
                     .font(.body.weight(isCurrent ? .semibold : .regular))
                     .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                    .lineLimit(1)
+                    .lineLimit(1, atAccessibilitySizes: nil)
                 if showsArtist {
                     Text(track.artist)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(1, atAccessibilitySizes: nil)
                 }
             }
             Spacer(minLength: 8)
@@ -40,16 +40,19 @@ struct TrackRow: View {
                     .foregroundStyle(.tint)
                     .accessibilityLabel("Liked")
             }
-            if isCurrent, player.isPlaying {
+            // The playing song shows a waveform, not just its tint, whether it's playing or paused.
+            if isCurrent {
                 Image(systemName: "waveform")
-                    .symbolEffect(.variableColor.iterative, isActive: true)
+                    .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
                     .foregroundStyle(.tint)
                     .frame(width: 40)
+                    .accessibilityLabel(player.isPlaying ? "Now playing" : "Paused")
             } else {
                 Text(track.duration.clockString)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 40, alignment: .trailing)
+                    .accessibilityLabel(track.duration.spokenDuration)
             }
         }
         .frame(minHeight: 44)
@@ -61,23 +64,32 @@ struct TrackRow: View {
 struct AlbumTile: View {
     let album: Album
     var width: CGFloat = 156
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Wider at the accessibility text sizes, so a title's longest word still fits on a line.
+    private var tileWidth: CGFloat { typeSize.isAccessibilitySize ? max(width, 300) : width }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ArtworkView(thumb: album.thumb, pixels: 400, cornerRadius: 12)
-                .frame(width: width, height: width)
+                .frame(width: tileWidth, height: tileWidth)
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
             Text(album.title)
                 .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
+                .lineLimit(1, atAccessibilitySizes: nil)
             Text(album.artist)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(1, atAccessibilitySizes: nil)
         }
-        .frame(width: width, alignment: .leading)
+        .frame(width: tileWidth, alignment: .leading)
         .contentShape(Rectangle())
     }
+}
+
+/// Album grids' columns: one tile across at the accessibility text sizes.
+func albumColumns(_ typeSize: DynamicTypeSize) -> [GridItem] {
+    [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 300 : 150), spacing: 16)]
 }
 
 struct ArtistRow: View {
@@ -88,7 +100,7 @@ struct ArtistRow: View {
             ArtworkView(thumb: artist.thumb, pixels: 120, circle: true, placeholderSymbol: "music.mic")
                 .frame(width: 46, height: 46)
             VStack(alignment: .leading, spacing: 2) {
-                Text(artist.title).lineLimit(1)
+                Text(artist.title).lineLimit(1, atAccessibilitySizes: nil)
                 if let count = artist.albumCount {
                     Text(count.counted("album"))
                         .font(.subheadline)
@@ -109,7 +121,7 @@ struct PlaylistRow: View {
                 .frame(width: 46, height: 46)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(playlist.title).lineLimit(1)
+                    Text(playlist.title).lineLimit(1, atAccessibilitySizes: nil)
                     if playlist.isSmart {
                         Image(systemName: "gearshape.fill")
                             .font(.caption2)
@@ -134,6 +146,7 @@ struct ShelfHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title).font(.title3.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             trailing
         }
@@ -152,12 +165,14 @@ extension ShelfHeader where Trailing == EmptyView {
 struct PlayShuffleButtons: View {
     let play: () -> Void
     let shuffle: () -> Void
+    @Environment(\.onTintColor) private var onTint
 
     var body: some View {
         HStack(spacing: 12) {
             Button(action: play) {
                 Label("Play", systemImage: "play.fill")
                     .font(.headline)
+                    .foregroundStyle(onTint)
                     .frame(maxWidth: .infinity, minHeight: 34)
             }
             .buttonStyle(.glassProminent)

@@ -6,6 +6,8 @@ struct PlayerView: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showsQueue = false
 
     var body: some View {
@@ -59,58 +61,89 @@ struct PlayerView: View {
 
     private func stacked(for track: Track) -> some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                Spacer(minLength: 12)
-                artwork(for: track)
-                    .frame(width: min(geometry.size.width - 56, geometry.size.height * 0.48))
-                Spacer(minLength: 18)
-                controls(for: track)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
+            if typeSize.isAccessibilitySize {
+                // Big text takes the room: a smaller cover, and the page scrolls.
+                ScrollView {
+                    VStack(spacing: 18) {
+                        artwork(for: track)
+                            .frame(width: min(geometry.size.width - 56, geometry.size.height * 0.3))
+                        controls(for: track)
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 12)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 12)
+                    artwork(for: track)
+                        .frame(width: min(geometry.size.width - 56, geometry.size.height * 0.48))
+                    Spacer(minLength: 18)
+                    controls(for: track)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 12)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
+    /// Close, where it's playing from, and More. At the accessibility text sizes the source gets its own
+    /// line under the buttons instead of a narrow gap between them.
     private var topBar: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.headline)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("Close")
-            Spacer()
-            if let source = player.source {
-                VStack(spacing: 1) {
-                    Text(source.kind == .shuffleAll ? "TRUE SHUFFLE" : "PLAYING FROM")
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(.secondary)
-                    Text(source.kind == .shuffleAll ? "All \(library.trackCount.grouped) Songs" : source.title)
-                        .font(.footnote.weight(.semibold))
-                        .lineLimit(1)
+        VStack(spacing: 10) {
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.headline)
+                        .frame(width: 44, height: 44)
                 }
-            }
-            Spacer()
-            Menu {
-                if let track = player.current {
-                    Button("Add to Playlist…", systemImage: "music.note.list") { router.addingToPlaylist = [track] }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Close")
+                .accessibilityInputLabels(["Close", "Dismiss"])
+                Spacer()
+                if !typeSize.isAccessibilitySize { sourceLabel }
+                Spacer()
+                Menu {
+                    if let track = player.current {
+                        Button("Add to Playlist…", systemImage: "music.note.list") { router.addingToPlaylist = [track] }
+                    }
+                    Button("Shuffle Up Next", systemImage: "shuffle") { player.shuffleUpcoming() }
+                    Button("Queue", systemImage: "list.bullet") { showsQueue = true }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.headline)
+                        .frame(width: 44, height: 44)
                 }
-                Button("Shuffle Up Next", systemImage: "shuffle") { player.shuffleUpcoming() }
-                Button("Queue", systemImage: "list.bullet") { showsQueue = true }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.headline)
-                    .frame(width: 44, height: 44)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("More")
+                .accessibilityInputLabels(["More", "Menu", "Options"])
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("More")
+            if typeSize.isAccessibilitySize { sourceLabel }
+        }
+    }
+
+    @ViewBuilder
+    private var sourceLabel: some View {
+        if let source = player.source {
+            VStack(spacing: 1) {
+                Text(source.kind == .shuffleAll ? "TRUE SHUFFLE" : "PLAYING FROM")
+                    .font(.caption2.weight(.heavy))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+                Text(source.kind == .shuffleAll ? "All \(library.trackCount.grouped) Songs" : source.title)
+                    .font(.footnote.weight(.semibold))
+                    .lineLimit(1, atAccessibilitySizes: nil)
+            }
+            .multilineTextAlignment(.center)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(source.kind == .shuffleAll ? "True shuffle of all \(library.trackCount.grouped) songs"
+                                                           : "Playing from \(source.title)")
         }
     }
 
@@ -118,10 +151,12 @@ struct PlayerView: View {
         ArtworkView(thumb: track.thumb, pixels: 900, cornerRadius: 20)
             .aspectRatio(1, contentMode: .fit)
             .shadow(color: .black.opacity(0.32), radius: 28, y: 16)
-            .scaleEffect(player.isPlaying ? 1 : 0.9)
-            .animation(.spring(duration: 0.5, bounce: 0.3), value: player.isPlaying)
+            // Paused, the cover shrinks back; with Reduce Motion it dims instead, and songs change by a fade.
+            .scaleEffect(player.isPlaying || reduceMotion ? 1 : 0.9)
+            .opacity(reduceMotion && !player.isPlaying ? 0.7 : 1)
+            .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(duration: 0.5, bounce: 0.3), value: player.isPlaying)
             .id(track.id)
-            .transition(.scale(scale: 0.94).combined(with: .opacity))
+            .transition(reduceMotion ? .opacity : .scale(scale: 0.94).combined(with: .opacity))
     }
 
     private func controls(for track: Track) -> some View {
@@ -130,18 +165,21 @@ struct PlayerView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(track.title)
                         .font(.title2.weight(.bold))
-                        .lineLimit(1)
+                        .lineLimit(1, atAccessibilitySizes: nil)
                     Text(track.artist)
                         .font(.title3)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(1, atAccessibilitySizes: nil)
                     if !track.album.isEmpty {
                         Text(track.year.map { "\(track.album) · \(String($0))" } ?? track.album)
                             .font(.footnote)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1, atAccessibilitySizes: nil)
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel([track.title, track.artist, track.album, track.year.map { String($0) } ?? ""]
+                    .filter { !$0.isEmpty }.joined(separator: ", "))
                 Spacer(minLength: 8)
                 LikeButton(track: track)
             }
@@ -159,9 +197,11 @@ struct PlayerView: View {
                     Image(systemName: "list.bullet")
                         .font(.title3)
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Queue")
+                .accessibilityInputLabels(["Queue", "Up Next"])
             }
             .foregroundStyle(.secondary)
             if player.source?.kind == .shuffleAll, let progress = library.shuffleProgress {
@@ -178,6 +218,7 @@ private struct LikeButton: View {
     let track: Track
     @Environment(PlayerEngine.self) private var player
     @Environment(MusicLibrary.self) private var library
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let liked = library.isLiked(track)
@@ -188,12 +229,15 @@ private struct LikeButton: View {
                 .font(.title2)
                 .foregroundStyle(liked ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.bounce, value: liked)
+                .symbolEffect(.bounce, value: reduceMotion ? false : liked)
                 .frame(width: 48, height: 48)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.success, trigger: liked)
-        .accessibilityLabel(liked ? "Unlike" : "Like")
+        .accessibilityLabel("Like")
+        .accessibilityAddTraits(liked ? .isSelected : [])
+        .accessibilityInputLabels(["Like", "Heart", "Love"])
     }
 }
 
@@ -208,6 +252,11 @@ private struct RepeatButton: View {
                 .font(.title3)
                 .foregroundStyle(player.repeatMode == .off ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                 .frame(width: 44, height: 44)
+                .background {
+                    // On isn't only a color: it sits in a circle.
+                    if player.repeatMode != .off { Circle().fill(.tint.opacity(0.18)) }
+                }
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Repeat")
@@ -217,6 +266,7 @@ private struct RepeatButton: View {
 
 struct TransportControls: View {
     @Environment(PlayerEngine.self) private var player
+    @Environment(\.onTintColor) private var onTint
 
     var body: some View {
         HStack {
@@ -226,9 +276,11 @@ struct TransportControls: View {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 30))
                     .frame(width: 64, height: 64)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Previous")
+            .accessibilityInputLabels(["Previous", "Back", "Previous Song"])
             .frame(maxWidth: .infinity)
 
             Button {
@@ -236,10 +288,11 @@ struct TransportControls: View {
             } label: {
                 Group {
                     if player.isLoading {
-                        ProgressView().controlSize(.large).tint(.white)
+                        ProgressView().controlSize(.large).tint(onTint)
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 38, weight: .bold))
+                            .foregroundStyle(onTint)
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
@@ -248,6 +301,7 @@ struct TransportControls: View {
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.circle)
             .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+            .accessibilityInputLabels([player.isPlaying ? "Pause" : "Play", "Play Pause"])
             .frame(maxWidth: .infinity)
 
             Button {
@@ -256,9 +310,11 @@ struct TransportControls: View {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 30))
                     .frame(width: 64, height: 64)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Next")
+            .accessibilityInputLabels(["Next", "Skip", "Next Song"])
             .frame(maxWidth: .infinity)
         }
     }
@@ -278,8 +334,6 @@ struct ScrubberView: View {
                     dragging = nil
                 }
             }
-            .accessibilityLabel("Position")
-            .accessibilityValue("\(shown.clockString) of \(duration.clockString)")
             HStack {
                 Text(shown.clockString)
                 Spacer()
@@ -292,9 +346,20 @@ struct ScrubberView: View {
                     Text("DATA SAVER")
                         .font(.caption2.weight(.heavy))
                         .tracking(1.2)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityLabel("Data Saver")
+                        .foregroundStyle(.secondary)
                 }
+            }
+        }
+        // One element for the bar and both times ("Position, 1:23 of 4:05"). Swiping up or down seeks 15
+        // seconds at once instead of going through the slider, which only seeks when a drag ends.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Position")
+        .accessibilityValue("\(shown.clockString) of \(duration.clockString)\(player.stream == .dataSaver ? ", Data Saver" : "")")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: player.seek(to: min(duration, shown + 15))
+            case .decrement: player.seek(to: max(0, shown - 15))
+            @unknown default: break
             }
         }
     }
@@ -306,6 +371,7 @@ struct PlayerBackdrop: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(SeasonClock.self) private var season
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var colors: [Color]?
 
     var body: some View {
@@ -324,13 +390,15 @@ struct PlayerBackdrop: View {
         }
     }
 
-    /// Heavier at the top and bottom, where the text and controls sit.
+    /// Heavier at the top and bottom, where the text and controls sit: a cover's brightest colors can
+    /// come through right behind the gray text, so those parts are mostly page.
     private var scrim: some View {
-        LinearGradient(stops: [
-            .init(color: Color(.systemBackground).opacity(0.55), location: 0),
-            .init(color: Color(.systemBackground).opacity(0.2), location: 0.4),
-            .init(color: Color(.systemBackground).opacity(0.45), location: 0.72),
-            .init(color: Color(.systemBackground).opacity(0.7), location: 1),
+        let strength = contrast == .increased ? 1.15 : 1
+        return LinearGradient(stops: [
+            .init(color: Color(.systemBackground).opacity(min(1, 0.72 * strength)), location: 0),
+            .init(color: Color(.systemBackground).opacity(0.25), location: 0.35),
+            .init(color: Color(.systemBackground).opacity(min(1, 0.72 * strength)), location: 0.6),
+            .init(color: Color(.systemBackground).opacity(min(1, 0.86 * strength)), location: 1),
         ], startPoint: .top, endPoint: .bottom)
     }
 

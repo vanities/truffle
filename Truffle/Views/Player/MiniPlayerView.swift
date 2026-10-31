@@ -20,11 +20,14 @@ struct MiniPlayerView: View {
                             Text(track.title)
                                 .font(.subheadline.weight(.semibold))
                                 .lineLimit(1)
+                                .accessibilityIdentifier("miniPlayer.title")
                             if placement != .inline {
                                 Text(track.artist)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    // Gray on the accessory's glass is too faint; a lighter black or white isn't.
+                                    .foregroundStyle(.primary.opacity(0.78))
                                     .lineLimit(1)
+                                    .accessibilityIdentifier("miniPlayer.artist")
                             }
                         }
                         Spacer(minLength: 0)
@@ -34,6 +37,8 @@ struct MiniPlayerView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Now playing: \(track.title) by \(track.artist)")
                 .accessibilityHint("Opens the player")
+                .accessibilityInputLabels(["Now Playing", "Player", track.title])
+                .accessibilityShowsLargeContentViewer { Text("\(track.title), \(track.artist)") }
                 if player.isLoading {
                     ProgressView().frame(width: 44, height: 44)
                 } else {
@@ -43,10 +48,15 @@ struct MiniPlayerView: View {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.title3)
                             .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+                    .accessibilityInputLabels([player.isPlaying ? "Pause" : "Play", "Play Pause"])
+                    .accessibilityShowsLargeContentViewer {
+                        Label(player.isPlaying ? "Pause" : "Play", systemImage: player.isPlaying ? "pause.fill" : "play.fill")
+                    }
                 }
                 Button {
                     player.next()
@@ -54,11 +64,17 @@ struct MiniPlayerView: View {
                     Image(systemName: "forward.fill")
                         .font(.title3)
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Next")
+                .accessibilityInputLabels(["Next", "Skip", "Next Song"])
+                .accessibilityShowsLargeContentViewer { Label("Next", systemImage: "forward.fill") }
             }
             .padding(.horizontal, 12)
+            // The accessory is a bar with a fixed height, like the tab bar under it: its text stops growing
+            // at the largest regular size, and a long press shows the Large Content Viewer instead.
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         }
     }
 }

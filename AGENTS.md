@@ -43,6 +43,7 @@ Truffle/
   Widgets/    MixesWidgetView, compiled into the app too so tests can draw it
 TruffleWidgets/ the widget extension: Home Screen widget (small, medium) and a Control Center control
 TruffleTests/ shuffle uniformity, query encoding, decoding, seasons, mixes, queue, loudness, connections
+TruffleUITests/ the accessibility audit of every screen (`make a11y`)
 scripts/      demo_server.py + demo-catalog.json + make-demo-covers.swift (a stand-in Plex server),
               appstore.py (App Store listing), testflight.py (uploads, groups, Xcode Cloud runs),
               asc.py (bundle ID), render-store-screenshots.py, generate-art.py, plex_mix.py, render-icon.swift
@@ -188,6 +189,33 @@ PNGs.
   ≥ 44 pt, this is used in cars.
 - iPhone Duo: the player is an `ArrangementView` split under `IPHONE_DUO_LAYOUTS` (27.1+ SDK), Home
   goes two-column at regular width. See docs/iphone-duo.md.
+
+## Accessibility
+
+`make a11y` runs Xcode's accessibility audit (`TruffleUITests`, its own `TruffleAccessibility` scheme) on
+every screen of the demo, in light and dark with Increase Contrast off and on, at the default text size
+and the largest. It takes about 20 minutes on its own "Truffle A11y" simulator (`build/.a11y-sim-udid`),
+never the signed-in one. Findings print as `[a11y] <screen>: <kind> "<label>"`. Without Increase Contrast,
+the system's own gray text only "nearly passes", which is reported but doesn't fail; with it, nothing may.
+A finding that isn't Truffle's to fix gets a narrow `Waiver` with its reason; don't widen one to quiet a
+real finding. `TEST_RUNNER_TRUFFLE_DATE=2027-04-12T09:00` audits another season, `TEST_RUNNER_TRUFFLE_DUMP=1`
+prints each screen's accessibility tree.
+
+- **Contrast:** text, links and controls wear `theme.tintColor`, the season's accent deepened on light pages
+  and lifted on dark ones until it reads (4.5:1, 7:1 with Increase Contrast; `ContrastTests`). Gradients and
+  art keep `accentColor`. A button filled with the tint labels itself in `onTintColor` (white or black).
+  White words on season colors or art sit on a shade (the Shuffle All card, mix cards, the sign-in screen).
+- **Larger Text:** no fixed font sizes (`@ScaledMetric` for the big rounded ones). Row and tile text is one
+  line at the regular sizes and unlimited at the accessibility sizes (`lineLimit(1, atAccessibilitySizes: nil)`);
+  fixed-height cards drop their height there, the player and sign-in scroll, the mix shelf stacks. The mini
+  player is a bar: it stops at xxLarge and shows the Large Content Viewer.
+- **VoiceOver and Voice Control:** decoration is hidden; icon buttons have plain labels and, where a person
+  might say something else, `accessibilityInputLabels`. State is a value or trait, not a different name (the
+  heart is "Like", selected). The scrubber is one adjustable element (15 seconds a swipe). Toasts are announced.
+- **Reduce Motion:** the seasonal clock stops, the drifting gradients hold still, card presses dim instead of
+  springing, and the player's cover fades instead of scaling.
+- **Without color:** the playing song shows a waveform, repeat sits in a circle when on, the album's artist
+  link gets a chevron.
 
 ## Releasing
 

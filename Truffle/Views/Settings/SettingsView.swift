@@ -97,7 +97,7 @@ struct SettingsView: View {
                                 settings.appIcon = choice
                             } label: {
                                 VStack(spacing: 6) {
-                                    Image(choice.preview)
+                                    Image(decorative: choice.preview)
                                         .resizable()
                                         .frame(width: 64, height: 64)
                                         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))

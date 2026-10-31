@@ -4,6 +4,7 @@ import os
 struct LibraryView: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(AppRouter.self) private var router
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         @Bindable var router = router
@@ -26,7 +27,8 @@ struct LibraryView: View {
                         Text("Recently Added")
                             .font(.title3.weight(.bold))
                             .padding(.horizontal, 20)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 20) {
+                            .accessibilityAddTraits(.isHeader)
+                        LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                             ForEach(library.recentlyAdded) { album in
                                 NavigationLink(value: Route.album(album)) {
                                     AlbumTile(album: album, width: 160)
@@ -60,6 +62,7 @@ private struct CategoryLink: View {
                     .font(.title3)
                     .foregroundStyle(.tint)
                     .frame(width: 30)
+                    .accessibilityHidden(true)
                 Text(title)
                     .font(.title3)
                     .foregroundStyle(.primary)
@@ -72,6 +75,7 @@ private struct CategoryLink: View {
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 16)
             .frame(minHeight: 56)
@@ -108,6 +112,7 @@ struct ArtistsView: View {
 
 struct AlbumsView: View {
     @Environment(MusicLibrary.self) private var library
+    @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(AlbumSort.defaultsKey) private var sort: AlbumSort = .standard
     @State private var filter = ""
 
@@ -119,7 +124,7 @@ struct AlbumsView: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 20) {
+            LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                 ForEach(albums) { album in
                     NavigationLink(value: Route.album(album)) {
                         AlbumTile(album: album, width: 160)

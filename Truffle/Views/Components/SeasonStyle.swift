@@ -1,5 +1,35 @@
 import SwiftUI
+import UIKit
 import os
+
+// The colors the widget shares are in SeasonColors.swift; these need UIKit and stay in the app.
+extension RGB {
+    var uiColor: UIColor { UIColor(red: red, green: green, blue: blue, alpha: 1) }
+}
+
+extension EnvironmentValues {
+    /// The label color for buttons filled with the tint; RootView sets it with the tint.
+    @Entry var onTintColor: Color = .white
+}
+
+extension SeasonTheme {
+    /// The accent as text, links and controls wear it: deepened on light pages and lifted on dark ones
+    /// until it reads (4.5:1, or 7:1 with Increase Contrast). Gradients and art keep `accentColor`.
+    var tintColor: Color {
+        let accent = accent
+        return Color(uiColor: UIColor { traits in
+            accent.tint(dark: traits.userInterfaceStyle == .dark, increasedContrast: traits.accessibilityContrast == .high).uiColor
+        })
+    }
+    /// Words and symbols on a button filled with the tint (Play): white on the deeper light-mode tint,
+    /// black on the brighter dark-mode one.
+    var onTintColor: Color {
+        let accent = accent
+        return Color(uiColor: UIColor { traits in
+            accent.tint(dark: traits.userInterfaceStyle == .dark, increasedContrast: traits.accessibilityContrast == .high).onColor.uiColor
+        })
+    }
+}
 
 /// The season, the moment and the mixes for right now, kept current while the app runs (Night Drive
 /// appears at 8 pm, Halloween ends at midnight).

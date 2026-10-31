@@ -26,8 +26,8 @@ struct SearchView: View {
                                     ArtworkView(thumb: album.thumb, pixels: 120, cornerRadius: 6)
                                         .frame(width: 46, height: 46)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(album.title).lineLimit(1)
-                                        Text(album.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                        Text(album.title).lineLimit(1, atAccessibilitySizes: nil)
+                                        Text(album.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1, atAccessibilitySizes: nil)
                                     }
                                 }
                             }
