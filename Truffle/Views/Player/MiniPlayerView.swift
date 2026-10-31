@@ -20,14 +20,12 @@ struct MiniPlayerView: View {
                             Text(track.title)
                                 .font(.subheadline.weight(.semibold))
                                 .lineLimit(1)
-                                .accessibilityIdentifier("miniPlayer.title")
                             if placement != .inline {
                                 Text(track.artist)
                                     .font(.caption)
                                     // Gray on the accessory's glass is too faint; a lighter black or white isn't.
                                     .foregroundStyle(.primary.opacity(0.78))
                                     .lineLimit(1)
-                                    .accessibilityIdentifier("miniPlayer.artist")
                             }
                         }
                         Spacer(minLength: 0)

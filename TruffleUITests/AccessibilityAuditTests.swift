@@ -106,23 +106,22 @@ final class AccessibilityAuditTests: XCTestCase {
             if ProcessInfo.processInfo.environment["TRUFFLE_DUMP"] != nil {
                 print("[a11y] tree of \(name):\n\(app.debugDescription)")
             }
-            // Measured once: every query of a live element costs a round trip, and a gone one retries.
-            let bars = Bars(screen: app.windows.firstMatch.frame,
-                            tabBar: app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame : .null,
-                            navigationBar: app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame : .null)
+            let layout = Layout(app)
             var found = 0, failing = 0
             try app.performAccessibilityAudit { issue in
                 found += 1
                 let element = try? issue.element?.snapshot()
                 let waiver = element.flatMap { element in
-                    Self.waivers.first { issue.auditType.contains($0.type) && $0.applies(element, bars) }
+                    Self.waivers.lazy.compactMap { waiver in
+                        waiver.type.contains(issue.auditType) ? waiver.applies(element, layout).map { (waiver.reason, $0) } : nil
+                    }.first
                 }
                 let nearlyPassed = issue.auditType == .contrast && issue.compactDescription.contains("nearly")
                 let passes = waiver != nil || (nearlyPassed && !increasedContrast)
                 if !passes { failing += 1 }
-                print("[a11y] \(name): \(Self.typeName(issue.auditType))\(waiver.map { " (waived: \($0.reason))" } ?? (passes ? " (info)" : "")) "
-                      + "\"\(element?.label ?? "")\" \(element.map { "\($0.elementType.rawValue) \($0.frame.integral)" } ?? "?") "
-                      + ": \(issue.compactDescription)")
+                let verdict = waiver.map { " (waived: \($0.0)\($0.1.isEmpty ? "" : "; \($0.1)"))" } ?? (passes ? " (info)" : "")
+                print("[a11y] \(name): \(Self.typeName(issue.auditType))\(verdict) \"\(element?.label ?? "")\" "
+                      + "\(element.map { "\($0.elementType.rawValue) \($0.frame.integral)" } ?? "?") : \(issue.compactDescription)")
                 return passes
             }
             print("[a11y] \(name): \(found) finding(s), \(failing) failing\(increasedContrast ? " (Increase Contrast on)" : "")")
@@ -149,35 +148,98 @@ final class AccessibilityAuditTests: XCTestCase {
         return names.filter { type.contains($0.0) }.map(\.1).joined(separator: "+")
     }
 
-    /// Where the screen and its bars are, for the waivers.
-    private struct Bars {
+    /// The screen as the audit starts: where the bars are, and what it looks like. Measured once, since
+    /// every query of a live element is a round trip and a gone one retries for seconds.
+    private struct Layout {
         let screen: CGRect
         let tabBar: CGRect
         let navigationBar: CGRect
+        /// The mini player's band above the tab bar.
+        let accessory: CGRect
+        /// Every button's frame, from one snapshot of the tree.
+        let buttons: [CGRect]
+        let image: UIImage
+
+        @MainActor init(_ app: XCUIApplication) {
+            screen = app.windows.firstMatch.frame
+            tabBar = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame : .null
+            navigationBar = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame : .null
+            let miniPlayer = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Now playing:'")).firstMatch
+            accessory = miniPlayer.exists ? CGRect(x: screen.minX, y: miniPlayer.frame.minY, width: screen.width,
+                                                   height: miniPlayer.frame.height) : .null
+            var buttons: [CGRect] = []
+            func collect(_ node: any XCUIElementSnapshot) {
+                if node.elementType == .button { buttons.append(node.frame) }
+                node.children.forEach(collect)
+            }
+            if let tree = try? app.snapshot() { collect(tree) }
+            self.buttons = buttons
+            image = app.screenshot().image
+        }
+
+        /// Words that fill a button, as a Liquid Glass button's label does (Play, Shuffle), or that sit in
+        /// the mini player's glass.
+        func isOnGlass(_ frame: CGRect) -> Bool {
+            accessory.contains(frame)
+                || buttons.contains { $0.insetBy(dx: -1, dy: -1).contains(frame) && frame.height >= $0.height - 2 }
+        }
+
+        /// The contrast of what's drawn in `frame`, as WCAG computes it: the middle luminance (the
+        /// background) against the extreme on the side farther from it (the words).
+        func contrast(in frame: CGRect) -> Double? {
+            guard let cgImage = image.cgImage else { return nil }
+            let scale = image.scale
+            let rect = CGRect(x: frame.minX * scale, y: frame.minY * scale, width: frame.width * scale, height: frame.height * scale)
+                .integral.intersection(CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+            guard rect.width >= 4, rect.height >= 4, let crop = cgImage.cropping(to: rect) else { return nil }
+            let width = crop.width, height = crop.height
+            var pixels = [UInt8](repeating: 0, count: width * height * 4)
+            guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: width, height: height))
+            func linear(_ value: UInt8) -> Double {
+                let channel = Double(value) / 255
+                return channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+            }
+            let luminances = stride(from: 0, to: pixels.count, by: 4).map {
+                0.2126 * linear(pixels[$0]) + 0.7152 * linear(pixels[$0 + 1]) + 0.0722 * linear(pixels[$0 + 2])
+            }.sorted()
+            let background = luminances[luminances.count / 2]
+            let darkest = luminances[luminances.count / 100], lightest = luminances[luminances.count - 1 - luminances.count / 100]
+            let words = lightest - background > background - darkest ? lightest : darkest
+            return (max(words, background) + 0.05) / (min(words, background) + 0.05)
+        }
     }
 
-    /// Findings that aren't Truffle's to fix, each with why.
+    /// Findings that aren't Truffle's to fix, each with why. `applies` answers nil when it doesn't, or the
+    /// evidence (empty when the reason says it all).
     private struct Waiver {
         let type: XCUIAccessibilityAuditType
         let reason: String
-        let applies: @MainActor (any XCUIElementSnapshot, Bars) -> Bool
+        let applies: @MainActor (any XCUIElementSnapshot, Layout) -> String?
     }
 
     @MainActor private static let waivers: [Waiver] = [
         Waiver(type: .contrast, reason: "only partly on screen, under the tab bar's glass or past an edge; scrolled into "
-               + "view, the same text is audited on its own") { element, bars in
-            !bars.screen.contains(element.frame) || element.frame.intersects(bars.tabBar)
+               + "view, the same text is audited on its own") { element, layout in
+            !layout.screen.contains(element.frame) || element.frame.intersects(layout.tabBar) ? "" : nil
+        },
+        // The audit misreads text on Liquid Glass (Play, Shuffle, the mini player); the screenshot settles it.
+        Waiver(type: .contrast, reason: "on Liquid Glass, measured from the screenshot instead") { element, layout in
+            guard layout.isOnGlass(element.frame), let measured = layout.contrast(in: element.frame), measured >= 4.5 else { return nil }
+            return String(format: "%.1f:1", measured)
         },
         Waiver(type: .textClipped, reason: "UIKit's search field lays out its own placeholder") { element, _ in
-            element.elementType == .searchField
+            element.elementType == .searchField ? "" : nil
         },
         Waiver(type: .dynamicType, reason: "toolbar buttons are UIKit's: their text stops growing with the navigation bar's "
-               + "and a long press shows the Large Content Viewer") { element, bars in
-            element.elementType == .button && bars.navigationBar.contains(element.frame)
+               + "and a long press shows the Large Content Viewer") { element, layout in
+            element.elementType == .button && layout.navigationBar.contains(element.frame) ? "" : nil
         },
         Waiver(type: [.dynamicType, .textClipped], reason: "the mini player is a bar with a fixed height, like the tab "
-               + "bar: its text stops growing and a long press shows the Large Content Viewer") { element, _ in
-            element.identifier.hasPrefix("miniPlayer")
+               + "bar: its text stops growing and a long press shows the Large Content Viewer") { element, layout in
+            layout.accessory.contains(element.frame) ? "" : nil
         },
     ]
 }

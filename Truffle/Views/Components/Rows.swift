@@ -7,11 +7,14 @@ struct TrackRow: View {
     var showsArtist = true
     @Environment(PlayerEngine.self) private var player
     @Environment(MusicLibrary.self) private var library
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var isCurrent: Bool { player.current?.id == track.id }
 
     var body: some View {
-        HStack(spacing: 12) {
+        // At the accessibility text sizes the heart and the time go under the words, so the words get the
+        // row's width instead of a sliver of it.
+        HStack(alignment: typeSize.isAccessibilitySize ? .top : .center, spacing: 12) {
             if let number {
                 Text("\(number)")
                     .font(.callout.monospacedDigit())
@@ -21,43 +24,59 @@ struct TrackRow: View {
                 ArtworkView(thumb: track.thumb, pixels: 120, cornerRadius: 6)
                     .frame(width: 46, height: 46)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(track.title)
-                    .font(.body.weight(isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                    .lineLimit(1, atAccessibilitySizes: nil)
-                if showsArtist {
-                    Text(track.artist)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1, atAccessibilitySizes: nil)
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    words
+                    HStack(spacing: 12) { trailing }
                 }
-            }
-            Spacer(minLength: 8)
-            if library.isLiked(track) {
-                Image(systemName: "heart.fill")
-                    .font(.caption)
-                    .foregroundStyle(.tint)
-                    .accessibilityLabel("Liked")
-            }
-            // The playing song shows a waveform, not just its tint, whether it's playing or paused.
-            if isCurrent {
-                Image(systemName: "waveform")
-                    .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
-                    .foregroundStyle(.tint)
-                    .frame(width: 40)
-                    .accessibilityLabel(player.isPlaying ? "Now playing" : "Paused")
             } else {
-                Text(track.duration.clockString)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 40, alignment: .trailing)
-                    .accessibilityLabel(track.duration.spokenDuration)
+                words
+                Spacer(minLength: 8)
+                trailing
             }
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    private var words: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(track.title)
+                .font(.body.weight(isCurrent ? .semibold : .regular))
+                .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                .lineLimit(1, atAccessibilitySizes: nil)
+            if showsArtist {
+                Text(track.artist)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1, atAccessibilitySizes: nil)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if library.isLiked(track) {
+            Image(systemName: "heart.fill")
+                .font(.caption)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("Liked")
+        }
+        // The playing song shows a waveform, not just its tint, whether it's playing or paused.
+        if isCurrent {
+            Image(systemName: "waveform")
+                .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
+                .foregroundStyle(.tint)
+                .frame(width: 40)
+                .accessibilityLabel(player.isPlaying ? "Now playing" : "Paused")
+        } else {
+            Text(track.duration.clockString)
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 40, alignment: .trailing)
+                .accessibilityLabel(track.duration.spokenDuration)
+        }
     }
 }
 
@@ -166,9 +185,12 @@ struct PlayShuffleButtons: View {
     let play: () -> Void
     let shuffle: () -> Void
     @Environment(\.onTintColor) private var onTint
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 12) {
+        // Side by side there's only room for "P-lay" at the accessibility text sizes.
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        layout {
             Button(action: play) {
                 Label("Play", systemImage: "play.fill")
                     .font(.headline)

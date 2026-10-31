@@ -469,7 +469,8 @@ private struct QuickLabel: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).font(.subheadline.weight(.semibold))
                 if let detail {
-                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                    // Gray on the glass is too faint; a lighter black or white isn't.
+                    Text(detail).font(.caption).foregroundStyle(.primary.opacity(0.78))
                 }
             }
             Spacer(minLength: 0)

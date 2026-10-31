@@ -37,7 +37,8 @@ struct PlayerView: View {
     @ViewBuilder
     private func arrangement(for track: Track) -> some View {
 #if IPHONE_DUO_LAYOUTS
-        if #available(iOS 27.1, *) {
+        // The split gives the controls half the height, which the largest text overflows; it scrolls instead.
+        if #available(iOS 27.1, *), !typeSize.isAccessibilitySize {
             ArrangementView {
                 artwork(for: track)
                     .padding(.horizontal, 28)
@@ -161,7 +162,10 @@ struct PlayerView: View {
 
     private func controls(for track: Track) -> some View {
         VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
+            // At the accessibility text sizes the heart goes under the words, which get the full width.
+            let titleRow = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                                        : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+            titleRow {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(track.title)
                         .font(.title2.weight(.bold))
@@ -177,10 +181,10 @@ struct PlayerView: View {
                             .lineLimit(1, atAccessibilitySizes: nil)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([track.title, track.artist, track.album, track.year.map { String($0) } ?? ""]
                     .filter { !$0.isEmpty }.joined(separator: ", "))
-                Spacer(minLength: 8)
                 LikeButton(track: track)
             }
             ScrubberView()
