@@ -8,7 +8,7 @@ struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var startingMix: String?
-    /// Whether any of the header's backdrop is still on screen; its animation stops once it's scrolled away.
+    /// Whether any of the header's backdrop is still on screen (the cards with props sit inside it).
     @State private var backdropInView = true
 
     /// The backdrop starts this far above the content (behind the status bar) and runs this tall.
@@ -58,6 +58,8 @@ struct HomeView: View {
             } action: { _, inView in
                 backdropInView = inView
             }
+            // The header's sky and the props on its cards rest once they're scrolled away or under the player.
+            .environment(\.seasonalInView, backdropInView && !router.showsPlayer)
             .refreshable { await library.refresh() }
             .onChange(of: router.scrollTarget) { _, target in
                 guard let target else { return }
@@ -94,7 +96,7 @@ struct HomeView: View {
     private var headerBackdrop: some View {
         ZStack {
             season.theme.gradient
-            SeasonalBackdrop(theme: season.theme, skyTop: Self.backdropRise, isActive: backdropInView && !router.showsPlayer)
+            SeasonalBackdrop(theme: season.theme, skyTop: Self.backdropRise)
         }
         .frame(height: Self.backdropHeight)
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.68),

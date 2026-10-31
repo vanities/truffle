@@ -116,17 +116,24 @@ particles, `Decor` (moon, pumpkins, snow caps, sleigh, fireworks, rainbow, butte
 moods. The Fourth only shows where `Locale.current.region` is the US or a US territory; elsewhere early
 July is summer.
 
-`Views/Seasonal/` draws it. Everything moving is one `TimelineView` + `Canvas` at 30 fps (`SeasonScene`),
-a pure function of time, stopped when effects are off, the backdrop is scrolled away, the player or
-another tab or page is on top, or the app isn't active. Reduce Motion gets a still frame without the
-occasional events. Those events (`EventSchedule`) are also a function of the clock: Santa about once a
-minute, fireworks now and then, a rainbow. The pumpkins and snow on the cards (`seasonalPerch`) are
-static views inside the cards' buttons and never take taps.
+`Views/Seasonal/` draws it. Everything moving runs on one clock, `SeasonalTimeline` (30 fps), stopped when
+effects are off, the screen sets `seasonalInView` false (Home: scrolled away, or the player on top), another
+tab or page is on top, or the app isn't active; Reduce Motion gets a still frame without the occasional
+events. The sky is one `Canvas` per frame (`SeasonScene`), a pure function of time. Those events
+(`EventSchedule`) are too: Santa about once a minute, fireworks now and then, a rainbow. The pumpkins and
+snow on the cards (`seasonalPerch`) sit inside the cards' buttons and never take taps.
+
+The glows (`Glows.swift`) ease, never blink, and `GlowTests` fails any frame-to-frame jump: the string
+lights run like a light controller (`LightShow`: twinkle, chase, slow fade, waves, color by color, 15 s
+each), and the jack-o'-lantern's candle (`Candle`) swells, dims and flickers. The candle tints two masks
+cut from the drawing (`generate-art.py glow`, run by `props jackOLantern`); a test checks they still sit
+on its carved face.
 
 Debug launch arguments: `-TruffleDate 2026-12-15T19:00` fakes the date; `-TruffleFlyby YES`,
 `-TruffleFireworks YES` and `-TruffleRainbow YES` start that event two seconds in and repeat it every 14
-seconds, for captures. Art: `scripts/generate-art.py mixes <key>` (covers) and `props <key>` (pumpkins,
-the sleigh). gpt-image-2 has no transparent output, so props are drawn on a flat color and keyed out.
+seconds, for captures. Art: `scripts/generate-art.py mixes <key>` (covers), `props <key>` (pumpkins,
+the sleigh) and `glow` (the candle's masks). gpt-image-2 has no transparent output, so props are drawn
+on a flat color and keyed out.
 
 ## Conventions
 

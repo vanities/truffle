@@ -48,7 +48,7 @@ private struct PumpkinPatch: View {
         let image: String
         let height: CGFloat
         var id: String { image }
-        var glows: Bool { image == "Prop-jackOLantern" }
+        var isLit: Bool { image == "Prop-jackOLantern" }
     }
 
     let pieces: [Piece]
@@ -73,17 +73,16 @@ private struct PumpkinPatch: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: -8) {
             ForEach(pieces) { piece in
-                Image(piece.image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: piece.height)
-                    .background {
-                        if piece.glows {
-                            RadialGradient(colors: [Color(red: 1, green: 0.55, blue: 0.1).opacity(0.5), .clear], center: .center,
-                                           startRadius: 4, endRadius: piece.height * 1.1)
-                                .frame(width: piece.height * 2.2, height: piece.height * 2.2)
-                        }
+                if piece.isLit {
+                    SeasonalTimeline(name: "jack-o'-lantern") { time, still in
+                        JackOLantern(height: piece.height, flame: still ? 0.8 : Candle.flame(at: time))
                     }
+                } else {
+                    Image(piece.image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: piece.height)
+                }
             }
         }
         .background(alignment: .bottom) {
@@ -100,6 +99,35 @@ private struct PumpkinPatch: View {
         .offset(y: sink - (pieces.map(\.height).max() ?? 0))
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// The carved face lit from inside. As the candle (`flame`, 0 to 1) sinks, the face cools toward embers; as
+/// it swells, the face burns pale yellow and the light spills round it and onto the card. The masks are cut
+/// from the drawing (`generate-art.py glow`), so they sit exactly on its eyes, nose and mouth.
+private struct JackOLantern: View {
+    let height: CGFloat
+    let flame: Double
+
+    var body: some View {
+        ZStack {
+            Image("Prop-jackOLantern").resizable().scaledToFit()
+            light("Prop-jackOLanternFace", Color(red: 0.78, green: 0.12, blue: 0), opacity: 0.6 * (1 - flame))
+            light("Prop-jackOLanternFace", Color(red: 1, green: 0.96, blue: 0.75), opacity: 0.6 * flame * flame)
+                .blendMode(.plusLighter)
+            light("Prop-jackOLanternBloom", Color(red: 1, green: 0.63, blue: 0.2), opacity: 0.35 * flame)
+                .blendMode(.plusLighter)
+        }
+        .frame(height: height)
+        .background {
+            RadialGradient(colors: [Color(red: 1, green: 0.55, blue: 0.1).opacity(0.2 + 0.45 * flame), .clear], center: .center,
+                           startRadius: 4, endRadius: height * 1.1)
+                .frame(width: height * 2.2, height: height * 2.2)
+        }
+    }
+
+    private func light(_ mask: String, _ color: Color, opacity: Double) -> some View {
+        Image(mask).resizable().renderingMode(.template).scaledToFit().foregroundStyle(color).opacity(opacity)
     }
 }
 

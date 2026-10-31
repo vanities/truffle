@@ -64,15 +64,8 @@ struct SeasonScene {
         return max(1, Int(Double(base) * density * widthScale))
     }
 
-    private func cycle(_ value: Double) -> Double { value - value.rounded(.down) }
-
     private func circle(_ center: CGPoint, _ radius: CGFloat) -> Path {
         Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
-    }
-
-    private static func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {
-        let t = min(1, max(0, (x - edge0) / (edge1 - edge0)))
-        return t * t * (3 - 2 * t)
     }
 
     // MARK: - Falling and rising
@@ -258,7 +251,8 @@ struct SeasonScene {
         }
     }
 
-    /// A string of bulbs hung just under the status bar (two swags on a wide screen).
+    /// A string of bulbs hung just under the status bar (two swags on a wide screen), run like a light
+    /// controller (`LightShow`): cold colored glass when off; lit, a hot core and a halo.
     private func stringLights(in context: inout GraphicsContext) {
         let swags = isWide ? 2 : 1
         let swagWidth = (size.width + 20) / CGFloat(swags)
@@ -267,6 +261,8 @@ struct SeasonScene {
         let bulbs = max(9, Int(swagWidth / 30))
         let colors: [Color] = [Color(red: 0.95, green: 0.25, blue: 0.25), Color(red: 0.25, green: 0.85, blue: 0.4),
                                Color(red: 1, green: 0.82, blue: 0.3), Color(red: 0.35, green: 0.6, blue: 1)]
+        var halos = context
+        halos.blendMode = .plusLighter
         for swag in 0..<swags {
             let left = -10 + CGFloat(swag) * swagWidth
             var wire = Path()
@@ -274,16 +270,23 @@ struct SeasonScene {
             wire.addQuadCurve(to: CGPoint(x: left + swagWidth, y: top), control: CGPoint(x: left + swagWidth / 2, y: top + sag * 2))
             context.stroke(wire, with: .color(.black.opacity(0.4)), lineWidth: 1.2)
             for bulb in 0..<bulbs {
-                let index = swag * 100 + bulb
+                // One controller runs every swag, so on a wide screen the chase carries on into the next.
+                let index = swag * bulbs + bulb
                 let t = (Double(bulb) + 0.5) / Double(bulbs)
                 let x = left + t * swagWidth
                 let y = top + 4 * sag * t * (1 - t) + 7
-                let twinkle = still ? 0.8 : 0.45 + 0.55 * (0.5 + 0.5 * sin(time * (1.5 + random(index, 1)) + random(index, 2) * 6.28))
-                let color = colors[bulb % colors.count]
-                context.fill(circle(CGPoint(x: x, y: y), 14), with: .radialGradient(Gradient(colors: [color.opacity(twinkle), color.opacity(0)]),
-                                                                                     center: CGPoint(x: x, y: y), startRadius: 0, endRadius: 14))
+                let lit = still ? 0.9 : LightShow.level(bulb: index, of: swags * bulbs, colors: colors.count, at: time)
+                let color = colors[index % colors.count]
+                let center = CGPoint(x: x, y: y)
+                halos.fill(circle(center, 15), with: .radialGradient(Gradient(colors: [color.opacity(0.7 * lit), color.opacity(0)]),
+                                                                     center: center, startRadius: 0, endRadius: 15))
                 context.fill(Path(roundedRect: CGRect(x: x - 2, y: y - 8.5, width: 4, height: 4), cornerRadius: 1), with: .color(.black.opacity(0.55)))
-                context.fill(Path(ellipseIn: CGRect(x: x - 3.5, y: y - 5, width: 7, height: 10)), with: .color(color.opacity(0.6 + twinkle * 0.4)))
+                var glass = context
+                glass.translateBy(x: x, y: y)
+                glass.scaleBy(x: 7, y: 10)
+                glass.fill(SeasonalShapes.bulb, with: .color(color.mix(with: .black, by: 0.5 * (1 - lit)).mix(with: .white, by: 0.22 * lit)))
+                glass.fill(SeasonalShapes.bulbCore, with: .color(.white.opacity(0.6 * lit)))
+                glass.fill(SeasonalShapes.bulbShine, with: .color(.white.opacity(0.22 + 0.2 * lit)))
             }
         }
     }
@@ -495,8 +498,8 @@ struct SeasonScene {
     /// A rainbow that paints itself across the sky from behind the Shuffle All card, glints, and fades.
     private func rainbow(in context: inout GraphicsContext) {
         guard !still, let event = SeasonEvents.rainbow.occurrence(at: time) else { return }
-        let grow = Self.smoothstep(0, 0.45, event.progress)
-        let alpha = 0.4 * Self.smoothstep(0, 0.12, event.progress) * (1 - Self.smoothstep(0.68, 1, event.progress))
+        let grow = smoothstep(0, 0.45, event.progress)
+        let alpha = 0.4 * smoothstep(0, 0.12, event.progress) * (1 - smoothstep(0.68, 1, event.progress))
         let radius = isWide ? min(size.width * 0.34, 360) : size.width * 0.6
         let center = CGPoint(x: size.width * (isWide ? 0.68 : 0.64), y: skyTop + 36 + radius)
         let start = Double.pi * 1.04
@@ -516,7 +519,7 @@ struct SeasonScene {
             context.stroke(arc, with: .color(color.opacity(alpha)), lineWidth: band + 0.6)
         }
         // Once it's up, a shimmer runs along it: short pieces that brighten toward the middle.
-        let sweep = Self.smoothstep(0.42, 0.8, event.progress)
+        let sweep = smoothstep(0.42, 0.8, event.progress)
         if sweep > 0, sweep < 1 {
             var glow = context
             glow.blendMode = .plusLighter

@@ -134,6 +134,27 @@ enum SeasonalShapes {
         return disc.subtracting(shadow)
     }()
 
+    // MARK: - Christmas lights
+
+    /// A C9 bulb about 1 by 1: its socket end at the top (y -0.5), swelling at the shoulders and tapering
+    /// to a rounded tip at the bottom.
+    static let bulb: Path = {
+        var path = Path()
+        path.move(to: CGPoint(x: -0.22, y: -0.5))
+        path.addQuadCurve(to: CGPoint(x: -0.5, y: -0.12), control: CGPoint(x: -0.5, y: -0.42))
+        path.addCurve(to: CGPoint(x: 0, y: 0.5), control1: CGPoint(x: -0.5, y: 0.18), control2: CGPoint(x: -0.14, y: 0.44))
+        path.addCurve(to: CGPoint(x: 0.5, y: -0.12), control1: CGPoint(x: 0.14, y: 0.44), control2: CGPoint(x: 0.5, y: 0.18))
+        path.addQuadCurve(to: CGPoint(x: 0.22, y: -0.5), control: CGPoint(x: 0.5, y: -0.42))
+        path.closeSubpath()
+        return path
+    }()
+
+    /// Where a lit bulb burns brightest.
+    static let bulbCore = Path(ellipseIn: CGRect(x: -0.17, y: -0.3, width: 0.34, height: 0.5))
+
+    /// The glint on the glass.
+    static let bulbShine = Path(ellipseIn: CGRect(x: -0.36, y: -0.34, width: 0.13, height: 0.28))
+
     // MARK: - Hearts and shamrocks
 
     /// A heart about 2 wide, its tip at (0, 0.9) and its notch at (0, -0.5).

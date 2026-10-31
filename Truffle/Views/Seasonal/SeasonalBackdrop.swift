@@ -5,23 +5,16 @@ import os
 /// flakes, petals and butterflies, fireflies, embers under a crescent moon, string lights and Santa's
 /// sleigh, confetti and fireworks, hearts, shamrocks and a rainbow.
 ///
-/// Everything moving is drawn in one Canvas per frame (`SeasonScene`), as a function of time, at 30 fps.
-/// The clock stops when nobody can see it: effects off, Reduce Motion (a still frame instead), scrolled
-/// away or covered (`isActive`), another tab or page on top, or the app in the background.
+/// Everything moving is drawn in one Canvas per frame (`SeasonScene`), as a function of time, on the
+/// season's clock (`SeasonalTimeline`).
 struct SeasonalBackdrop: View {
     let theme: SeasonTheme
     var density: Double = 1
     /// Where the open sky starts in this view, just under the status bar.
     var skyTop: CGFloat = 64
-    /// False while it's out of sight (scrolled away, under the player).
-    var isActive = true
     @Environment(AppSettings.self) private var settings
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var isOnScreen = false
 
     var body: some View {
-        let running = settings.seasonalEffects && !reduceMotion && isActive && isOnScreen && scenePhase == .active
         ZStack {
             if settings.seasonalEffects, theme.decor.contains(.moon) {
                 // Still, so it's drawn once instead of every frame.
@@ -29,21 +22,46 @@ struct SeasonalBackdrop: View {
                     SeasonScene.drawMoon(in: &canvas, size: size, skyTop: skyTop)
                 }
             }
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !running)) { context in
+            SeasonalTimeline(name: "\(theme.id) sky") { time, still in
                 Canvas(rendersAsynchronously: true) { canvas, size in
                     guard settings.seasonalEffects else { return }
-                    let time = reduceMotion ? 12.0 : context.date.timeIntervalSinceReferenceDate
-                    SeasonScene(theme: theme, density: density, skyTop: skyTop, size: size, time: time, still: reduceMotion)
+                    SeasonScene(theme: theme, density: density, skyTop: skyTop, size: size, time: time, still: still)
                         .draw(in: &canvas)
                 }
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+extension EnvironmentValues {
+    /// False while the screen's seasonal touches are out of sight: scrolled away, or under the player.
+    @Entry var seasonalInView = true
+}
+
+/// The clock every seasonal animation runs on: 30 fps while someone can see it, stopped when nobody can
+/// (effects off, scrolled away or covered (`seasonalInView`), another tab or page on top, the app in the
+/// background). Reduce Motion gets one still frame instead.
+struct SeasonalTimeline<Content: View>: View {
+    /// What the log calls it.
+    let name: String
+    @ViewBuilder let content: (_ time: TimeInterval, _ still: Bool) -> Content
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.seasonalInView) private var inView
+    @State private var isOnScreen = false
+
+    var body: some View {
+        let running = settings.seasonalEffects && !reduceMotion && inView && isOnScreen && scenePhase == .active
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !running)) { context in
+            content(reduceMotion ? 12 : context.date.timeIntervalSinceReferenceDate, reduceMotion)
+        }
         .onAppear { isOnScreen = true }
         .onDisappear { isOnScreen = false }
         .onChange(of: running, initial: true) { _, running in
-            Logger.ui.debug("[season] \(theme.id, privacy: .public) effects \(running ? "running" : "paused", privacy: .public) (on: \(settings.seasonalEffects), reduce motion: \(reduceMotion), in view: \(isActive), shown: \(isOnScreen))")
+            Logger.ui.debug("[season] \(name, privacy: .public) \(running ? "running" : "paused", privacy: .public) (on: \(settings.seasonalEffects), reduce motion: \(reduceMotion), in view: \(inView), shown: \(isOnScreen))")
         }
     }
 }

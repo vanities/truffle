@@ -12,6 +12,7 @@ in this repo, then ../game/.env where the art pipeline keeps it. Nothing secret 
     uv run --script scripts/generate-art.py icon-set CONCEPT [--name AppIcon-Note]  # light/dark/tinted icon set
     uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mix-*.imageset
     uv run --script scripts/generate-art.py props [KEY ...]  # transparent seasonal props into Prop-*.imageset
+    uv run --script scripts/generate-art.py glow             # the jack-o'-lantern's candle masks, from its drawing
 """
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ from pathlib import Path
 
 import requests
 import numpy as np
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 REPO = Path(__file__).resolve().parent.parent
 ASSETS = REPO / "Truffle/Resources/Assets.xcassets"
@@ -268,6 +269,75 @@ def cmd_props(key: str, keys: list[str]) -> None:
             (folder / "Contents.json").write_text(json.dumps(contents, indent=2))
             print(f"[art] prop {name}: {image.width}x{image.height} (raw render in {OUT})", flush=True)
     print(f"[art] {len(keys)} props in the asset catalog")
+    if "jackOLantern" in keys:
+        cmd_glow()
+
+
+def regions(mask: np.ndarray) -> list[np.ndarray]:
+    """The 4-connected regions of a boolean mask, each as an array of (y, x)."""
+    seen = np.zeros_like(mask, dtype=bool)
+    height, width = mask.shape
+    found = []
+    for y0, x0 in zip(*np.nonzero(mask)):
+        if seen[y0, x0]:
+            continue
+        seen[y0, x0] = True
+        stack, pixels = [(y0, x0)], []
+        while stack:
+            y, x = stack.pop()
+            pixels.append((y, x))
+            for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if 0 <= ny < height and 0 <= nx < width and mask[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        found.append(np.array(pixels))
+    return found
+
+
+def write_template(name: str, alpha: np.ndarray) -> None:
+    """A white shape with this coverage, as a template image the app tints."""
+    folder = ASSETS / f"Prop-{name}.imageset"
+    folder.mkdir(parents=True, exist_ok=True)
+    image = Image.new("RGBA", (alpha.shape[1], alpha.shape[0]), (255, 255, 255, 0))
+    image.putalpha(Image.fromarray((np.clip(alpha, 0, 1) * 255).round().astype(np.uint8)))
+    image.save(folder / f"{name}.png", optimize=True)
+    (folder / "Contents.json").write_text(json.dumps({
+        "images": [{"filename": f"{name}.png", "idiom": "universal"}],
+        "info": {"author": "xcode", "version": 1},
+        "properties": {"template-rendering-intent": "template"},
+    }, indent=2))
+
+
+def cmd_glow() -> None:
+    """The jack-o'-lantern's candle, as two masks cut from its drawing (no API call): the carved face,
+    strongest where the drawing is most candle-yellow, and a bloom spilling round it. The app sinks the face
+    toward embers and swells it bright with them, so they have to line up with the drawing pixel for pixel."""
+    source = ASSETS / "Prop-jackOLantern.imageset" / "jackOLantern.png"
+    rgba = np.asarray(Image.open(source).convert("RGBA")).astype(np.float32)
+    red, green, alpha = rgba[..., 0], rgba[..., 1], rgba[..., 3] / 255
+    height = alpha.shape[0]
+    yellow = np.where((alpha > 0.8) & (red > 200), green / np.maximum(red, 1), 0)
+    # The eyes, nose and mouth are big solid patches of yellow below the stem; the skin's highlights are
+    # yellow too, but thin arcs or up top.
+    def solid(pixels: np.ndarray) -> bool:
+        ys, xs = pixels[:, 0], pixels[:, 1]
+        box = (ys.max() - ys.min() + 1) * (xs.max() - xs.min() + 1)
+        return len(pixels) >= 120 and ys.mean() > 0.4 * height and len(pixels) / box > 0.3
+    openings = [pixels for pixels in regions(yellow > 0.62) if solid(pixels)]
+    if len(openings) < 3:
+        sys.exit(f"[art] glow: found {len(openings)} lit openings in {source.name}, expected the eyes, nose and mouth")
+    carved = np.zeros(alpha.shape, dtype=np.uint8)
+    for pixels in openings:
+        carved[pixels[:, 0], pixels[:, 1]] = 255
+    # Out to the openings' orange edges, which the yellow test stops short of.
+    carved = np.asarray(Image.fromarray(carved).filter(ImageFilter.MaxFilter(5))) > 0
+    face = np.clip((yellow - 0.5) / 0.24, 0, 1) * carved * alpha
+    face = np.asarray(Image.fromarray((face * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.5))) / 255
+    bloom = np.asarray(Image.fromarray((face * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(7))) / 255
+    bloom = np.clip(bloom / max(bloom.max(), 1e-3) * 1.15, 0, 1) * alpha
+    write_template("jackOLanternFace", face)
+    write_template("jackOLanternBloom", bloom)
+    print(f"[art] glow: {len(openings)} lit openings, face and bloom masks {alpha.shape[1]}x{height}", flush=True)
 
 
 def main() -> None:
@@ -282,9 +352,13 @@ def main() -> None:
     mixes.add_argument("keys", nargs="*", default=list(MIXES))
     props = sub.add_parser("props")
     props.add_argument("keys", nargs="*", default=list(PROPS), help=", ".join(PROPS))
+    sub.add_parser("glow", help="the jack-o'-lantern's candle masks, cut from its drawing (no API call)")
     args = parser.parse_args()
     if args.command == "props" and (unknown := set(args.keys) - set(PROPS)):
         parser.error(f"unknown prop(s) {', '.join(sorted(unknown))}; one of: {', '.join(PROPS)}")
+    if args.command == "glow":
+        cmd_glow()
+        return
     key = api_key()
     print(f"[art] {MODEL}, OPENAI_API_KEY", flush=True)
     if args.command == "icons":

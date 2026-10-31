@@ -70,6 +70,7 @@
 		B979204DBABA3683A71438B9 /* SeasonScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = E24681489EA21B1463E20EA2 /* SeasonScene.swift */; };
 		C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */; };
 		C272AFCEC144D3CF4C661774 /* PlaylistEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */; };
+		C4264555D2C82C0E15EF76D2 /* GlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FDC367BFC1EC81C7689470 /* GlowTests.swift */; };
 		C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B74BA7300D9A4E9E265725 /* AudioSessionManager.swift */; };
 		C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EEB37F68CD342683163396 /* DemoServerTests.swift */; };
 		CAB9F2BA40934762A941B197 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE5DF68DCB842D13B3D721D /* StatsView.swift */; };
@@ -87,6 +88,7 @@
 		E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */; };
 		E44F8441A407EACF71E6B6F9 /* ListeningStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0951FE990A6C60857AF47035 /* ListeningStatsTests.swift */; };
 		E8A37BB29ACBA87BA9ECF9C7 /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC9D75A16617DB3DFB87577 /* ListeningStats.swift */; };
+		E9CC9A67004CB8B5FA047EBD /* Glows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6477956440F634268BE9AEEB /* Glows.swift */; };
 		EB20EF9F71EC5DB2DDC4BB4F /* PlexQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8313876A2644C87F5AF9782 /* PlexQuery.swift */; };
 		EC48FFE56343696EB5B3657F /* Logger+Truffle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2698F08657BB26BCFBFB3B5 /* Logger+Truffle.swift */; };
 		EC4C3726F5115C37CAFBEABC /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE1D853E8D7A907E6B84272 /* AppEnvironment.swift */; };
@@ -153,6 +155,7 @@
 		55BCE77079B5E40B5AC503A0 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		5F2F8B8ABAD6347916A0F04D /* TruffleTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TruffleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		608E6C74E78D9DF79D136BE6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		6477956440F634268BE9AEEB /* Glows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Glows.swift; sourceTree = "<group>"; };
 		64951E3D73AC98D90EA230F9 /* HolidayMusic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayMusic.swift; sourceTree = "<group>"; };
 		64D7FB7D9D36F8186E3812BB /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		6594CABCE96496FAD9F98382 /* DataSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSaver.swift; sourceTree = "<group>"; };
@@ -203,6 +206,7 @@
 		D527F835CCF0EB90EB08D9BB /* MusicLibrary+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+History.swift"; sourceTree = "<group>"; };
 		E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistEditorView.swift; sourceTree = "<group>"; };
 		E24681489EA21B1463E20EA2 /* SeasonScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonScene.swift; sourceTree = "<group>"; };
+		E3FDC367BFC1EC81C7689470 /* GlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlowTests.swift; sourceTree = "<group>"; };
 		E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSaverTests.swift; sourceTree = "<group>"; };
 		E97246DE9F1386157C9A7CD9 /* Crossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crossfade.swift; sourceTree = "<group>"; };
 		EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLogicTests.swift; sourceTree = "<group>"; };
@@ -460,6 +464,7 @@
 		AAAE9108B3A59F4052E10CA2 /* Seasonal */ = {
 			isa = PBXGroup;
 			children = (
+				6477956440F634268BE9AEEB /* Glows.swift */,
 				F17001118A7637FB4AD869BF /* SeasonalBackdrop.swift */,
 				B4611A1A3B223DF6CBB72AED /* SeasonalPerch.swift */,
 				43C309F7BA164AAAE9555E0F /* SeasonalShapes.swift */,
@@ -509,6 +514,7 @@
 				E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */,
 				76EEB37F68CD342683163396 /* DemoServerTests.swift */,
 				7F289979192B8135FF0A59A8 /* EventScheduleTests.swift */,
+				E3FDC367BFC1EC81C7689470 /* GlowTests.swift */,
 				882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */,
 				BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */,
 				0951FE990A6C60857AF47035 /* ListeningStatsTests.swift */,
@@ -636,6 +642,7 @@
 				A5B36F50A4F17E6A5FBB00DC /* DataSaverTests.swift in Sources */,
 				C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */,
 				F8F5F820BF3019D3D1D53CB3 /* EventScheduleTests.swift in Sources */,
+				C4264555D2C82C0E15EF76D2 /* GlowTests.swift in Sources */,
 				382A3DDD7AD499CE73BD3A7D /* HolidayMusicTests.swift in Sources */,
 				22CF064F722C1326A5EC46EF /* HolidayShuffleTests.swift in Sources */,
 				E44F8441A407EACF71E6B6F9 /* ListeningStatsTests.swift in Sources */,
@@ -673,6 +680,7 @@
 				00BCBE5F46D94A8AB78DACC1 /* DetailViews.swift in Sources */,
 				87469B94ED7D5B8A87B59976 /* EventSchedule.swift in Sources */,
 				F6972DBC98B72054C4AD35D0 /* Formatting.swift in Sources */,
+				E9CC9A67004CB8B5FA047EBD /* Glows.swift in Sources */,
 				8048A65F2227D7D59F63702B /* HolidayMusic.swift in Sources */,
 				686BBB721F3397AED55EB727 /* HomeView.swift in Sources */,
 				54BE4F28339A2CE8719C8044 /* Keychain.swift in Sources */,
