@@ -28,16 +28,16 @@ a11y-sim:       ## Create the "Truffle A11y" simulator the audit runs on
 	@test -s $(A11Y_SIM_FILE) || (mkdir -p build && xcrun simctl create "Truffle A11y" "iPhone 18 Pro" com.apple.CoreSimulator.SimRuntime.iOS-27-2 > $(A11Y_SIM_FILE))
 	@xcrun simctl boot $$(cat $(A11Y_SIM_FILE)) 2>/dev/null || true
 
-a11y: gen a11y-sim ## Accessibility audit of every screen: light and dark, Increase Contrast off and on (about 20 min)
+a11y: gen a11y-sim ## Accessibility audit of every screen: light and dark, Increase Contrast off and on (about 25 min)
 	$(A11Y) build-for-testing | tail -1
-	@set -o pipefail; for run in light,disabled,both dark,disabled,default light,enabled,default dark,enabled,default; do \
+	@failed=0; for run in light,disabled,both dark,disabled,default light,enabled,default dark,enabled,default; do \
 	  look=$${run%%,*}; rest=$${run#*,}; contrast=$${rest%%,*}; sizes=$${rest#*,}; \
-	  echo "[a11y] $$look, Increase Contrast $$contrast, text sizes: $$sizes"; \
+	  echo "[a11y] $$look, Increase Contrast $$contrast, text sizes: $$sizes (build/a11y-$$look-$$contrast.log)"; \
 	  xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) appearance $$look; \
 	  xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast $$contrast; \
-	  TEST_RUNNER_TRUFFLE_SIZES=$$sizes $(A11Y) test-without-building 2>&1 | grep -E '^\[a11y\].*finding|error:|\*\* TEST' \
-	    || { xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast disabled; exit 1; }; \
-	done; xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast disabled
+	  TEST_RUNNER_TRUFFLE_SIZES=$$sizes $(A11Y) test-without-building > build/a11y-$$look-$$contrast.log 2>&1 || failed=1; \
+	  grep -E '^\[a11y\].*finding' build/a11y-$$look-$$contrast.log; \
+	done; xcrun simctl ui $$(cat $(A11Y_SIM_FILE)) increase_contrast disabled; exit $$failed
 
 lint:           ## SwiftLint
 	swiftlint lint --quiet

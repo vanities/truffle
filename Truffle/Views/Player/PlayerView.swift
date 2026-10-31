@@ -2,6 +2,10 @@ import SwiftUI
 import os
 
 struct PlayerView: View {
+    /// The quieter text over the cover's colors. iOS's gray takes on the colors behind it and fades on the
+    /// brighter covers; a lighter black or white keeps its contrast.
+    static let quiet = Color.primary.opacity(0.72)
+
     @Environment(PlayerEngine.self) private var player
     @Environment(MusicLibrary.self) private var library
     @Environment(AppRouter.self) private var router
@@ -136,7 +140,7 @@ struct PlayerView: View {
                 Text(source.kind == .shuffleAll ? "TRUE SHUFFLE" : "PLAYING FROM")
                     .font(.caption2.weight(.heavy))
                     .tracking(1.2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Self.quiet)
                 Text(source.kind == .shuffleAll ? "All \(library.trackCount.grouped) Songs" : source.title)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1, atAccessibilitySizes: nil)
@@ -172,12 +176,12 @@ struct PlayerView: View {
                         .lineLimit(1, atAccessibilitySizes: nil)
                     Text(track.artist)
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Self.quiet)
                         .lineLimit(1, atAccessibilitySizes: nil)
                     if !track.album.isEmpty {
                         Text(track.year.map { "\(track.album) · \(String($0))" } ?? track.album)
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Self.quiet)
                             .lineLimit(1, atAccessibilitySizes: nil)
                     }
                 }
@@ -344,13 +348,13 @@ struct ScrubberView: View {
                 Text("-" + max(0, duration - shown).clockString)
             }
             .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PlayerView.quiet)
             .overlay {
                 if player.stream == .dataSaver {
                     Text("DATA SAVER")
                         .font(.caption2.weight(.heavy))
                         .tracking(1.2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PlayerView.quiet)
                 }
             }
         }
