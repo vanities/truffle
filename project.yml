@@ -34,6 +34,14 @@ targets:
       - path: Truffle
         excludes:
           - "Resources/Info.plist"
+          - "Resources/DemoLibrary"
+          - "Resources/DemoLibrary/**"
+      # The demo's covers and songs, as one folder in the bundle (DemoServer reads them by path).
+      - path: Truffle/Resources/DemoLibrary
+        type: folder
+        buildPhase: resources
+      - path: scripts/demo-catalog.json
+        buildPhase: resources
     configFiles:
       Debug: Config/Debug.xcconfig
       Release: Config/Release.xcconfig

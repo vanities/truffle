@@ -30,6 +30,8 @@ Truffle/
   Playback/   PlayerEngine (AVQueuePlayer, gapless preload), PlayQueue (pure rules), Loudness,
               PlexReporter (timeline), NowPlayingController, ArtworkCache, AudioSessionManager
   CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing heart)
+  Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
+              from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components (SeasonalBackdrop…)
 TruffleTests/ shuffle uniformity, query encoding, decoding, seasons, mixes, queue, loudness, connections
 scripts/      demo_server.py + demo-catalog.json + make-demo-covers.swift (a stand-in Plex server),
@@ -54,6 +56,12 @@ make demo                 # build, install, launch against the demo server
 The demo server answers the requests Truffle makes the way PMS 1.43 does, so the whole app (mixes,
 history, likes, playlists, artwork, streaming) runs without a Plex account. Screenshots for anything
 public come from it, never from Adam's library.
+
+The app carries the same library inside it: "Take it for a spin" on the sign-in screen starts
+`DemoServer` on 127.0.0.1, and that's how App Review gets in (they have no Plex server). Its history runs
+up to today, where the Python server's ends on 2026-10-29. **When Truffle starts asking the server for
+something new, teach both demo servers to answer it**, or the demo, and App Review with it, breaks.
+`-demo.active YES` launches straight into it; Sign Out leaves it.
 
 ## Testing against Adam's real server
 

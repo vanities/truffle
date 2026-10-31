@@ -58,6 +58,17 @@ struct SignInView: View {
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
                     .disabled(waiting)
+                    // A built-in library, so App Review (and anyone without a Plex server) can try it all.
+                    Button {
+                        library.startDemo()
+                    } label: {
+                        Text("Take it for a spin")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.large)
+                    .disabled(waiting)
                     Text("We never see your password. Pinky promise.")
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.75))

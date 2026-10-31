@@ -11,11 +11,14 @@
 		0400F10A4D7129A9A3698B05 /* PlexServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081B6BB7ACFCA56E9C3C2D9E /* PlexServerInfo.swift */; };
 		048417D4082666EAF7FA2373 /* PlexQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F540EBBB6880DBB068427C /* PlexQueryTests.swift */; };
 		0BB4CC8F98C951FF0E25F178 /* ShuffleWalk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326989A024936F462CAEA158 /* ShuffleWalk.swift */; };
+		0EAA88671F50A9BD376F1234 /* DemoLibrary in Resources */ = {isa = PBXBuildFile; fileRef = F3C5C015BFD0A51A28D6856E /* DemoLibrary */; };
 		21F1DAEECD3B9EC8B48E0DA4 /* Rows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A1296E6CEA505BF8FCA369 /* Rows.swift */; };
 		2B0D0F57F3A06245D04EF7B1 /* TrackMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C0B248E9BC5CA42EB17EF7 /* TrackMenu.swift */; };
 		2D8DAEC6FDC331AE6F5146F4 /* CarPlayInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A88F6A0728040BCA6C797FC /* CarPlayInterface.swift */; };
 		2E07C69B63F28E8D1017D17C /* ArtworkCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D045FFB8D3C186290CA9473 /* ArtworkCache.swift */; };
 		2E5CC9D37619F33C0A003A0E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046C5D957717E52303CF4226 /* SettingsView.swift */; };
+		2F15533DEBCD1E44E38E90DE /* DemoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C7D633CB33D5B0773F75809 /* DemoLibrary.swift */; };
+		2F6724E53ABEE7A8A5168693 /* demo-catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 6DED35D2D0F92C9BC2DA43E6 /* demo-catalog.json */; };
 		32C99606240F487C2C813F3F /* NowPlayingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660156FECF3F676CDBDA7A1C /* NowPlayingController.swift */; };
 		3460103FD367BEC19CB72123 /* Seasons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C33C5B282967FC4AE14DEC1 /* Seasons.swift */; };
 		42ED2624FF1DD79C82164519 /* MusicLibrary+Edits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3433890152218710849CE2 /* MusicLibrary+Edits.swift */; };
@@ -45,12 +48,14 @@
 		B104108546201139C607DDD6 /* PlayQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4467DDE075AF53657BE39 /* PlayQueue.swift */; };
 		BF7103FB604F1010779A7148 /* SeasonalBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000B70099900B70D770C49B8 /* SeasonalBackdrop.swift */; };
 		C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B74BA7300D9A4E9E265725 /* AudioSessionManager.swift */; };
+		C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EEB37F68CD342683163396 /* DemoServerTests.swift */; };
 		CF09B729BE945E18B7AC806A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C1CDDD4754C10F7DAA1CD65F /* PrivacyInfo.xcprivacy */; };
 		D27136934AD08D0F49CD796C /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5864F63FED22B4C65A23FC /* LibraryView.swift */; };
 		D316E505BDD024E93CFCC0EC /* AppIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51D109DD152AB41AB801330 /* AppIcons.swift */; };
 		D4F3BFF289795B6758F38837 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1924EFE6A49592C8FEF4DDDC /* LibraryStore.swift */; };
 		D4F47839DED7E874CB2300FC /* TruffleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D7BB33E028A89E9CD5F4D3 /* TruffleApp.swift */; };
 		DE5090CA74EAC6D319492A84 /* MusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941D765F06A3A146405A71E3 /* MusicModels.swift */; };
+		E1D707B3920C40988CFDCCD2 /* DemoServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC74B88AABF4283C1E75353C /* DemoServer.swift */; };
 		E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */; };
 		EB20EF9F71EC5DB2DDC4BB4F /* PlexQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8313876A2644C87F5AF9782 /* PlexQuery.swift */; };
 		EC48FFE56343696EB5B3657F /* Logger+Truffle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2698F08657BB26BCFBFB3B5 /* Logger+Truffle.swift */; };
@@ -112,7 +117,10 @@
 		608E6C74E78D9DF79D136BE6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		660156FECF3F676CDBDA7A1C /* NowPlayingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingController.swift; sourceTree = "<group>"; };
 		68C0B248E9BC5CA42EB17EF7 /* TrackMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMenu.swift; sourceTree = "<group>"; };
+		6DED35D2D0F92C9BC2DA43E6 /* demo-catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "demo-catalog.json"; sourceTree = "<group>"; };
+		76EEB37F68CD342683163396 /* DemoServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerTests.swift; sourceTree = "<group>"; };
 		772138EA2001480F74125F2C /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		7C7D633CB33D5B0773F75809 /* DemoLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoLibrary.swift; sourceTree = "<group>"; };
 		7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		83F5BE32175DAFF0C5E241B0 /* Truffle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Truffle.entitlements; sourceTree = "<group>"; };
 		8799CD7D69050E486743418B /* MusicLibrary+Browse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+Browse.swift"; sourceTree = "<group>"; };
@@ -135,8 +143,10 @@
 		C89ED237CF5FF9F021C05866 /* PlexReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexReporter.swift; sourceTree = "<group>"; };
 		D2204D083129C9B501443D97 /* ShuffleWalkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuffleWalkTests.swift; sourceTree = "<group>"; };
 		EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLogicTests.swift; sourceTree = "<group>"; };
+		EC74B88AABF4283C1E75353C /* DemoServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServer.swift; sourceTree = "<group>"; };
 		F2698F08657BB26BCFBFB3B5 /* Logger+Truffle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Truffle.swift"; sourceTree = "<group>"; };
 		F34A01A1ADC0E3A9CC903AD5 /* Routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Routes.swift; sourceTree = "<group>"; };
+		F3C5C015BFD0A51A28D6856E /* DemoLibrary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DemoLibrary; path = Truffle/Resources/DemoLibrary; sourceTree = SOURCE_ROOT; };
 		FF6014636D16FA12E59D860A /* PlexModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -160,6 +170,7 @@
 			children = (
 				C11629417DC7BAAA752581A2 /* App */,
 				487437E67AFEA70CFA3E2023 /* CarPlay */,
+				5295BB0B6EC09FF0BE07EC58 /* Demo */,
 				0D9E2A20F2EEF96D5C218BCC /* Extensions */,
 				845198F1CF9537C7500ACA0C /* Library */,
 				156965DDA955729CA035B82F /* Models */,
@@ -249,6 +260,7 @@
 			isa = PBXGroup;
 			children = (
 				0BD0EB7856085E0C41D8D496 /* Assets.xcassets */,
+				F3C5C015BFD0A51A28D6856E /* DemoLibrary */,
 				C1CDDD4754C10F7DAA1CD65F /* PrivacyInfo.xcprivacy */,
 				9C376EFB00679A7E8020CDDD /* Truffle-Device.entitlements */,
 				83F5BE32175DAFF0C5E241B0 /* Truffle.entitlements */,
@@ -264,12 +276,29 @@
 			path = Search;
 			sourceTree = "<group>";
 		};
+		5295BB0B6EC09FF0BE07EC58 /* Demo */ = {
+			isa = PBXGroup;
+			children = (
+				7C7D633CB33D5B0773F75809 /* DemoLibrary.swift */,
+				EC74B88AABF4283C1E75353C /* DemoServer.swift */,
+			);
+			path = Demo;
+			sourceTree = "<group>";
+		};
 		530A7B721078A61116CDC08E /* Home */ = {
 			isa = PBXGroup;
 			children = (
 				55BCE77079B5E40B5AC503A0 /* HomeView.swift */,
 			);
 			path = Home;
+			sourceTree = "<group>";
+		};
+		6329BE5BAE499A7CB1F9DC0A /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				6DED35D2D0F92C9BC2DA43E6 /* demo-catalog.json */,
+			);
+			path = scripts;
 			sourceTree = "<group>";
 		};
 		6D388A44C2D93FB3818A937C /* Config */ = {
@@ -340,6 +369,7 @@
 			isa = PBXGroup;
 			children = (
 				6D388A44C2D93FB3818A937C /* Config */,
+				6329BE5BAE499A7CB1F9DC0A /* scripts */,
 				0850F256D76AD55BB308FCA4 /* Truffle */,
 				F1F468E95876C9FF2E81B98C /* TruffleTests */,
 				150827CF905E73BC5F2C75BC /* Products */,
@@ -359,6 +389,7 @@
 			isa = PBXGroup;
 			children = (
 				C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */,
+				76EEB37F68CD342683163396 /* DemoServerTests.swift */,
 				C34BD6B5A649E1AE8708DFA7 /* MixesTests.swift */,
 				EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */,
 				0585067CF286BD4AACDCB7F7 /* PlexDecodingTests.swift */,
@@ -461,7 +492,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				9491A5178D2A99AA4924D11B /* Assets.xcassets in Resources */,
+				0EAA88671F50A9BD376F1234 /* DemoLibrary in Resources */,
 				CF09B729BE945E18B7AC806A /* PrivacyInfo.xcprivacy in Resources */,
+				2F6724E53ABEE7A8A5168693 /* demo-catalog.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -473,6 +506,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */,
+				C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */,
 				44E7380396C61D08A9E29E54 /* MixesTests.swift in Sources */,
 				FAB6916E0703B3112D42B81D /* PlaybackLogicTests.swift in Sources */,
 				70A9380F941A71B97271C943 /* PlexDecodingTests.swift in Sources */,
@@ -495,6 +529,8 @@
 				2D8DAEC6FDC331AE6F5146F4 /* CarPlayInterface.swift in Sources */,
 				B0D85A4A4455A06E57D48899 /* CarPlaySceneDelegate.swift in Sources */,
 				8CB3F4593A7C3E2347E7161F /* ConnectionPicker.swift in Sources */,
+				2F15533DEBCD1E44E38E90DE /* DemoLibrary.swift in Sources */,
+				E1D707B3920C40988CFDCCD2 /* DemoServer.swift in Sources */,
 				00BCBE5F46D94A8AB78DACC1 /* DetailViews.swift in Sources */,
 				F6972DBC98B72054C4AD35D0 /* Formatting.swift in Sources */,
 				686BBB721F3397AED55EB727 /* HomeView.swift in Sources */,

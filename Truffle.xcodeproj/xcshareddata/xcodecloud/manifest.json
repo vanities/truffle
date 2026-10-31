@@ -1,0 +1,9 @@
+{
+  "id" : "514ccad8-e821-4d8b-a8c2-fdccbdd24222",
+  "targets" : [
+    {
+      "id" : "a23560b8-6cac-4d64-80c8-ab4a5e13f55a",
+      "name" : "Truffle"
+    }
+  ]
+}

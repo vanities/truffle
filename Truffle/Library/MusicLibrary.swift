@@ -67,10 +67,15 @@ final class MusicLibrary {
         static let userName = "user.name"
     }
 
+    /// Set while the demo is on, so a relaunch (or CarPlay starting the app) resumes it.
+    private static let demoDefaultsKey = "demo.active"
+
     var account: PlexAccountClient { PlexAccountClient(identity: identity) }
     var client: PlexClient? { endpoint.map { PlexClient(endpoint: $0, identity: identity) } }
     var isSignedIn: Bool { userToken != nil }
     var serverName: String { server?.name ?? "your Plex server" }
+    /// "Take it for a spin": the invented library DemoServer serves from inside the app.
+    var isDemo: Bool { server?.machineIdentifier == DemoLibrary.machineIdentifier }
 
     init(identity: PlexIdentity, settings: AppSettings, store: LibraryStore = LibraryStore(), keychain: Keychain = .truffle) {
         self.identity = identity
@@ -83,6 +88,11 @@ final class MusicLibrary {
 
     func start() {
         let sw = Stopwatch()
+        if UserDefaults.standard.bool(forKey: Self.demoDefaultsKey) {
+            Logger.library.info("[library] start: resuming the demo")
+            startDemo()
+            return
+        }
         userToken = keychain.string(for: KeychainKey.userToken)
         userName = keychain.string(for: KeychainKey.userName)
         server = keychain.codable(PlexServerInfo.self, for: KeychainKey.server)
@@ -112,6 +122,26 @@ final class MusicLibrary {
         connect(reason: "direct")
     }
     #endif
+
+    // MARK: - Demo
+
+    /// "Take it for a spin": the whole app on an invented library, served from inside the app, for App
+    /// Review and anyone without a Plex server. Nothing goes in the Keychain; Sign Out ends it.
+    func startDemo() {
+        Logger.demo.info("[demo] starting")
+        UserDefaults.standard.set(true, forKey: Self.demoDefaultsKey)
+        userToken = "demo"
+        userName = "Demo"
+        server = Self.demoServer(url: nil)
+        restoreSnapshot()
+        phase = .connecting
+        connect(reason: "demo")
+    }
+
+    private static func demoServer(url: URL?) -> PlexServerInfo {
+        PlexServerInfo(name: "Demo Server", machineIdentifier: DemoLibrary.machineIdentifier, accessToken: "demo",
+                       connections: url.map { [.init(uri: $0, local: true, relay: false)] } ?? [])
+    }
 
     // MARK: - Sign in / out
 
@@ -168,7 +198,9 @@ final class MusicLibrary {
     }
 
     func signOut() {
-        Logger.auth.info("[auth] signing out")
+        Logger.auth.info("[auth] signing out\(self.isDemo ? " of the demo" : "", privacy: .public)")
+        if isDemo { Task { await DemoServer.shared.stop() } }
+        UserDefaults.standard.removeObject(forKey: Self.demoDefaultsKey)
         connecting?.cancel()
         connecting = nil
         pathMonitor?.cancel()
@@ -224,10 +256,21 @@ final class MusicLibrary {
         let sw = Stopwatch()
         Logger.library.info("[library] connecting (\(reason, privacy: .public))")
         if phase != .ready { phase = .connecting }
+        if isDemo {
+            // The demo's port is only known once it's listening, and changes if iOS closed the socket
+            // while the app was suspended.
+            do {
+                server = Self.demoServer(url: try await DemoServer.shared.start())
+            } catch {
+                Logger.demo.error("[demo] didn't start: \(error.localizedDescription, privacy: .public)")
+                phase = .failed("The demo didn't start. Try again?")
+                return
+            }
+        }
 
         var found: PlexEndpoint?
         if let server { found = await pickEndpoint(for: server) }
-        if found == nil, server?.machineIdentifier != "demo" {
+        if found == nil, server?.machineIdentifier != "demo", !isDemo {
             // Addresses change (a new public IP); plex.tv has the current ones.
             do {
                 found = try await refreshServer(token: token)
