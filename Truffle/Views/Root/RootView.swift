@@ -60,7 +60,8 @@ struct RootView: View {
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|albums|icons|stats`: opens straight to a screen, for store screenshots.
+    /// `-TruffleScene mixes|player|albums|icons|stats|settings|album`: opens straight to a screen, for
+    /// store screenshots; `shuffle` runs a check that can't be tapped through in the simulator.
     /// With `stats`, `-TruffleScroll months|mostPlayed|habits|dayOne` scrolls down to a card.
     /// Playlists: `playlists`, `playlistNew` (the empty editor), `playlistFilled` (the editor with a
     /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
@@ -121,6 +122,19 @@ struct RootView: View {
         case "playlist":
             tab = .library
             if let mine = library.playlists.first(where: { !$0.isSmart }) { router.libraryPath = [.playlists, .playlist(mine)] }
+        case "settings":
+            // `-TruffleScroll shuffle|holidays|appIcon`
+            tab = .settings
+            try? await Task.sleep(for: .seconds(1))
+            router.scrollTarget = UserDefaults.standard.string(forKey: "TruffleScroll")
+        case "album":
+            // `-TruffleAlbum "A Low Tide Christmas"`
+            let title = UserDefaults.standard.string(forKey: "TruffleAlbum")
+            guard let album = library.albums.first(where: { $0.title == title }) else { break }
+            tab = .library
+            router.libraryPath = [.albums, .album(album)]
+        case "shuffle":
+            await skipThroughShuffleAll()
         default:
             break
         }
@@ -143,6 +157,22 @@ struct RootView: View {
         }
         Logger.ui.info("[debug] draft with \(draft.songs.count) song(s), cover \(draft.cover?.count ?? 0)B")
         return draft
+    }
+
+    /// `-TruffleScene shuffle [-TruffleSteps n]`: Shuffle All, then Next every 300 ms for a round's worth
+    /// of songs, stopping when a holiday song plays. Shows what the shuffle holds back on `-TruffleDate`.
+    private func skipThroughShuffleAll() async {
+        await player.shuffleAll()
+        let steps = UserDefaults.standard.integer(forKey: "TruffleSteps")
+        for step in 1...max(1, steps > 0 ? steps : library.trackCount + 5) {
+            try? await Task.sleep(for: .milliseconds(300))
+            if let track = player.current, HolidayMusic.isHoliday(track) {
+                Logger.ui.info("[debug] step \(step): holiday song \"\(track.title, privacy: .public)\" is playing")
+                return
+            }
+            player.next()
+        }
+        Logger.ui.info("[debug] skipped through \(steps > 0 ? steps : self.library.trackCount + 5) songs; no holiday song played")
     }
     #endif
 

@@ -107,6 +107,20 @@ struct SeasonTheme: Equatable, Sendable {
 }
 
 enum SeasonCalendar {
+    /// Now, or the `-TruffleDate 2026-12-20T21:00` a debug build was launched with to preview another
+    /// season. The shuffle reads it too, so holiday music follows the previewed date.
+    static var now: Date {
+        #if DEBUG
+        if let text = UserDefaults.standard.string(forKey: "TruffleDate") {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = text.contains("T") ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd"
+            if let date = formatter.date(from: text) { return date }
+        }
+        #endif
+        return .now
+    }
+
     static func theme(for date: Date, southern: Bool, calendar: Calendar = .current) -> SeasonTheme {
         let season = Season.of(month: calendar.component(.month, from: date), southern: southern)
         if let moment = moment(for: date, calendar: calendar) {

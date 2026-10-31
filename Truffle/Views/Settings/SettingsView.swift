@@ -53,6 +53,16 @@ struct SettingsView: View {
                 } footer: {
                     Text("Every song once before any song twice. No favorites.")
                 }
+                .id("shuffle")
+
+                Section {
+                    Toggle("Keep Holidays in Season", isOn: $settings.holidaysInSeason)
+                } header: {
+                    Text("Holiday Music")
+                } footer: {
+                    Text(holidayFooter)
+                }
+                .id("holidays")
 
                 Section {
                     HStack(spacing: 18) {
@@ -127,5 +137,15 @@ struct SettingsView: View {
                 Text("Everything goes back in the hat.")
             }
         }
+    }
+
+    private var holidayFooter: String {
+        let songs = library.holidays.songs
+        guard settings.holidaysInSeason else { return "Jingle bells all year. Bold." }
+        if HolidayMusic.isInSeason(season.now) {
+            return songs > 0 ? "'Tis the season: \(songs.counted("song")) back in the shuffle." : "'Tis the season."
+        }
+        guard songs > 0 else { return "No jingle bells in July." }
+        return "No jingle bells in July. \(songs.counted("song")) \(songs == 1 ? "is" : "are") waiting for \(songs == 1 ? "its" : "their") season."
     }
 }

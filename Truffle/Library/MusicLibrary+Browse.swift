@@ -94,9 +94,10 @@ extension MusicLibrary {
         return ids.compactMap { byID[$0] }
     }
 
-    /// The song at a position in the library sorted by id: how the true shuffle turns its random
-    /// positions into songs without downloading the whole list.
-    func tracks(atPositions positions: [Int]) async throws -> [Track] {
+    /// The song at each position in the library sorted by id: how the true shuffle turns its random
+    /// positions into songs without downloading the whole list. Nil where a position has no song (the
+    /// library shrank since the walk was made).
+    func tracks(atPositions positions: [Int]) async throws -> [(position: Int, track: Track?)] {
         guard let section, !positions.isEmpty else { return [] }
         let path = "/library/sections/\(section.id)/all"
         let found = try await withClient("positions") { client in
@@ -112,7 +113,7 @@ extension MusicLibrary {
                 return results
             }
         }
-        return found.sorted { $0.0 < $1.0 }.compactMap(\.1)
+        return found.sorted { $0.0 < $1.0 }.map { (position: positions[$0.0], track: $0.1) }
     }
 
     /// This year's skill-made playlist for a mix's theme ("halloween", "fall"…), if there is one.

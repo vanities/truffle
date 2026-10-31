@@ -30,7 +30,7 @@ final class SeasonClock {
 
     init(settings: AppSettings) {
         self.settings = settings
-        let now = Self.overriddenDate ?? .now
+        let now = SeasonCalendar.now
         let theme = SeasonCalendar.theme(for: now, southern: settings.isSouthern)
         self.theme = theme
         mixes = MixPlanner.seasonal(theme: theme, date: now)
@@ -41,7 +41,7 @@ final class SeasonClock {
     }
 
     func refresh() {
-        let date = Self.overriddenDate ?? .now
+        let date = SeasonCalendar.now
         let newTheme = SeasonCalendar.theme(for: date, southern: settings.isSouthern)
         let newMixes = MixPlanner.seasonal(theme: newTheme, date: date)
         now = date
@@ -50,18 +50,5 @@ final class SeasonClock {
             theme = newTheme
         }
         if newMixes != mixes { mixes = newMixes }
-    }
-
-    /// `-TruffleDate 2026-12-20T21:00` previews another season (debug builds).
-    private static var overriddenDate: Date? {
-        #if DEBUG
-        guard let text = UserDefaults.standard.string(forKey: "TruffleDate") else { return nil }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = text.contains("T") ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd"
-        return formatter.date(from: text)
-        #else
-        return nil
-        #endif
     }
 }

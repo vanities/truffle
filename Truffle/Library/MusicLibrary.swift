@@ -55,6 +55,8 @@ final class MusicLibrary {
     @ObservationIgnored private let keychain: Keychain
     @ObservationIgnored private(set) var userToken: String?
     @ObservationIgnored var walk: ShuffleWalk?
+    /// The holiday songs: how many (Settings), and where the shuffle found them (MusicLibrary+Holidays).
+    var holidays = HolidayIndex()
     /// Big playlists' shuffles, for this session only.
     @ObservationIgnored var playlistWalks: [String: ShuffleWalk] = [:]
     @ObservationIgnored var moodKeys: MoodKeys?
@@ -226,6 +228,7 @@ final class MusicLibrary {
         trackCount = 0
         likedCount = 0
         walk = nil
+        holidays = HolidayIndex()
         moodKeys = nil
         earliestPlay = nil
         shuffleProgress = nil
@@ -479,6 +482,7 @@ final class MusicLibrary {
         lastRefresh = .now
         resizeWalk(to: trackCount)
         saveSnapshot()
+        if holidays.needsCount(trackCount: trackCount) { Task { await countHolidaySongs() } }
         Logger.library.info("[library] refreshed \(self.artists.count) artists, \(self.albums.count) albums, \(self.playlists.count) playlists, \(self.recentlyPlayed.count) recently played, \(self.trackCount) songs, \(self.likedCount) liked in \(sw.ms, format: .fixed(precision: 0))ms")
     }
 
@@ -518,6 +522,7 @@ final class MusicLibrary {
 
     private func loadWalk() {
         walk = store.load(ShuffleWalk.self, from: walkName)
+        loadHolidays()
         publishWalk()
     }
 
@@ -532,9 +537,13 @@ final class MusicLibrary {
         if walk == nil {
             walk = ShuffleWalk(total: total)
             Logger.shuffle.info("[shuffle] new walk over \(total) songs")
-        } else if walk?.total != total {
-            Logger.shuffle.info("[shuffle] library went \(self.walk?.total ?? 0) → \(total) songs")
+        } else if let old = walk?.total, old != total {
+            Logger.shuffle.info("[shuffle] library went \(old) → \(total) songs")
             walk?.resize(to: total)
+            if total < old, !holidays.positions.isEmpty {
+                holidays.libraryShrank()
+                saveHolidays()
+            }
         }
         saveWalk()
     }

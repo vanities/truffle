@@ -43,22 +43,79 @@ extension MusicLibrary {
     }
 
     /// Next songs of the true shuffle. Saves the walk, so the round carries on after a relaunch.
-    func nextShuffled(_ count: Int) async throws -> [Track] {
+    ///
+    /// Out of the holidays, holiday music is held back: a song only shows itself as holiday music once
+    /// it's fetched, so it goes back into the round at a random place, its position is remembered so
+    /// later draws step over it without asking, and the walk draws again. The walk is updated before
+    /// each fetch, so two shuffles running at once never draw the same position.
+    func nextShuffled(_ count: Int, now: Date = SeasonCalendar.now) async throws -> [Track] {
         if walk == nil, trackCount > 0 { walk = ShuffleWalk(total: trackCount) }
-        guard var current = walk else { return [] }
-        let positions = current.take(count)
-        walk = current
-        saveWalk()
-        let tracks = try await tracks(atPositions: positions)
-        Logger.shuffle.info("[shuffle] positions \(positions.map(String.init).joined(separator: ","), privacy: .public) → \(tracks.count) songs (round \(current.round), \(current.played)/\(current.total))")
-        return tracks
+        guard walk != nil else { return [] }
+        let holdBack = holdsBackHolidayMusic(now: now)
+        let knownBefore = holidays.positions.count
+        var picked: [Track] = []
+        var drawn: [Int] = []
+        var heldBack = 0
+        // A pass per batch of held-back finds, capped so a library of nothing but carols can't spin.
+        for _ in 0..<8 where picked.count < count {
+            guard var current = walk else { break }
+            let positions = current.take(count - picked.count, holdingBack: holdBack ? holidays.positions : [])
+            let round = current.round
+            walk = current
+            saveWalk()
+            guard !positions.isEmpty else { break }
+            drawn += positions
+            for (position, track) in try await tracks(atPositions: positions) {
+                guard let track else { continue }
+                guard HolidayMusic.isHoliday(track) else {
+                    picked.append(track)
+                    continue
+                }
+                holidays.positions.insert(Int32(clamping: position))
+                if holdBack {
+                    walk?.putBack(position, drawnInRound: round)
+                    heldBack += 1
+                    Logger.shuffle.info("[shuffle:holidays] held back \"\(track.title, privacy: .public)\" (\(track.album, privacy: .public)) at \(position): not the holidays, back in the round for later")
+                } else {
+                    picked.append(track)
+                    let reason = settings.holidaysInSeason ? "it's the holidays" : "Keep Holidays in Season is off"
+                    Logger.shuffle.info("[shuffle:holidays] \"\(track.title, privacy: .public)\" (\(track.album, privacy: .public)) at \(position) plays: \(reason, privacy: .public)")
+                }
+            }
+        }
+        if heldBack > 0 { saveWalk() }
+        if holidays.positions.count != knownBefore { saveHolidays() }
+        let progress = walk.map { "round \($0.round), \($0.played)/\($0.total)" } ?? "no walk"
+        Logger.shuffle.info("[shuffle] positions \(drawn.map(String.init).joined(separator: ","), privacy: .public) → \(picked.count) songs (\(progress, privacy: .public)), \(heldBack) held back, \(self.holidays.positions.count) holiday positions known, holding back: \(holdBack)")
+        return picked
     }
 
-    /// A uniformly random album from the whole library.
-    func randomAlbumTracks() async throws -> (Album, [Track])? {
-        guard let album = albums.randomElement() else { return nil }
-        Logger.mixes.info("[mixes] random album \(album.title, privacy: .public) of \(self.albums.count)")
-        return (album, try await tracks(of: album))
+    /// A uniformly random album from the whole library. Out of the holidays, albums titled for them sit
+    /// it out, and holiday songs on the album that comes up are left off.
+    func randomAlbumTracks(now: Date = SeasonCalendar.now) async throws -> (Album, [Track])? {
+        let holdBack = holdsBackHolidayMusic(now: now)
+        var candidates = holdBack ? albums.filter { !HolidayMusic.matches($0.title) } : albums
+        if holdBack, candidates.count < albums.count {
+            Logger.mixes.info("[mixes:holidays] roulette: \(self.albums.count - candidates.count) holiday album(s) sit this one out")
+        }
+        for _ in 0..<5 {
+            guard let album = candidates.randomElement() else { break }
+            var tracks = try await tracks(of: album)
+            if holdBack {
+                let before = tracks.count
+                tracks.removeAll(where: HolidayMusic.isHoliday)
+                if tracks.count < before {
+                    Logger.mixes.info("[mixes:holidays] roulette: left \(before - tracks.count) holiday song(s) off \(album.title, privacy: .public)")
+                }
+            }
+            if !tracks.isEmpty {
+                Logger.mixes.info("[mixes] random album \(album.title, privacy: .public) of \(candidates.count)")
+                return (album, tracks)
+            }
+            candidates.removeAll { $0.id == album.id }
+        }
+        Logger.mixes.info("[mixes] roulette came up empty")
+        return nil
     }
 
     func tracks(for mix: Mix, theme: SeasonTheme, now: Date = .now) async throws -> [Track] {
