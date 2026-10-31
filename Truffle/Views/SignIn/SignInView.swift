@@ -22,10 +22,13 @@ struct SignInView: View {
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
-            // Scrolls only when the largest text sizes need more than a screen.
-            ViewThatFits(in: .vertical) {
-                content
-                ScrollView { content }
+            // One copy of the page that scrolls only when the largest text sizes need more than a screen.
+            GeometryReader { geometry in
+                ScrollView {
+                    content
+                        .frame(minHeight: geometry.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
         // Always on the season's dark colors, so the glass and the tint take their dark forms.
