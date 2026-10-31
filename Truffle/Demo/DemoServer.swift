@@ -321,6 +321,8 @@ actor DemoServer {
             items.sort { sort.hasSuffix("desc") ? $0.addedAt > $1.addedAt : $0.addedAt < $1.addedAt }
         } else if sort.hasPrefix("lastRatedAt") {
             items.sort { sort.hasSuffix("desc") ? $0.lastRatedAt > $1.lastRatedAt : $0.lastRatedAt < $1.lastRatedAt }
+        } else if sort.hasPrefix("lastViewedAt") {
+            items.sort { sort.hasSuffix("desc") ? $0.lastViewedAt > $1.lastViewedAt : $0.lastViewedAt < $1.lastViewedAt }
         } else if sort == "titleSort" {
             items.sort { $0.titleSort.lowercased() < $1.titleSort.lowercased() }
         } else if sort == "id" {
@@ -419,6 +421,11 @@ private enum DemoItem {
         return 0
     }
 
+    var lastViewedAt: Int {
+        if case .album(let album) = self { return album.lastViewedAt ?? 0 }
+        return 0
+    }
+
     var userRating: Double {
         if case .track(let track) = self { return track.userRating ?? 0 }
         return 0
@@ -486,10 +493,14 @@ extension DemoLibrary {
     }
 
     func json(_ album: Album) -> [String: Any] {
-        ["ratingKey": album.id, "key": "/library/metadata/\(album.id)/children", "type": "album", "title": album.title,
-         "parentTitle": album.artistName, "parentRatingKey": album.artistID, "year": album.year,
-         "thumb": "/library/metadata/\(album.id)/thumb/\(Self.stamp)", "leafCount": album.trackCount, "addedAt": album.addedAt,
-         "Mood": album.moods.map { ["tag": $0] }]
+        var out: [String: Any] = [
+            "ratingKey": album.id, "key": "/library/metadata/\(album.id)/children", "type": "album", "title": album.title,
+            "parentTitle": album.artistName, "parentRatingKey": album.artistID, "year": album.year,
+            "thumb": "/library/metadata/\(album.id)/thumb/\(Self.stamp)", "leafCount": album.trackCount, "addedAt": album.addedAt,
+            "Mood": album.moods.map { ["tag": $0] },
+        ]
+        if let lastViewedAt = album.lastViewedAt { out["lastViewedAt"] = lastViewedAt }
+        return out
     }
 
     func json(_ track: Track, detailed: Bool = false) -> [String: Any] {

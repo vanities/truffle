@@ -35,7 +35,8 @@ struct HomeView: View {
                             .id("quick")
                         mixesShelf
                     }
-                    if !library.recentlyAdded.isEmpty { recentlyAddedShelf }
+                    if !library.recentlyAdded.isEmpty { albumShelf("Recently Added", library.recentlyAdded) }
+                    if !library.recentlyPlayed.isEmpty { albumShelf("Recently Played", library.recentlyPlayed) }
                     if !library.playlists.isEmpty { playlistsShelf }
                     StatusFooter()
                         .padding(.horizontal, 20)
@@ -149,12 +150,12 @@ struct HomeView: View {
         }
     }
 
-    private var recentlyAddedShelf: some View {
+    private func albumShelf(_ title: String, _ albums: [Album]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            ShelfHeader(title: "Recently Added")
+            ShelfHeader(title: title)
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 14) {
-                    ForEach(library.recentlyAdded) { album in
+                    ForEach(albums) { album in
                         NavigationLink(value: Route.album(album)) {
                             AlbumTile(album: album)
                         }

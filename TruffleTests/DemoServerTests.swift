@@ -53,6 +53,13 @@ final class DemoServerTests: XCTestCase {
 
         let albums = try await json("/library/sections/1/all?type=9")
         XCTAssertEqual(albums["totalSize"] as? Int, 22)
+
+        // Home's Recently Played shelf.
+        let played = try await json("/library/sections/1/all?type=9&sort=lastViewedAt:desc&X-Plex-Container-Size=30")
+        let stamps = ((played["Metadata"] as? [[String: Any]]) ?? []).compactMap { $0["lastViewedAt"] as? Int }
+        XCTAssertFalse(stamps.isEmpty)
+        XCTAssertEqual(stamps, stamps.sorted(by: >), "newest first")
+        XCTAssertGreaterThan(stamps[0], Int(Date().timeIntervalSince1970) - 7 * 86_400, "something played this week")
     }
 
     func testStreamsAudioInByteRanges() async throws {

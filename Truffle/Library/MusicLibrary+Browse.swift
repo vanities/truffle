@@ -112,7 +112,9 @@ extension MusicLibrary {
 
     func artist(id: String) -> Artist? { artists.first { $0.id == id } }
 
-    func album(id: String) -> Album? { albums.first { $0.id == id } ?? recentlyAdded.first { $0.id == id } }
+    func album(id: String) -> Album? {
+        albums.first { $0.id == id } ?? recentlyAdded.first { $0.id == id } ?? recentlyPlayed.first { $0.id == id }
+    }
 
     func albumArtist(for album: Album) -> Artist? {
         album.artistID.flatMap(artist(id:)) ?? artists.first { $0.title == album.artist }

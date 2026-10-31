@@ -33,6 +33,7 @@ final class MusicLibrary {
     private(set) var albums: [Album] = []
     private(set) var playlists: [Playlist] = []
     private(set) var recentlyAdded: [Album] = []
+    private(set) var recentlyPlayed: [Album] = []
     private(set) var trackCount = 0
     private(set) var likedCount = 0
     private(set) var shuffleProgress: ShuffleProgress?
@@ -219,6 +220,7 @@ final class MusicLibrary {
         albums = []
         playlists = []
         recentlyAdded = []
+        recentlyPlayed = []
         trackCount = 0
         likedCount = 0
         walk = nil
@@ -427,6 +429,7 @@ final class MusicLibrary {
             albums = []
             playlists = []
             recentlyAdded = []
+            recentlyPlayed = []
             Task { await refresh() }
         }
         Logger.library.info("[library] using section \(newSection.title, privacy: .public) (\(newSection.id, privacy: .public))")
@@ -456,22 +459,25 @@ final class MusicLibrary {
         async let artistsResult = client.get(base, PlexQuery([("type", "8"), ("sort", "titleSort")]))
         async let albumsResult = client.get(base, PlexQuery([("type", "9"), ("sort", "titleSort")]))
         async let recentResult = client.get(base, PlexQuery([("type", "9"), ("sort", "addedAt:desc")]).page(start: 0, size: 30))
+        async let playedResult = client.get(base, PlexQuery([("type", "9"), ("sort", "lastViewedAt:desc")]).page(start: 0, size: 30))
         async let playlistsResult = client.get("/playlists", PlexQuery([("playlistType", "audio")]))
         async let countResult = client.get(base, PlexQuery([("type", "10")]).page(start: 0, size: 0))
         // `userRating>` + `=8` is Plex's `userRating>=8`: four stars and up, which includes loves.
         async let likedResult = client.get(base, PlexQuery([("type", "10"), ("userRating>", "8")]).page(start: 0, size: 0))
-        let (artistList, albumList, recentList, playlistList, count, liked) = try await (artistsResult, albumsResult, recentResult,
-                                                                                        playlistsResult, countResult, likedResult)
+        let (artistList, albumList, recentList, playedList, playlistList, count, liked) = try await (
+            artistsResult, albumsResult, recentResult, playedResult, playlistsResult, countResult, likedResult)
         artists = artistList.metadata.compactMap(Artist.init)
         albums = albumList.metadata.compactMap(Album.init)
         recentlyAdded = recentList.metadata.compactMap(Album.init)
+        // Never-played albums sort last; they aren't recently played.
+        recentlyPlayed = playedList.metadata.compactMap(Album.init).filter { $0.lastViewedAt != nil }
         playlists = playlistList.metadata.compactMap(Playlist.init)
         trackCount = count.totalSize ?? count.size ?? trackCount
         likedCount = liked.totalSize ?? liked.size ?? likedCount
         lastRefresh = .now
         resizeWalk(to: trackCount)
         saveSnapshot()
-        Logger.library.info("[library] refreshed \(self.artists.count) artists, \(self.albums.count) albums, \(self.playlists.count) playlists, \(self.trackCount) songs, \(self.likedCount) liked in \(sw.ms, format: .fixed(precision: 0))ms")
+        Logger.library.info("[library] refreshed \(self.artists.count) artists, \(self.albums.count) albums, \(self.playlists.count) playlists, \(self.recentlyPlayed.count) recently played, \(self.trackCount) songs, \(self.likedCount) liked in \(sw.ms, format: .fixed(precision: 0))ms")
     }
 
     // MARK: - Snapshot
@@ -486,6 +492,7 @@ final class MusicLibrary {
         albums = snapshot.albums
         playlists = snapshot.playlists
         recentlyAdded = snapshot.recentlyAdded
+        recentlyPlayed = snapshot.recentlyPlayed ?? []
         trackCount = snapshot.trackCount
         likedCount = snapshot.likedCount
         lastRefresh = snapshot.savedAt
@@ -500,7 +507,7 @@ final class MusicLibrary {
         guard let server, let section else { return }
         store.save(LibrarySnapshot(machineIdentifier: server.machineIdentifier, sectionID: section.id, artists: artists,
                                    albums: albums, playlists: playlists, recentlyAdded: recentlyAdded,
-                                   trackCount: trackCount, likedCount: likedCount, savedAt: .now), to: snapshotName)
+                                   recentlyPlayed: recentlyPlayed, trackCount: trackCount, likedCount: likedCount, savedAt: .now), to: snapshotName)
     }
 
     // MARK: - Shuffle walk

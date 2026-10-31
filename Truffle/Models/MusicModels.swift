@@ -94,9 +94,10 @@ struct Album: Identifiable, Hashable, Codable, Sendable {
     var thumb: String?
     var trackCount: Int?
     var addedAt: Date?
+    var lastViewedAt: Date?
 
     init(id: String, title: String, artist: String, artistID: String? = nil, year: Int? = nil, thumb: String? = nil,
-         trackCount: Int? = nil, addedAt: Date? = nil) {
+         trackCount: Int? = nil, addedAt: Date? = nil, lastViewedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -105,13 +106,15 @@ struct Album: Identifiable, Hashable, Codable, Sendable {
         self.thumb = thumb
         self.trackCount = trackCount
         self.addedAt = addedAt
+        self.lastViewedAt = lastViewedAt
     }
 
     init?(_ metadata: PlexMetadata) {
         guard !metadata.ratingKey.isEmpty, metadata.type == nil || metadata.type == "album" else { return nil }
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Untitled", artist: metadata.parentTitle ?? "Unknown Artist",
                   artistID: metadata.parentRatingKey, year: metadata.year, thumb: metadata.thumb,
-                  trackCount: metadata.leafCount, addedAt: metadata.addedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
+                  trackCount: metadata.leafCount, addedAt: metadata.addedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
     }
 }
 

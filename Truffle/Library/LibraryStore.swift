@@ -10,6 +10,8 @@ struct LibrarySnapshot: Codable, Sendable {
     var albums: [Album] = []
     var playlists: [Playlist] = []
     var recentlyAdded: [Album] = []
+    /// Optional so snapshots saved before Recently Played still load.
+    var recentlyPlayed: [Album]?
     var trackCount = 0
     var likedCount = 0
     var savedAt = Date()

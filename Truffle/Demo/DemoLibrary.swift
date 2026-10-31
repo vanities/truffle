@@ -20,6 +20,8 @@ struct DemoLibrary: Sendable {
         let moods: [String]
         let trackCount: Int
         let addedAt: Int
+        /// The newest play of any of its songs, like Plex's album `lastViewedAt`.
+        var lastViewedAt: Int?
     }
 
     struct Track: Sendable {
@@ -115,6 +117,12 @@ struct DemoLibrary: Sendable {
         albumPositions = Dictionary(uniqueKeysWithValues: albums.enumerated().map { ($1.id, $0) })
         artistPositions = Dictionary(uniqueKeysWithValues: artists.enumerated().map { ($1.id, $0) })
         history = makeHistory(now: now, calendar: calendar, rng: &rng)
+        var lastPlayed: [String: Int] = [:]
+        for play in history {
+            guard let albumID = track(play.trackID)?.albumID else { continue }
+            lastPlayed[albumID] = max(lastPlayed[albumID] ?? 0, play.viewedAt)
+        }
+        for position in albums.indices { albums[position].lastViewedAt = lastPlayed[albums[position].id] }
 
         let byTitle = Dictionary(tracks.map { ($0.title, $0.id) }, uniquingKeysWith: { _, last in last })
         playlists = [Playlist(id: "900", title: "All Music", smart: true, items: nil)]
