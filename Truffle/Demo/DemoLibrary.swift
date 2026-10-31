@@ -41,6 +41,9 @@ struct DemoLibrary: Sendable {
         let albumGain: Double
         var userRating: Double?
         var lastRatedAt: Int?
+        /// From the history, as Plex reports them on songs.
+        var viewCount: Int?
+        var lastViewedAt: Int?
 
         var durationMS: Int { DemoLibrary.songLengths[song] * 1000 }
     }
@@ -119,8 +122,10 @@ struct DemoLibrary: Sendable {
         history = makeHistory(now: now, calendar: calendar, rng: &rng)
         var lastPlayed: [String: Int] = [:]
         for play in history {
-            guard let albumID = track(play.trackID)?.albumID else { continue }
-            lastPlayed[albumID] = max(lastPlayed[albumID] ?? 0, play.viewedAt)
+            guard let position = trackPositions[play.trackID] else { continue }
+            tracks[position].viewCount = (tracks[position].viewCount ?? 0) + 1
+            tracks[position].lastViewedAt = max(tracks[position].lastViewedAt ?? 0, play.viewedAt)
+            lastPlayed[tracks[position].albumID] = max(lastPlayed[tracks[position].albumID] ?? 0, play.viewedAt)
         }
         for position in albums.indices { albums[position].lastViewedAt = lastPlayed[albums[position].id] }
 
@@ -153,38 +158,57 @@ struct DemoLibrary: Sendable {
 
     // MARK: - History
 
-    /// ~900 plays over the last 32 months (plus a handful this week), each song played mostly in the
-    /// seasons its album's moods suit. Relative to `now`, so "This Time Last Year" always has something.
+    /// Listening sessions from March 2024 up to now, in the phone's time zone: the drive in, lunch, the
+    /// drive home and evenings on weekdays, lazier weekends. A few songs or most of an album at a time,
+    /// each song played mostly in the seasons its album's moods suit. Mirrors `_make_history` in
+    /// scripts/demo_server.py (the numbers differ: different random generators).
     private func makeHistory(now: Date, calendar: Calendar, rng: inout SeededGenerator) -> [Play] {
         let seasons: [String: Set<Int>] = [
             "Autumnal": [9, 10, 11], "Spooky": [10], "Eerie": [10, 11], "Nostalgic": [9, 10, 11],
             "Wintry": [12, 1, 2], "Cold": [12, 1, 2], "Ethereal": [12, 1, 2], "Summery": [6, 7, 8],
             "Carefree": [6, 7, 8], "Springlike": [3, 4, 5], "Pastoral": [3, 4, 5], "Romantic": [2],
         ]
-        let today = calendar.startOfDay(for: now)
-        guard let start = calendar.date(byAdding: .month, value: -32, to: today),
-              let days = calendar.dateComponents([.day], from: start, to: today).day, days > 0 else { return [] }
-        var plays: [Play] = []
-        func play(_ track: Track, on day: Date, rng: inout SeededGenerator) {
-            let hour = Int.random(in: 7...23, using: &rng)
-            let minute = Int.random(in: 0...59, using: &rng)
-            guard let moment = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day), moment <= now else { return }
-            plays.append(Play(trackID: track.id, viewedAt: Int(moment.timeIntervalSince1970)))
-        }
-        for _ in 0..<900 {
-            let track = tracks[Int.random(in: 0..<tracks.count, using: &rng)]
+        func suits(_ track: Track, _ month: Int) -> Bool {
             let months = Set((album(track.albumID)?.moods ?? []).flatMap { seasons[$0] ?? [] })
-            var day = start
-            for _ in 0..<12 {
-                day = calendar.date(byAdding: .day, value: Int.random(in: 0..<days, using: &rng), to: start) ?? start
-                if months.isEmpty || months.contains(calendar.component(.month, from: day)) { break }
-            }
-            play(track, on: day, rng: &rng)
+            return months.isEmpty || months.contains(month)
         }
-        for _ in 0..<24 {
-            let track = tracks[Int.random(in: 0..<tracks.count, using: &rng)]
-            let day = calendar.date(byAdding: .day, value: -Int.random(in: 0...6, using: &rng), to: today) ?? today
-            play(track, on: day, rng: &rng)
+        let byAlbum = Dictionary(grouping: tracks, by: \.albumID)
+        let albumSongs = albums.compactMap { byAlbum[$0.id] }
+        // (hour, chance of a session starting around then)
+        let weekday: [(Double, Double)] = [(7.6, 0.4), (12.3, 0.12), (17.4, 0.35), (21.0, 0.3)]
+        let weekend: [(Double, Double)] = [(10.8, 0.35), (15.0, 0.3), (20.5, 0.3)]
+        guard var day = calendar.date(from: DateComponents(year: 2024, month: 3, day: 1)), !tracks.isEmpty else { return [] }
+        let today = calendar.startOfDay(for: now)
+        var plays: [Play] = []
+        while day <= today {
+            let month = calendar.component(.month, from: day)
+            let slots = calendar.isDateInWeekend(day) ? weekend : weekday
+            for (hour, chance) in slots {
+                guard Double.random(in: 0..<1, using: &rng) < chance else { continue }
+                var session: [Track] = []
+                if Double.random(in: 0..<1, using: &rng) < 0.3 {
+                    let fitting = albumSongs.filter { suits($0[0], month) }
+                    guard !fitting.isEmpty else { continue }
+                    let songs = fitting[Int.random(in: 0..<fitting.count, using: &rng)]
+                    session = Array(songs.prefix(Int.random(in: min(3, songs.count)...songs.count, using: &rng)))
+                } else {
+                    for _ in 0..<Int.random(in: 2...5, using: &rng) {
+                        var pick = tracks[Int.random(in: 0..<tracks.count, using: &rng)]
+                        for _ in 0..<11 where !suits(pick, month) {
+                            pick = tracks[Int.random(in: 0..<tracks.count, using: &rng)]
+                        }
+                        session.append(pick)
+                    }
+                }
+                var moment = day.addingTimeInterval((hour + Double.random(in: -1...1, using: &rng)) * 3600)
+                for track in session {
+                    moment.addTimeInterval(TimeInterval(track.durationMS) / 1000)
+                    if moment > now { break }
+                    plays.append(Play(trackID: track.id, viewedAt: Int(moment.timeIntervalSince1970)))
+                }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
         }
         return plays.sorted { $0.viewedAt < $1.viewedAt }
     }

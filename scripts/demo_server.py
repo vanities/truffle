@@ -177,6 +177,8 @@ class Library:
             track = self.by_id[play["ratingKey"]]
             track["viewCount"] = track.get("viewCount", 0) + 1
             track["lastViewedAt"] = max(track.get("lastViewedAt", 0), play["viewedAt"])
+            # Albums too: Home's Recently Played sorts them by it.
+            track["_album"]["lastViewedAt"] = max(track["_album"].get("lastViewedAt", 0), play["viewedAt"])
         return sorted(plays, key=lambda play: play["viewedAt"])
 
     # MARK: shapes
@@ -439,6 +441,8 @@ class Handler(BaseHTTPRequestHandler):
             items = sorted(items, key=lambda i: i.get("addedAt", 0), reverse=sort.endswith("desc"))
         elif sort.startswith("lastRatedAt"):
             items = sorted(items, key=lambda i: i.get("lastRatedAt", 0), reverse=sort.endswith("desc"))
+        elif sort.startswith("lastViewedAt"):
+            items = sorted(items, key=lambda i: i.get("lastViewedAt", 0), reverse=sort.endswith("desc"))
         elif sort == "titleSort":
             items = sorted(items, key=lambda i: i.get("titleSort", i["title"]).lower())
         elif sort == "id":

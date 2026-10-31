@@ -52,16 +52,21 @@ class ASC:
             key_path = ROOT / key_path
         if not key_path.exists():
             sys.exit(f"private key not found at {key_path}")
-        now = int(time.time())
-        self.token = jwt.encode(
-            {"iss": env["APPSTORE_CONNECT_ISSUER_ID"], "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
-            key_path.read_text(),
-            algorithm="ES256",
-            headers={"kid": env["APPSTORE_CONNECT_KEY_ID"], "typ": "JWT"},
-        )
+        self._key = key_path.read_text()
+        self._issuer = env["APPSTORE_CONNECT_ISSUER_ID"]
+        self._key_id = env["APPSTORE_CONNECT_KEY_ID"]
+        self._minted = 0
+        self.token = ""
         self.bundle_id = env["APPSTORE_CONNECT_BUNDLE_ID"]
 
     def _headers(self) -> dict[str, str]:
+        # Apple's tokens last 20 minutes at most, and `ci --wait` outlives one: mint a fresh one every 15.
+        if time.time() - self._minted > 15 * 60:
+            self._minted = int(time.time())
+            self.token = jwt.encode(
+                {"iss": self._issuer, "iat": self._minted, "exp": self._minted + 1200, "aud": "appstoreconnect-v1"},
+                self._key, algorithm="ES256", headers={"kid": self._key_id, "typ": "JWT"},
+            )
         return {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
 
     def get(self, path: str, params: dict | None = None) -> dict:

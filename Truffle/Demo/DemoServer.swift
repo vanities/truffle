@@ -514,6 +514,8 @@ extension DemoLibrary {
         ]
         if let rating = track.userRating { out["userRating"] = rating }
         if let rated = track.lastRatedAt { out["lastRatedAt"] = rated }
+        if let count = track.viewCount { out["viewCount"] = count }
+        if let played = track.lastViewedAt { out["lastViewedAt"] = played }
         var part: [String: Any] = ["key": "/library/parts/\(track.id)/\(Self.stamp)/file.m4a", "container": "mp4", "duration": track.durationMS]
         if detailed {
             part["Stream"] = [["streamType": 2, "codec": "aac", "selected": true, "loudness": "\(track.loudness)",
