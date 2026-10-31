@@ -94,6 +94,22 @@ extension MusicLibrary {
         return found.sorted { $0.0 < $1.0 }.compactMap(\.1)
     }
 
+    /// This year's skill-made playlist for a mix's theme ("halloween", "fall"…), if there is one.
+    func curatedPlaylist(for mix: Mix, year: Int = Calendar.current.component(.year, from: .now)) -> Playlist? {
+        guard mix.kind == .moment || mix.kind == .season, let theme = mix.art?.lowercased() else { return nil }
+        return playlists.first { $0.mixTag?.theme == theme && $0.mixTag?.year == year }
+    }
+
+    func allTracks(of playlist: Playlist) async throws -> [Track] {
+        var all: [Track] = []
+        while all.count < playlist.trackCount {
+            let page = try await tracks(of: playlist, start: all.count, size: 500)
+            if page.isEmpty { break }
+            all += page
+        }
+        return all
+    }
+
     func artist(id: String) -> Artist? { artists.first { $0.id == id } }
 
     func album(id: String) -> Album? { albums.first { $0.id == id } ?? recentlyAdded.first { $0.id == id } }

@@ -75,6 +75,22 @@ final class PlexDecodingTests: XCTestCase {
         XCTAssertEqual(sections.map(\.key), ["3", "4"])
     }
 
+    func testSkillMadeMixesCarryTheirThemeYearPosterAndBlurb() throws {
+        let json = """
+        {"MediaContainer":{"Metadata":[{"ratingKey":"55312","title":"🎃 Halloween 2026","smart":false,"leafCount":51,
+        "summary":"Spooky, but make it bop. truffle-mix:halloween:2026","thumb":"/library/metadata/55312/thumb/1793408015",
+        "composite":"/playlists/55312/composite/1793408015"},{"ratingKey":"7","title":"Road Trip","leafCount":3,
+        "composite":"/playlists/7/composite/1"}]}}
+        """
+        let playlists = try container(json).metadata.compactMap(Playlist.init)
+        XCTAssertEqual(playlists[0].mixTag?.theme, "halloween")
+        XCTAssertEqual(playlists[0].mixTag?.year, 2026)
+        XCTAssertEqual(playlists[0].blurb, "Spooky, but make it bop.")
+        XCTAssertEqual(playlists[0].thumb, "/library/metadata/55312/thumb/1793408015", "a custom poster beats the collage")
+        XCTAssertNil(playlists[1].mixTag)
+        XCTAssertEqual(playlists[1].thumb, "/playlists/7/composite/1")
+    }
+
     func testResourcesBecomeServersWithAPlainHomeAddressToo() throws {
         let json = """
         [{"name":"NAS","provides":"server","clientIdentifier":"abc","owned":true,"accessToken":"t",

@@ -9,7 +9,7 @@ Auth: OPENAI_API_KEY (Adam's, per his instruction 2026-10-30), from the environm
 in this repo, then ../game/.env where the art pipeline keeps it. Nothing secret is printed.
 
     uv run --script scripts/generate-art.py icons            # icon concepts → build/art/icon-*.png
-    uv run --script scripts/generate-art.py icon-set CONCEPT # AppIcon, -Dark, -Tinted into the asset catalog
+    uv run --script scripts/generate-art.py icon-set CONCEPT [--name AppIcon-Note]  # light/dark/tinted icon set
     uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mix-*.imageset
 """
 from __future__ import annotations
@@ -134,8 +134,9 @@ def cmd_icons(key: str, concepts: list[str]) -> None:
     print(f"[art] icon concepts in {OUT}")
 
 
-def cmd_icon_set(key: str, concept: str) -> None:
-    folder = ASSETS / "AppIcon.appiconset"
+def cmd_icon_set(key: str, concept: str, name: str = "AppIcon") -> None:
+    folder = ASSETS / f"{name}.appiconset"
+    folder.mkdir(parents=True, exist_ok=True)
     light = OUT / f"icon-{concept}.png"
     light_image = Image.open(light).convert("RGB") if light.exists() else generate(icon_prompt(concept, *LIGHT), key, "high", "icon light")
     dark_image = generate(icon_prompt(concept, *DARK), key, "high", "icon dark")
@@ -154,9 +155,15 @@ def cmd_icon_set(key: str, concept: str) -> None:
         ],
         "info": {"author": "xcode", "version": 1},
     }, indent=2))
-    mark = ASSETS / "Mark.imageset"
-    light_image.resize((512, 512), Image.LANCZOS).save(mark / "Mark.png")
-    print(f"[art] icon set written from concept {concept}")
+    if name == "AppIcon":
+        light_image.resize((512, 512), Image.LANCZOS).save(ASSETS / "Mark.imageset" / "Mark.png")
+    # Settings shows each icon; an app icon set can't be loaded as an image, so keep a small copy.
+    preview = ASSETS / f"IconPreview-{concept}.imageset"
+    preview.mkdir(parents=True, exist_ok=True)
+    light_image.resize((180, 180), Image.LANCZOS).save(preview / "icon.png")
+    (preview / "Contents.json").write_text(json.dumps(
+        {"images": [{"filename": "icon.png", "idiom": "universal"}], "info": {"author": "xcode", "version": 1}}, indent=2))
+    print(f"[art] {name} written from concept {concept}")
 
 
 def cmd_mixes(key: str, keys: list[str]) -> None:
@@ -181,6 +188,7 @@ def main() -> None:
     icons.add_argument("concepts", nargs="*", default=list(ICON_CONCEPTS))
     icon_set = sub.add_parser("icon-set")
     icon_set.add_argument("concept", choices=list(ICON_CONCEPTS))
+    icon_set.add_argument("--name", default="AppIcon")
     mixes = sub.add_parser("mixes")
     mixes.add_argument("keys", nargs="*", default=list(MIXES))
     args = parser.parse_args()
@@ -189,7 +197,7 @@ def main() -> None:
     if args.command == "icons":
         cmd_icons(key, args.concepts)
     elif args.command == "icon-set":
-        cmd_icon_set(key, args.concept)
+        cmd_icon_set(key, args.concept, args.name)
     else:
         cmd_mixes(key, args.keys)
 

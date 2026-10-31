@@ -181,6 +181,14 @@ final class PlayerEngine {
         isLoading = true
         notify()
         do {
+            if let curated = library.curatedPlaylist(for: mix) {
+                // A hand-picked mix plays in the order it was sequenced.
+                let tracks = try await library.allTracks(of: curated)
+                if !tracks.isEmpty {
+                    play(tracks, source: PlaySource(kind: .playlist, title: curated.title, id: curated.id))
+                    return
+                }
+            }
             if mix.kind == .randomAlbum, let (album, tracks) = try await library.randomAlbumTracks() {
                 play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
                 return

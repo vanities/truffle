@@ -75,6 +75,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
     var smart: Bool?
     var playlistItemID: Int?
     var librarySectionID: String?
+    var summary: String?
     var media: [PlexMedia] = []
     var moods: [String] = []
     var genres: [String] = []
@@ -89,7 +90,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
         case ratingKey, key, type, title, originalTitle, parentTitle, grandparentTitle, parentRatingKey,
              grandparentRatingKey, index, parentIndex, year, parentYear, duration, thumb, parentThumb,
              grandparentThumb, composite, leafCount, childCount, viewCount, userRating, addedAt,
-             lastViewedAt, viewedAt, smart, playlistItemID, librarySectionID
+             lastViewedAt, viewedAt, smart, playlistItemID, librarySectionID, summary
         case media = "Media", mood = "Mood", genre = "Genre"
     }
 
@@ -123,6 +124,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
         smart = c.flexibleBool(.smart)
         playlistItemID = c.flexibleInt(.playlistItemID)
         librarySectionID = c.flexibleString(.librarySectionID)
+        summary = c.flexibleString(.summary)
         media = c.lossyArray(PlexMedia.self, .media)
         moods = c.lossyArray(PlexTag.self, .mood).map(\.tag)
         genres = c.lossyArray(PlexTag.self, .genre).map(\.tag)

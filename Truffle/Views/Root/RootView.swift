@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(PlayerEngine.self) private var player
     @Environment(SeasonClock.self) private var season
     @Environment(AppRouter.self) private var router
+    @Environment(AppSettings.self) private var settings
     @Environment(\.scenePhase) private var scenePhase
     @State private var tab: AppTab = .home
 
@@ -36,9 +37,14 @@ struct RootView: View {
             router.say(message)
             player.clearError()
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { season.refresh() }
+        // `initial`: a launch starts already active, so there's no change to see.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active else { return }
+            season.refresh()
+            AppIconSwitcher.apply(settings: settings, theme: season.theme)
         }
+        .onChange(of: settings.appIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
+        .onChange(of: settings.seasonalIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
         .onChange(of: library.phase == .signedOut) { _, signedOut in
             // Signing in again (after signing out from Settings) starts at Home.
             if signedOut { tab = .home }

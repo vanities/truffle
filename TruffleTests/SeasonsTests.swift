@@ -50,6 +50,14 @@ final class SeasonsTests: XCTestCase {
         XCTAssertEqual(theme.particles, .embers)
     }
 
+    func testTheNoteIconComesOutForFall() {
+        let halloween = SeasonCalendar.theme(for: date(2026, 10, 30), southern: false, calendar: calendar)
+        let winter = SeasonCalendar.theme(for: date(2027, 1, 15), southern: false, calendar: calendar)
+        XCTAssertEqual(AppIconChoice.choice(chosen: .headphones, matchSeason: true, theme: halloween), .note)
+        XCTAssertEqual(AppIconChoice.choice(chosen: .record, matchSeason: true, theme: winter), .record)
+        XCTAssertEqual(AppIconChoice.choice(chosen: .headphones, matchSeason: false, theme: halloween), .headphones)
+    }
+
     func testAutomaticHemisphereGoesByTimeZone() {
         XCTAssertFalse(Hemisphere.automatic.isSouthern(timeZone: TimeZone(identifier: "America/Chicago")!))
         XCTAssertTrue(Hemisphere.automatic.isSouthern(timeZone: TimeZone(identifier: "Australia/Sydney")!))

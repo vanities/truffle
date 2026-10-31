@@ -100,7 +100,8 @@ struct HomeView: View {
                     Button {
                         start(mix)
                     } label: {
-                        MixCard(mix: mix, theme: season.theme, variant: index, isStarting: startingMix == mix.id, width: nil)
+                        MixCard(mix: mix, theme: season.theme, variant: index, isStarting: startingMix == mix.id,
+                                curated: library.curatedPlaylist(for: mix), width: nil)
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -129,7 +130,8 @@ struct HomeView: View {
                         Button {
                             start(mix)
                         } label: {
-                            MixCard(mix: mix, theme: season.theme, variant: index, isStarting: startingMix == mix.id)
+                            MixCard(mix: mix, theme: season.theme, variant: index, isStarting: startingMix == mix.id,
+                                    curated: library.curatedPlaylist(for: mix))
                         }
                         .buttonStyle(PressableStyle())
                     }
@@ -275,8 +277,12 @@ struct MixCard: View {
     let theme: SeasonTheme
     let variant: Int
     let isStarting: Bool
+    /// This year's hand-picked playlist for the theme: its title, one-liner and poster win.
+    var curated: Playlist?
     /// Fixed on the phone's shelf; nil fills a grid cell.
     var width: CGFloat? = 168
+
+    private var hasArt: Bool { curated?.thumb != nil || mix.art.flatMap { UIImage(named: "Mix-\($0)") } != nil }
 
     private var colors: [Color] {
         let base = theme.colors + [theme.accentColor]
@@ -294,7 +300,7 @@ struct MixCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 // The art says it already; the symbol is for cards without art.
-                if mix.art.flatMap({ UIImage(named: "Mix-\($0)") }) == nil {
+                if !hasArt {
                     Image(systemName: mix.symbol)
                         .font(.system(size: 30, weight: .semibold))
                 }
@@ -302,10 +308,10 @@ struct MixCard: View {
                 if isStarting { ProgressView().tint(.white) }
             }
             Spacer(minLength: 0)
-            Text(mix.title)
+            Text(curated?.title ?? mix.title)
                 .font(.headline)
                 .lineLimit(2)
-            Text(mix.subtitle)
+            Text(curated?.blurb ?? mix.subtitle)
                 .font(.caption.weight(.medium))
                 .opacity(0.85)
                 .lineLimit(2)
@@ -315,12 +321,16 @@ struct MixCard: View {
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .foregroundStyle(.white)
         .background {
-            if let art = mix.art, UIImage(named: "Mix-\(art)") != nil {
+            let fade = LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.72), location: 1)],
+                                      startPoint: .top, endPoint: .bottom)
+            if let poster = curated?.thumb {
+                ArtworkView(thumb: poster, pixels: 600, cornerRadius: 0)
+                    .overlay(fade)
+            } else if let art = mix.art, UIImage(named: "Mix-\(art)") != nil {
                 Image("Mix-\(art)")
                     .resizable()
                     .scaledToFill()
-                    .overlay(LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.72), location: 1)],
-                                            startPoint: .top, endPoint: .bottom))
+                    .overlay(fade)
             } else {
                 LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
             }

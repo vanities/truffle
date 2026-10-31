@@ -53,6 +53,37 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    HStack(spacing: 18) {
+                        ForEach(AppIconChoice.allCases, id: \.self) { choice in
+                            Button {
+                                settings.appIcon = choice
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(choice.preview)
+                                        .resizable()
+                                        .frame(width: 64, height: 64)
+                                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                                        .overlay {
+                                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                                .strokeBorder(.tint, lineWidth: settings.appIcon == choice ? 3 : 0)
+                                        }
+                                    Text(choice.title).font(.caption)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(settings.appIcon == choice ? .isSelected : [])
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    Toggle("Match the Season", isOn: $settings.seasonalIcon)
+                } header: {
+                    Text("App Icon")
+                } footer: {
+                    Text("The note shows up in the fall.")
+                }
+
+                Section {
                     Toggle("Seasonal Effects", isOn: $settings.seasonalEffects)
                     Picker("Hemisphere", selection: $settings.hemisphere) {
                         Text("Automatic").tag(Hemisphere.automatic)

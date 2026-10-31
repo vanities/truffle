@@ -142,21 +142,40 @@ struct Playlist: Identifiable, Hashable, Codable, Sendable {
     var trackCount: Int
     var duration: TimeInterval
     var thumb: String?
+    var summary: String?
 
-    init(id: String, title: String, isSmart: Bool, trackCount: Int, duration: TimeInterval = 0, thumb: String? = nil) {
+    init(id: String, title: String, isSmart: Bool, trackCount: Int, duration: TimeInterval = 0, thumb: String? = nil,
+         summary: String? = nil) {
         self.id = id
         self.title = title
         self.isSmart = isSmart
         self.trackCount = trackCount
         self.duration = duration
         self.thumb = thumb
+        self.summary = summary
     }
 
     init?(_ metadata: PlexMetadata) {
         guard !metadata.ratingKey.isEmpty else { return nil }
+        // A playlist only has `thumb` once someone gives it a poster; otherwise Plex's collage.
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Playlist", isSmart: metadata.smart ?? false,
                   trackCount: metadata.leafCount ?? 0, duration: TimeInterval(metadata.duration ?? 0) / 1000,
-                  thumb: metadata.composite ?? metadata.thumb)
+                  thumb: metadata.thumb ?? metadata.composite, summary: metadata.summary)
+    }
+
+    /// A seasonal mix made by the seasonal-mix skill: its summary ends with `truffle-mix:<theme>:<year>`.
+    var mixTag: (theme: String, year: Int)? {
+        guard let tag = summary?.split(separator: " ").last(where: { $0.hasPrefix("truffle-mix:") }) else { return nil }
+        let parts = tag.split(separator: ":")
+        guard parts.count == 3, let year = Int(parts[2]) else { return nil }
+        return (String(parts[1]), year)
+    }
+
+    /// The summary without the tag: the mix's one-liner.
+    var blurb: String? {
+        guard let summary else { return nil }
+        let words = summary.split(separator: " ").filter { !$0.hasPrefix("truffle-mix:") }
+        return words.isEmpty ? nil : words.joined(separator: " ")
     }
 
     /// Big smart playlists ("All Music") shuffle by walking random positions instead of
