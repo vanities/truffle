@@ -10,6 +10,7 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py screenshots DIR       # upload marketing/iphone (6.9" iPhone) or marketing/ipad (13" iPad)
   uv run --script scripts/appstore.py attach-build [N]      # bind a processed TestFlight build (default: newest) to the version
   uv run --script scripts/appstore.py status                # print what App Store Connect has
+  uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
 """
 from __future__ import annotations
 
@@ -99,11 +100,14 @@ AGE_RATING = {
     "koreaAgeRatingOverride": "NONE",
 }
 
-REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing in uses Plex's own PIN sign-in on plex.tv (the app never sees a password), and the app then plays music from the user's own Plex server.
+REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing in with Plex needs your own Plex server with music, so the app includes a built-in demo:
 
-To test: sign in with a Plex account that has a Plex Media Server with a music library. Shuffle All on Home starts playback; the season's mixes, Library, Search and the player work from there. Playback continues in the background and from the lock screen and CarPlay, which is why audio is declared in UIBackgroundModes.
+1. On the first screen, tap "Take it for a spin."
+2. Truffle opens a demo library of made-up artists and albums with sample songs. No account or server is needed.
+3. Try Shuffle All on Home, the seasonal mixes, Library, Search, the heart, Add to Playlist, the player, AirPlay and CarPlay.
+4. Settings > Sign Out returns to the first screen.
 
-The app has no developer-operated backend and collects no data."""
+Audio keeps playing in the background, on the lock screen and in CarPlay, which is why audio is declared in UIBackgroundModes. The app has no developer-operated backend and collects no data."""
 
 # The App Review contact is the same person for every AM2 LLC app: copied from Earmark's live
 # listing at run time, so it isn't written into this public repo.
@@ -245,12 +249,19 @@ def cmd_setup(asc: Store, phone: str | None) -> None:
     set_free_price(asc, app_id)
     set_availability(asc, app_id)
 
-    print("\nStill manual in App Store Connect: App Privacy → 'Data Not Collected' (Get Started → No → Publish),")
-    print("and the review contact phone number under Version → App Review Information.")
+    print("\nStill manual in App Store Connect: App Privacy → 'Data Not Collected' (Get Started → No → Publish).")
 
 
 # Folder name under marketing/ → App Store Connect slot. 1320x2868 goes in the 6.9" slot, 2064x2752 in the 13" one.
 DISPLAY_TYPES = {"iphone": "APP_IPHONE_67", "ipad": "APP_IPAD_PRO_3GEN_129"}
+
+
+def cmd_beta_review(asc: Store) -> None:
+    """TestFlight's Beta App Review gets the same way in as App Review: the demo, no sign-in."""
+    app = asc.app() or sys.exit("no app record")
+    detail = asc.get(f"/v1/apps/{app['id']}/betaAppReviewDetail").get("data") or sys.exit("no beta review details yet")
+    report("beta review: demo notes, no sign-in", asc.patch_ok(f"/v1/betaAppReviewDetails/{detail['id']}", {"data": {
+        "type": "betaAppReviewDetails", "id": detail["id"], "attributes": {"notes": REVIEW_NOTES, "demoAccountRequired": False}}}))
 
 
 def cmd_screenshots(asc: Store, directory: Path) -> None:
@@ -362,6 +373,7 @@ def main() -> None:
     shots = sub.add_parser("screenshots"); shots.add_argument("directory")
     attach = sub.add_parser("attach-build"); attach.add_argument("build", nargs="?")
     sub.add_parser("status")
+    sub.add_parser("beta-review")
     submit = sub.add_parser("submit"); submit.add_argument("--dry-run", action="store_true")
     sub.add_parser("submission-status")
     args = parser.parse_args()
@@ -375,6 +387,7 @@ def main() -> None:
         case "screenshots": cmd_screenshots(asc, Path(args.directory))
         case "attach-build": cmd_attach_build(asc, args.build)
         case "status": cmd_status(asc)
+        case "beta-review": cmd_beta_review(asc)
         case "submit": cmd_submit(asc, args.dry_run)
         case "submission-status": cmd_submission_status(asc)
 
