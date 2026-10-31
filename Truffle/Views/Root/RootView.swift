@@ -126,17 +126,22 @@ struct RootView: View {
         }
     }
 
-    /// "Night Drive": a name, a description, a cover cut from a bundled demo cover, and five liked songs.
+    /// "Night Drive": a name, a description, three songs a search for "light" finds and two liked ones,
+    /// and a cover cut like a photo would be: the top of a demo cover (no lettering) as a wide image,
+    /// which `CoverImage` squares.
     private func debugDraft() async -> PlaylistDraft {
-        let songs = Array(((try? await library.likedTracks()) ?? []).prefix(5))
-        var draft = PlaylistDraft.new(with: songs, opensWhenSaved: true)
+        let found = ((try? await library.search("light", limit: 40))?.tracks ?? []).prefix(3)
+        let liked = ((try? await library.likedTracks()) ?? []).filter { song in !found.contains { $0.id == song.id } }.prefix(2)
+        var draft = PlaylistDraft.new(with: Array(found) + Array(liked), opensWhenSaved: true)
         draft.title = "Night Drive"
         draft.summary = "Windows down, volume up."
-        if let url = Bundle.main.url(forResource: "DemoLibrary", withExtension: nil)?.appending(path: "covers/long-night-radio.jpg"),
-           let data = try? Data(contentsOf: url) {
-            draft.cover = CoverImage.squareJPEG(from: data)
+        if let url = Bundle.main.url(forResource: "DemoLibrary", withExtension: nil)?.appending(path: "covers/neon-drive.jpg"),
+           let image = UIImage(contentsOfFile: url.path())?.cgImage,
+           let top = image.cropping(to: CGRect(x: 0, y: 0, width: image.width, height: image.height * 7 / 10)),
+           let photo = UIImage(cgImage: top).jpegData(compressionQuality: 0.95) {
+            draft.cover = CoverImage.squareJPEG(from: photo)
         }
-        Logger.ui.info("[debug] draft with \(songs.count) song(s), cover \(draft.cover?.count ?? 0)B")
+        Logger.ui.info("[debug] draft with \(draft.songs.count) song(s), cover \(draft.cover?.count ?? 0)B")
         return draft
     }
     #endif
