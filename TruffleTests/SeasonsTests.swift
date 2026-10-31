@@ -28,9 +28,12 @@ final class SeasonsTests: XCTestCase {
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 10, 30), calendar: calendar), .halloween)
         XCTAssertNil(SeasonCalendar.moment(for: date(2026, 10, 14), calendar: calendar))
         XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 1), calendar: calendar))
-        // Thanksgiving 2026 is November 26; the holidays start the day after.
+        // Thanksgiving 2026 is November 26: its week is the 20th through the 26th, and the holidays
+        // start the day after.
         XCTAssertEqual(SeasonCalendar.thanksgiving(year: 2026, calendar: calendar), date(2026, 11, 26, hour: 0))
-        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 26), calendar: calendar))
+        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 19), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 20), calendar: calendar), .thanksgiving)
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 26), calendar: calendar), .thanksgiving)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 27), calendar: calendar), .christmas)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 12, 25), calendar: calendar), .christmas)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 12, 31), calendar: calendar), .newYear)

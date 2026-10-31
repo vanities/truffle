@@ -138,7 +138,7 @@ struct PlaylistsView: View {
         .overlay {
             if library.playlists.isEmpty {
                 ContentUnavailableView("No Playlists", systemImage: "music.note.list",
-                                       description: Text("Long-press a song and choose Add to Playlist to start one."))
+                                       description: Text("Long-press a song to start one."))
             }
         }
         .refreshable { await library.refreshPlaylists() }
@@ -177,8 +177,7 @@ struct LikedView: View {
             if loading && tracks.isEmpty {
                 ProgressView()
             } else if tracks.isEmpty {
-                ContentUnavailableView("Nothing Liked Yet", systemImage: "heart",
-                                       description: Text("Tap the heart on the player to like a song."))
+                ContentUnavailableView("No Likes Yet", systemImage: "heart", description: Text("Tap the heart. Go on."))
             }
         }
         .task { await load() }

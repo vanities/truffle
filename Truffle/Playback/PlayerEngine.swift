@@ -144,7 +144,7 @@ final class PlayerEngine {
             play(all, source: source, shuffled: true)
         } catch {
             isLoading = false
-            errorMessage = "Couldn't load \(playlist.title): \(error.localizedDescription)"
+            errorMessage = "\(playlist.title) didn't load."
             notify()
         }
     }
@@ -157,7 +157,7 @@ final class PlayerEngine {
             let tracks = try await library.nextShuffled(5, from: newFeed)
             guard !tracks.isEmpty else {
                 isLoading = false
-                errorMessage = "Your library is empty."
+                errorMessage = "Your library's empty. Huh."
                 notify()
                 return
             }
@@ -167,7 +167,7 @@ final class PlayerEngine {
             load(autoplay: true)
         } catch {
             isLoading = false
-            errorMessage = "Couldn't start the shuffle: \(error.localizedDescription)"
+            errorMessage = "Shuffle hiccup. Try again?"
             Logger.player.error("[player] shuffle failed: \(error.localizedDescription, privacy: .public)")
             notify()
         }
@@ -188,14 +188,14 @@ final class PlayerEngine {
             let tracks = try await library.tracks(for: mix, theme: theme)
             guard !tracks.isEmpty else {
                 isLoading = false
-                errorMessage = "Nothing in \(mix.title) yet."
+                errorMessage = "\(mix.title) came up empty."
                 notify()
                 return
             }
             play(tracks, source: PlaySource(kind: mix.kind == .liked ? .liked : .mix, title: mix.title, id: mix.id))
         } catch {
             isLoading = false
-            errorMessage = "Couldn't load \(mix.title): \(error.localizedDescription)"
+            errorMessage = "\(mix.title) didn't load. Try again?"
             Logger.player.error("[player] mix \(mix.title, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
             notify()
         }
@@ -349,7 +349,7 @@ final class PlayerEngine {
         do {
             try await library.setLiked(track, !library.isLiked(track))
         } catch {
-            errorMessage = "Couldn't update the like: \(error.localizedDescription)"
+            errorMessage = "The heart didn't stick."
             notify()
         }
     }
@@ -397,7 +397,7 @@ final class PlayerEngine {
                 if library.client != nil, needsLoad { load(autoplay: playWhenReady, startTime: startTime) }
                 else if needsLoad {
                     isLoading = false
-                    errorMessage = "Can't reach \(library.serverName) right now."
+                    errorMessage = "\(library.serverName) isn't answering."
                     notify()
                 }
             }
@@ -594,7 +594,7 @@ final class PlayerEngine {
         Logger.player.error("[player] item failed (attempt \(self.recoveryAttempts + 1)): \(message, privacy: .public)")
         recoveryAttempts += 1
         guard recoveryAttempts <= 2 else {
-            errorMessage = "Couldn't play \(current?.title ?? "this song")."
+            errorMessage = "\(current?.title ?? "That song") wouldn't play. Skipped it."
             recoveryAttempts = 0
             if queue.indexForNext() != nil { next() } else { stop(clearing: false) }
             return

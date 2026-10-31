@@ -25,7 +25,7 @@ struct SignInView: View {
                 VStack(spacing: 8) {
                     Text("Truffle")
                         .font(.system(size: 44, weight: .heavy, design: .rounded))
-                    Text("Your Plex music, made for the car.")
+                    Text("Plex music, but sweeter.")
                         .font(.title3)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.85))
@@ -46,7 +46,7 @@ struct SignInView: View {
                             if waiting {
                                 HStack(spacing: 10) {
                                     ProgressView().tint(.white)
-                                    Text("Waiting for Plex…")
+                                    Text("Waiting on Plex…")
                                 }
                             } else {
                                 Text("Sign in with Plex")
@@ -58,7 +58,7 @@ struct SignInView: View {
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
                     .disabled(waiting)
-                    Text("You sign in on plex.tv. Truffle never sees your password.")
+                    Text("We never see your password. Pinky promise.")
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.75))
                         .multilineTextAlignment(.center)
@@ -97,7 +97,7 @@ struct SignInView: View {
             }
             await tasks.browser?.value
             await tasks.poll?.value
-            if !library.isSignedIn { problem = "Not signed in. Try again when you're ready." }
+            if !library.isSignedIn { problem = "No luck. Try again?" }
         } catch {
             problem = error.localizedDescription
             Logger.auth.error("[auth] sign in failed: \(error.localizedDescription, privacy: .public)")

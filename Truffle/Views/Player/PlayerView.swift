@@ -165,7 +165,7 @@ struct PlayerView: View {
             }
             .foregroundStyle(.secondary)
             if player.source?.kind == .shuffleAll, let progress = library.shuffleProgress {
-                Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped) songs, every one equally likely")
+                Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

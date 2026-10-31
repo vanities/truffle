@@ -38,7 +38,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Playback")
                 } footer: {
-                    Text("Uses your server's loudness analysis, so a quiet old record and a loud new one play at about the same volume. Albums played in order keep their own dynamics.")
+                    Text("Keeps loud songs from shouting.")
                 }
 
                 Section {
@@ -49,7 +49,7 @@ struct SettingsView: View {
                 } header: {
                     Text("True Shuffle")
                 } footer: {
-                    Text("Shuffle All plays every song once, in a random order, before any song plays twice. No song is favored: not by ratings, plays, or how popular it is.")
+                    Text("Every song once before any song twice. No favorites.")
                 }
 
                 Section {
@@ -62,7 +62,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Seasons")
                 } footer: {
-                    Text("Right now it's \(season.theme.title.lowercased() == season.theme.season.title.lowercased() ? season.theme.title.lowercased() : "\(season.theme.title) (\(season.theme.season.title.lowercased()))"). The colors, the falling things on Home, and the mixes follow the season.")
+                    Text("Right now: \(season.theme.title).")
                 }
 
                 Section {
@@ -80,12 +80,12 @@ struct SettingsView: View {
             .confirmationDialog("Sign out of Plex?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) { library.signOut() }
             } message: {
-                Text("Your music stays on your server. Truffle forgets the sign-in and the queue.")
+                Text("Your music stays put.")
             }
             .confirmationDialog("Start a new shuffle round?", isPresented: $confirmingNewRound, titleVisibility: .visible) {
                 Button("Start Over") { library.startNewShuffleRound() }
             } message: {
-                Text("Songs you've heard this round can come up again.")
+                Text("Everything goes back in the hat.")
             }
         }
     }

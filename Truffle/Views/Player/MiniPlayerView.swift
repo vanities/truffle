@@ -102,7 +102,7 @@ struct QueueView: View {
                     Text("Up Next")
                 } footer: {
                     if player.isEndless {
-                        Text("Truffle keeps adding songs as you go, in true random order.")
+                        Text("More where these came from.")
                     }
                 }
             }

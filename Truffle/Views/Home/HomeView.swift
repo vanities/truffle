@@ -110,7 +110,7 @@ struct HomeView: View {
 
     private var quickButtons: some View {
         HStack(spacing: 12) {
-            QuickButton(title: "Random Album", symbol: "square.stack.fill", isStarting: startingMix == Mix.randomAlbum.id) {
+            QuickButton(title: Mix.randomAlbum.title, symbol: "square.stack.fill", isStarting: startingMix == Mix.randomAlbum.id) {
                 start(.randomAlbum)
             }
             NavigationLink(value: Route.liked) {
@@ -244,14 +244,14 @@ struct ShuffleAllCard: View {
                     Spacer(minLength: 0)
                     Text("Shuffle All")
                         .font(.system(size: 34, weight: .heavy, design: .rounded))
-                    Text(trackCount > 0 ? "\(trackCount.grouped) songs, every one equally likely" : "Every song, truly random")
+                    Text(trackCount > 0 ? "\(trackCount.grouped) songs. No favorites." : "No favorites.")
                         .font(.subheadline.weight(.medium))
                         .opacity(0.9)
                     if let progress, progress.total > 0 {
                         ProgressView(value: Double(progress.played), total: Double(progress.total))
                             .tint(.white)
                             .padding(.top, 4)
-                        Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped) songs")
+                        Text("Round \(progress.round) · \(progress.played.grouped) of \(progress.total.grouped)")
                             .font(.caption.weight(.medium))
                             .opacity(0.8)
                     }
@@ -265,7 +265,7 @@ struct ShuffleAllCard: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("Shuffle All")
-        .accessibilityHint("Plays every song in a truly random order")
+        .accessibilityHint("Every song, no favorites")
     }
 }
 
@@ -293,8 +293,11 @@ struct MixCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Image(systemName: mix.symbol)
-                    .font(.system(size: 30, weight: .semibold))
+                // The art says it already; the symbol is for cards without art.
+                if mix.art.flatMap({ UIImage(named: "Mix-\($0)") }) == nil {
+                    Image(systemName: mix.symbol)
+                        .font(.system(size: 30, weight: .semibold))
+                }
                 Spacer()
                 if isStarting { ProgressView().tint(.white) }
             }
@@ -311,7 +314,17 @@ struct MixCard: View {
         .frame(width: width, height: 196, alignment: .leading)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .foregroundStyle(.white)
-        .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+        .background {
+            if let art = mix.art, UIImage(named: "Mix-\(art)") != nil {
+                Image("Mix-\(art)")
+                    .resizable()
+                    .scaledToFill()
+                    .overlay(LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.72), location: 1)],
+                                            startPoint: .top, endPoint: .bottom))
+            } else {
+                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: colors[1].opacity(0.35), radius: 12, y: 6)
         .accessibilityElement(children: .combine)
@@ -406,7 +419,7 @@ struct StatusFooter: View {
             switch library.phase {
             case .connecting:
                 ProgressView()
-                Text("Connecting to \(library.serverName)…")
+                Text("Finding \(library.serverName)…")
             case .unreachable(let message), .failed(let message):
                 Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
                 Text(message)

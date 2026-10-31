@@ -59,7 +59,7 @@ enum Season: String, Codable, CaseIterable, Sendable {
 
 /// A stretch of the year with its own look and mix, on top of the season.
 enum Moment: String, Codable, CaseIterable, Sendable {
-    case halloween, christmas, newYear, valentines
+    case halloween, thanksgiving, christmas, newYear, valentines
 }
 
 struct RGB: Equatable, Sendable {
@@ -83,7 +83,7 @@ struct MoodRecipe: Equatable, Sendable {
     let primary: [String]
     let secondary: [String]
 
-    static let nightDrive = MoodRecipe(title: "Night Drive", subtitle: "Nocturnal and hypnotic", symbol: "moon.haze.fill",
+    static let nightDrive = MoodRecipe(title: "Night Drive", subtitle: "Headlights on", symbol: "moon.haze.fill",
                                        primary: ["Nocturnal"], secondary: ["Hypnotic", "Atmospheric", "Dreamy"])
 }
 
@@ -124,10 +124,14 @@ enum SeasonCalendar {
         case (2, 7...14): return .valentines
         case (12, 1...26): return .christmas
         case (11, _):
-            // Christmas music starts the day after Thanksgiving (US: the fourth Thursday).
+            // Thanksgiving week is the seven days ending on the day (US: the fourth Thursday); Christmas
+            // music starts the day after.
             let year = calendar.component(.year, from: date)
-            guard let thanksgiving = thanksgiving(year: year, calendar: calendar) else { return nil }
-            return calendar.startOfDay(for: date) > thanksgiving ? .christmas : nil
+            guard let thanksgiving = thanksgiving(year: year, calendar: calendar),
+                  let weekBefore = calendar.date(byAdding: .day, value: -6, to: thanksgiving) else { return nil }
+            let day = calendar.startOfDay(for: date)
+            if day > thanksgiving { return .christmas }
+            return day >= weekBefore ? .thanksgiving : nil
         default: return nil
         }
     }
@@ -143,20 +147,20 @@ enum SeasonCalendar {
         case .fall:
             SeasonTheme(season: .fall, moment: nil, title: "Fall", greeting: "Sweater weather", particles: .leaves,
                         palette: [RGB(0x3A1C12), RGB(0xB5532A), RGB(0xF2A541)], accent: RGB(0xE8762D),
-                        recipe: MoodRecipe(title: "Fall Mix", subtitle: "Autumnal and wistful", symbol: "leaf.fill",
+                        recipe: MoodRecipe(title: "Fall Mix", subtitle: "Leaf peeping", symbol: "leaf.fill",
                                            primary: ["Autumnal"], secondary: ["Wistful", "Bittersweet", "Nostalgic", "Earthy"]))
         case .winter:
             SeasonTheme(season: .winter, moment: nil, title: "Winter", greeting: "Bundle up", particles: .snow,
                         palette: [RGB(0x0E1A33), RGB(0x2E5A8C), RGB(0xA9D2FF)], accent: RGB(0x4A9DEB),
-                        recipe: MoodRecipe(title: "Winter Mix", subtitle: "Cold nights, quiet songs", symbol: "snowflake",
+                        recipe: MoodRecipe(title: "Winter Mix", subtitle: "Brr.", symbol: "snowflake",
                                            primary: ["Wintry", "Cold"], secondary: ["Ethereal", "Somber", "Calm/Peaceful", "Introspective"]))
         case .spring:
-            SeasonTheme(season: .spring, moment: nil, title: "Spring", greeting: "Windows down", particles: .petals,
+            SeasonTheme(season: .spring, moment: nil, title: "Spring", greeting: "Hello, pollen", particles: .petals,
                         palette: [RGB(0x1C2E1F), RGB(0x5E9A62), RGB(0xF6B8C8)], accent: RGB(0xD9577F),
-                        recipe: MoodRecipe(title: "Spring Mix", subtitle: "Fresh air", symbol: "camera.macro",
+                        recipe: MoodRecipe(title: "Spring Mix", subtitle: "Windows down", symbol: "camera.macro",
                                            primary: ["Springlike", "Pastoral"], secondary: ["Uplifting", "Cheerful", "Gentle", "Light"]))
         case .summer:
-            SeasonTheme(season: .summer, moment: nil, title: "Summer", greeting: "Long days", particles: .fireflies,
+            SeasonTheme(season: .summer, moment: nil, title: "Summer", greeting: "SPF on", particles: .fireflies,
                         palette: [RGB(0x10233B), RGB(0x1F8A8A), RGB(0xFFD166)], accent: RGB(0xE8960C),
                         recipe: MoodRecipe(title: "Summer Mix", subtitle: "Sun's out", symbol: "sun.max.fill",
                                            primary: ["Summery"], secondary: ["Carefree", "Exuberant", "Playful", "Celebratory"]))
@@ -168,22 +172,27 @@ enum SeasonCalendar {
         case .halloween:
             SeasonTheme(season: season, moment: .halloween, title: "Halloween", greeting: "Spooky season", particles: .embers,
                         palette: [RGB(0x14091F), RGB(0x4B1D5E), RGB(0xFF7518)], accent: RGB(0xF2711C),
-                        recipe: MoodRecipe(title: "Halloween Mix", subtitle: "Spooky, eerie, ominous", symbol: "moon.stars.fill",
+                        recipe: MoodRecipe(title: "Halloween Mix", subtitle: "Boo.", symbol: "moon.stars.fill",
                                            primary: ["Spooky", "Eerie"], secondary: ["Ominous", "Menacing", "Malevolent", "Dark"]))
+        case .thanksgiving:
+            SeasonTheme(season: season, moment: .thanksgiving, title: "Thanksgiving", greeting: "Pass the pie", particles: .leaves,
+                        palette: [RGB(0x2B170D), RGB(0xA0522D), RGB(0xF2B661)], accent: RGB(0xD9772B),
+                        recipe: MoodRecipe(title: "Thanksgiving Mix", subtitle: "Gobble gobble", symbol: "fork.knife",
+                                           primary: ["Warm", "Autumnal"], secondary: ["Earthy", "Nostalgic", "Celebratory"]))
         case .christmas:
-            SeasonTheme(season: season, moment: .christmas, title: "The Holidays", greeting: "Happy holidays", particles: .lights,
+            SeasonTheme(season: season, moment: .christmas, title: "The Holidays", greeting: "Jingle all the way", particles: .lights,
                         palette: [RGB(0x0F2A1D), RGB(0x8E1B2B), RGB(0xF4D35E)], accent: RGB(0xD7263D),
-                        recipe: MoodRecipe(title: "Holiday Mix", subtitle: "Warm and wintry", symbol: "gift.fill",
+                        recipe: MoodRecipe(title: "Holiday Mix", subtitle: "Cozy mode", symbol: "gift.fill",
                                            primary: ["Wintry"], secondary: ["Warm", "Sentimental", "Celebratory"]))
         case .newYear:
             SeasonTheme(season: season, moment: .newYear, title: "New Year", greeting: "Ring it in", particles: .confetti,
                         palette: [RGB(0x0B0B1A), RGB(0x2B2D6E), RGB(0xE8C547)], accent: RGB(0xD4A72C),
-                        recipe: MoodRecipe(title: "New Year Mix", subtitle: "Big and bright", symbol: "sparkles",
+                        recipe: MoodRecipe(title: "New Year Mix", subtitle: "Confetti required", symbol: "sparkles",
                                            primary: ["Celebratory", "Euphoric"], secondary: ["Rousing", "Triumphant", "Exuberant"]))
         case .valentines:
             SeasonTheme(season: season, moment: .valentines, title: "Valentine's", greeting: "Be mine", particles: .hearts,
                         palette: [RGB(0x2A0A18), RGB(0x9E1F4F), RGB(0xFF8FAB)], accent: RGB(0xF0436A),
-                        recipe: MoodRecipe(title: "Love Songs", subtitle: "Romantic and tender", symbol: "heart.fill",
+                        recipe: MoodRecipe(title: "Love Songs", subtitle: "Smooch-adjacent", symbol: "heart.fill",
                                            primary: ["Romantic"], secondary: ["Tender", "Sensual", "Passionate", "Intimate"]))
         }
     }

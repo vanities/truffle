@@ -39,3 +39,24 @@ demo: build     ## Install and launch against the demo server
 
 clean:
 	rm -rf build/DerivedData build/DerivedData-device
+
+# ---------------------------------------------------------------------------
+# TestFlight, as Earmark does it. .env.appstore-connect (gitignored) holds the App Store Connect
+# key; `upload` deliberately uses the Apple ID signed into Xcode instead (the key can't cloud-sign).
+# ---------------------------------------------------------------------------
+-include .env.appstore-connect
+export
+ARCHIVE = build/Truffle.xcarchive
+ASC_AUTH = $(if $(APPSTORE_CONNECT_KEY_ID),-authenticationKeyPath "$(APPSTORE_CONNECT_KEY_FILE)" -authenticationKeyID "$(APPSTORE_CONNECT_KEY_ID)" -authenticationKeyIssuerID "$(APPSTORE_CONNECT_ISSUER_ID)",)
+
+archive: gen    ## Release archive for iOS devices
+	xcodebuild archive -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
+	  -destination 'generic/platform=iOS' -archivePath $(ARCHIVE) -allowProvisioningUpdates $(ASC_AUTH) | tail -5
+
+# System PATH only: Xcode's IPA step runs Apple's rsync with -E, which breaks if Homebrew's rsync is found first.
+upload:         ## Sign for App Store Connect and upload the archive (TestFlight)
+	PATH=/usr/bin:/bin:/usr/sbin:/sbin xcodebuild -exportArchive -archivePath $(ARCHIVE) -exportOptionsPlist ExportOptions.plist \
+	  -exportPath build/export -allowProvisioningUpdates | tail -5
+
+testflight: archive upload ## Archive + upload
+	@echo "Uploaded. Processing takes a few minutes; then: uv run --script scripts/testflight.py status"

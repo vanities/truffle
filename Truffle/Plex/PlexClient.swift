@@ -15,7 +15,7 @@ enum PlexError: LocalizedError, Equatable {
         case .http(let status, _): "Plex answered with an error (\(status))."
         case .unauthorized: "Plex says this sign-in isn't valid anymore. Sign in again."
         case .decoding: "Plex sent something Truffle couldn't read."
-        case .unreachable(let server): "Can't reach \(server) right now."
+        case .unreachable(let server): "\(server) isn't answering."
         case .noServer: "There's no Plex Media Server on this account."
         case .noMusicLibrary: "This server has no music library."
         case .signInExpired: "The sign-in code expired. Try again."

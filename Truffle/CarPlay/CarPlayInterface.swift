@@ -36,7 +36,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         let libraryList = CPListTemplate(title: "Library", sections: [])
         libraryList.tabTitle = "Library"
         libraryList.tabImage = UIImage(systemName: "square.stack.fill")
-        libraryList.emptyViewTitleVariants = ["Connecting to Plex…"]
+        libraryList.emptyViewTitleVariants = ["Finding Plex…"]
         homeTemplate = home
         playlistsTemplate = playlists
         libraryTemplate = libraryList
@@ -73,7 +73,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         switch mix.kind {
         case .lastYear: "Last Year"
         case .seasonFavorites: "Favorites"
-        case .randomAlbum: "Album"
+        case .randomAlbum: "Roulette"
         default: mix.title
         }
     }

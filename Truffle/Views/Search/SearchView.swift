@@ -57,8 +57,7 @@ struct SearchView: View {
                 } else if text.count >= 2 && results.isEmpty {
                     ContentUnavailableView.search(text: text)
                 } else if text.isEmpty {
-                    ContentUnavailableView("Search Your Library", systemImage: "magnifyingglass",
-                                           description: Text("Artists, albums and songs on \(library.serverName)."))
+                    ContentUnavailableView("What are we listening to?", systemImage: "magnifyingglass")
                 }
             }
             .task(id: text) {

@@ -15,7 +15,7 @@ struct TrackMenu: View {
         }
         Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") {
             player.addToQueue([track])
-            router.say("Added to the queue")
+            router.say("Queued")
         }
         let liked = library.isLiked(track)
         Button(liked ? "Unlike" : "Like", systemImage: liked ? "heart.slash" : "heart") {
@@ -23,7 +23,7 @@ struct TrackMenu: View {
                 do {
                     try await library.setLiked(track, !liked)
                 } catch {
-                    router.say("Couldn't update the like")
+                    router.say("The heart didn't stick")
                 }
             }
         }

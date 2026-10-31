@@ -243,7 +243,7 @@ final class MusicLibrary {
             }
         }
         guard let found else {
-            phase = .unreachable("Can't reach \(serverName) right now.")
+            phase = .unreachable("\(serverName) isn't answering.")
             Logger.library.error("[library] no address for \(self.serverName, privacy: .public) answered (\(sw.ms, format: .fixed(precision: 0))ms)")
             return
         }
@@ -264,7 +264,7 @@ final class MusicLibrary {
         } catch let error as PlexError {
             phase = .failed(error.localizedDescription)
         } catch {
-            phase = .unreachable("Can't reach \(serverName) right now.")
+            phase = .unreachable("\(serverName) isn't answering.")
             Logger.library.error("[library] connect failed: \(error.localizedDescription, privacy: .public)")
         }
     }
