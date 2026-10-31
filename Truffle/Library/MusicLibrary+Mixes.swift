@@ -8,7 +8,40 @@ struct MoodKeys: Sendable {
     var track: [String: String]
 }
 
+/// Where an endless shuffle draws from.
+enum ShuffleFeed: Codable, Hashable, Sendable {
+    case library
+    /// A big playlist (a smart "All Music"), walked by position instead of downloaded whole.
+    case playlist(id: String, total: Int)
+}
+
 extension MusicLibrary {
+    func nextShuffled(_ count: Int, from feed: ShuffleFeed) async throws -> [Track] {
+        switch feed {
+        case .library:
+            return try await nextShuffled(count)
+        case .playlist(let id, let total):
+            var walk = playlistWalks[id] ?? ShuffleWalk(total: total)
+            let positions = walk.take(count)
+            playlistWalks[id] = walk
+            let found = try await withClient("playlist positions") { client in
+                try await withThrowingTaskGroup(of: (Int, Track?).self) { group in
+                    for (order, position) in positions.enumerated() {
+                        group.addTask {
+                            let container = try await client.get("/playlists/\(id)/items", PlexQuery().page(start: position, size: 1))
+                            return (order, container.metadata.first.flatMap(Track.init))
+                        }
+                    }
+                    var results: [(Int, Track?)] = []
+                    for try await result in group { results.append(result) }
+                    return results
+                }
+            }
+            Logger.shuffle.info("[shuffle] playlist \(id, privacy: .public): \(walk.played)/\(walk.total) this round")
+            return found.sorted { $0.0 < $1.0 }.compactMap(\.1)
+        }
+    }
+
     /// Next songs of the true shuffle. Saves the walk, so the round carries on after a relaunch.
     func nextShuffled(_ count: Int) async throws -> [Track] {
         if walk == nil, trackCount > 0 { walk = ShuffleWalk(total: trackCount) }

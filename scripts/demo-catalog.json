@@ -1,0 +1,78 @@
+{
+  "_note": "Invented artists, albums and songs for screenshots and simulator runs. Nothing anyone owns.",
+  "artists": [
+    {"name": "The Lantern Hours", "colors": ["#3B1F12", "#C2662D", "#F4B860"], "albums": [
+      {"title": "Harvest Moon Parade", "year": 2019, "style": "sun", "moods": ["Autumnal", "Warm", "Wistful"], "colors": ["#2B1408", "#B4501F", "#F2A541"],
+       "tracks": ["Harvest Moon Parade", "Cider Mill Road", "Leaves on the Windshield", "Flannel Weather", "Porch Light Waltz", "October Postcard", "The Long Way Home", "Hayride"]},
+      {"title": "Kindling", "year": 2022, "style": "rings", "moods": ["Autumnal", "Nostalgic"], "colors": ["#1E120C", "#8C3B1E", "#E8913A"],
+       "tracks": ["Kindling", "Woodstove Hymn", "First Frost", "Smoke Signals", "Grandfather's Radio", "Amber Hours", "Bring the Blankets In"]}
+    ]},
+    {"name": "Velvet Static", "colors": ["#141433", "#5B4FB5", "#F2A7D8"], "albums": [
+      {"title": "Night Swimming", "year": 2021, "style": "waves", "moods": ["Nocturnal", "Dreamy"], "colors": ["#0B1030", "#3D3A8F", "#9AD1F5"],
+       "tracks": ["Night Swimming", "Pool Lights", "Slow Satellite", "Chlorine Dreams", "Underwater Radio", "Glow Stick", "Two A.M. Static", "Drift"]},
+      {"title": "Halo Arcade", "year": 2018, "style": "grid", "moods": ["Summery", "Playful"], "colors": ["#2A0F3A", "#D9488F", "#FFD166"],
+       "tracks": ["Halo Arcade", "Prize Counter", "Pinball Heart", "Token Sky", "High Score Summer", "Claw Machine Love"]}
+    ]},
+    {"name": "Marrow & Moth", "colors": ["#120914", "#4B1D5E", "#FF7518"], "albums": [
+      {"title": "Hollow Choir", "year": 2020, "style": "moon", "moods": ["Spooky", "Eerie", "Ominous"], "colors": ["#0B0610", "#3A1550", "#C9B6E4"],
+       "tracks": ["Hollow Choir", "The House Breathes", "Moth to the Porch Light", "Séance in B Minor", "Cellar Door", "Whispering Pines", "Nobody Lives Here", "Bell Tower"]},
+      {"title": "Candle Season", "year": 2023, "style": "flame", "moods": ["Spooky", "Autumnal"], "colors": ["#140A06", "#7A2E12", "#FF8A2A"],
+       "tracks": ["Candle Season", "Pumpkin Light", "The Long October", "Ghost in the Orchard", "Lantern Walk", "Midnight Cider", "Bone Moon", "Last Leaves"]}
+    ]},
+    {"name": "Juniper Kite", "colors": ["#16301F", "#5E9A62", "#F6B8C8"], "albums": [
+      {"title": "Paper Orchards", "year": 2017, "style": "petals", "moods": ["Springlike", "Pastoral"], "colors": ["#1C2E1F", "#6FAE74", "#F9C6D3"],
+       "tracks": ["Paper Orchards", "Rain on the Greenhouse", "Bicycle Bell", "Blossom Season", "Meadowlark", "Open Windows", "Garden Party"]},
+      {"title": "Sunroom", "year": 2024, "style": "sun", "moods": ["Summery", "Carefree"], "colors": ["#0F2F3A", "#1F8A8A", "#FFD166"],
+       "tracks": ["Sunroom", "Lemonade Stand", "Sprinklers", "Tan Lines", "Fireflies in a Jar", "Late Light", "Screen Door"]}
+    ]},
+    {"name": "Glass Cathedral", "colors": ["#0E1A33", "#2E5A8C", "#A9D2FF"], "albums": [
+      {"title": "Snowlight", "year": 2016, "style": "snow", "moods": ["Wintry", "Cold", "Ethereal"], "colors": ["#0A1426", "#2E5A8C", "#DCEBFF"],
+       "tracks": ["Snowlight", "Frozen Lake", "Hush", "Northern Window", "White Static", "Breath on Glass", "Silent Bells"]},
+      {"title": "Long Night Radio", "year": 2022, "style": "rings", "moods": ["Nocturnal", "Hypnotic"], "colors": ["#07091A", "#23306B", "#7EA6FF"],
+       "tracks": ["Long Night Radio", "Signal Lost", "Overpass", "Insomnia FM", "Headlights", "Dawn Patrol"]}
+    ]},
+    {"name": "Dusk Motel", "colors": ["#1A0B2E", "#C13C7A", "#FF9E5E"], "albums": [
+      {"title": "Neon Drive", "year": 2020, "style": "grid", "moods": ["Nocturnal", "Driving"], "colors": ["#12061F", "#7B2CBF", "#FF5D8F"],
+       "tracks": ["Neon Drive", "Interstate Lights", "Motel Pool", "Chrome Hearts", "Exit 44", "Rear View", "Vacancy", "Sunrise Over the Strip"]},
+      {"title": "Afterglow FM", "year": 2019, "style": "sun", "moods": ["Summery", "Euphoric"], "colors": ["#2A0E2E", "#E0457B", "#FFC25C"],
+       "tracks": ["Afterglow FM", "Palm Shadows", "Radio Kiss", "Heatwave", "Coastline", "Golden Static"]}
+    ]},
+    {"name": "Ana Ríos", "colors": ["#2A1410", "#B5452F", "#F2C078"], "albums": [
+      {"title": "Cielo de Otoño", "year": 2021, "style": "petals", "moods": ["Autumnal", "Romantic"], "colors": ["#24100C", "#A8402A", "#F5C77E"],
+       "tracks": ["Cielo de Otoño", "Café con Lluvia", "Bailar Despacio", "Hojas", "La Ventana", "Mi Casa, Tu Casa", "Noviembre"]}
+    ]},
+    {"name": "Copper Lake", "colors": ["#22160E", "#8C5A2B", "#E0B07A"], "albums": [
+      {"title": "Woodsmoke", "year": 2018, "style": "rings", "moods": ["Autumnal", "Earthy"], "colors": ["#1A110A", "#7A4B22", "#D8A15E"],
+       "tracks": ["Woodsmoke", "Cabin Fever", "Pine Needle Floor", "Canoe", "Blue Ridge Morning", "Split Rail Fence", "Low Fire"]},
+      {"title": "Ice Road", "year": 2023, "style": "snow", "moods": ["Wintry"], "colors": ["#0F1A24", "#40627E", "#CFE4F2"],
+       "tracks": ["Ice Road", "Snow Chains", "Diner at Midnight", "Plow Truck Prayer", "Cold Hands", "Thaw"]}
+    ]},
+    {"name": "Saint Ember", "colors": ["#1C0806", "#9E1F1F", "#FF9F43"], "albums": [
+      {"title": "Bonfire Hymns", "year": 2022, "style": "flame", "moods": ["Rousing", "Celebratory"], "colors": ["#1F0A04", "#B83A12", "#FFB347"],
+       "tracks": ["Bonfire Hymns", "Sparks Fly Up", "Friday Lights", "Homecoming", "Stand on the Bleachers", "Burn Bright"]},
+      {"title": "Witching Hour", "year": 2024, "style": "moon", "moods": ["Spooky", "Menacing"], "colors": ["#0A0610", "#5A1A2E", "#FF6B3D"],
+       "tracks": ["Witching Hour", "Black Cat Crossing", "Full Moon Fever", "Crossroads", "Hex", "The Thirteenth Chime"]}
+    ]},
+    {"name": "Mira Sol", "colors": ["#2A0A18", "#E0457B", "#FFD6A5"], "albums": [
+      {"title": "Golden Hour", "year": 2023, "style": "sun", "moods": ["Summery", "Celebratory"], "colors": ["#2E1206", "#E36A2E", "#FFD166"],
+       "tracks": ["Golden Hour", "Rooftop", "Sundress", "Summer Rain", "Fireworks", "Slow Dance in the Kitchen"]},
+      {"title": "Valentine Tapes", "year": 2020, "style": "petals", "moods": ["Romantic", "Tender"], "colors": ["#2A0A18", "#9E1F4F", "#FF8FAB"],
+       "tracks": ["Valentine Tapes", "Mixtape for You", "Polaroid", "Hold Still", "Sweater Sleeves", "Forever-ish"]}
+    ]},
+    {"name": "The Northern Lights Society", "colors": ["#061A1A", "#167A6A", "#9FF5D0"], "albums": [
+      {"title": "Aurora", "year": 2015, "style": "waves", "moods": ["Wintry", "Ethereal"], "colors": ["#04121A", "#12705F", "#B8FFE0"],
+       "tracks": ["Aurora", "Polar Night", "Solar Wind", "The Green Veil", "Midwinter", "Return of the Sun"]}
+    ]},
+    {"name": "Low Tide Club", "colors": ["#0C1F2B", "#2B7A9E", "#F2E6C9"], "albums": [
+      {"title": "Boardwalk Ghosts", "year": 2021, "style": "moon", "moods": ["Eerie", "Nostalgic"], "colors": ["#0B1620", "#35546B", "#F0D9A8"],
+       "tracks": ["Boardwalk Ghosts", "Closed for the Season", "Funhouse Mirror", "Salt Air", "Carousel at Night", "Tide Pools"]},
+      {"title": "Riptide", "year": 2019, "style": "waves", "moods": ["Exuberant", "Summery"], "colors": ["#08263A", "#1C8FC2", "#FFE08A"],
+       "tracks": ["Riptide", "Surf Report", "Sandcastle", "Sunburn", "Bonfire on the Beach", "Last Wave"]}
+    ]}
+  ],
+  "playlists": [
+    {"title": "Road Trip", "pick": ["Neon Drive", "Interstate Lights", "Exit 44", "Riptide", "Surf Report", "Golden Hour", "Rooftop", "Heatwave", "Coastline", "Sunroom", "Lemonade Stand", "Late Light", "Bonfire Hymns", "Friday Lights", "Burn Bright", "Halo Arcade", "Pinball Heart", "High Score Summer", "Afterglow FM", "Palm Shadows"]},
+    {"title": "Late Night", "pick": ["Night Swimming", "Two A.M. Static", "Drift", "Long Night Radio", "Insomnia FM", "Headlights", "Overpass", "Neon Drive", "Motel Pool", "Rear View", "Snowlight", "Hush", "Polar Night"]},
+    {"title": "Halloween Party", "pick": ["Hollow Choir", "The House Breathes", "Séance in B Minor", "Cellar Door", "Pumpkin Light", "Ghost in the Orchard", "Bone Moon", "Witching Hour", "Black Cat Crossing", "Full Moon Fever", "Hex", "The Thirteenth Chime", "Boardwalk Ghosts", "Funhouse Mirror"]}
+  ]
+}

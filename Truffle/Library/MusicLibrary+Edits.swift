@@ -13,7 +13,7 @@ extension MusicLibrary {
         var updated = track
         updated.userRating = liked ? 10 : nil
         Logger.library.info("[library] \(liked ? "liked" : "unliked", privacy: .public) \(track.title, privacy: .public)")
-        noteRatingChanged(updated, wasLiked: track.isLiked)
+        noteRatingChanged(updated, wasLiked: isLiked(track))
         return updated
     }
 

@@ -10,6 +10,8 @@ final class AppEnvironment {
     let library: MusicLibrary
     let player: PlayerEngine
     let nowPlaying: NowPlayingController
+    let season: SeasonClock
+    let router: AppRouter
 
     private init() {
         let sw = Stopwatch()
@@ -18,6 +20,8 @@ final class AppEnvironment {
         library = MusicLibrary(identity: .current(), settings: settings)
         player = PlayerEngine(library: library, settings: settings)
         nowPlaying = NowPlayingController(player: player, library: library)
+        season = SeasonClock(settings: settings)
+        router = AppRouter()
         nowPlaying.activate()
         #if DEBUG
         let arguments = UserDefaults.standard
@@ -31,7 +35,4 @@ final class AppEnvironment {
         #endif
         Logger.ui.info("[app] environment ready in \(sw.ms, format: .fixed(precision: 1))ms")
     }
-
-    /// The seasonal look and mixes for right now.
-    var theme: SeasonTheme { SeasonCalendar.theme(for: .now, southern: settings.isSouthern) }
 }

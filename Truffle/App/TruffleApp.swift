@@ -12,6 +12,8 @@ struct TruffleApp: App {
                 .environment(environment.library)
                 .environment(environment.player)
                 .environment(environment.settings)
+                .environment(environment.season)
+                .environment(environment.router)
         }
         .onChange(of: scenePhase) { _, phase in
             Logger.ui.debug("[app] scene phase \(String(describing: phase), privacy: .public)")

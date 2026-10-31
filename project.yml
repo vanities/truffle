@@ -40,6 +40,11 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Truffle
+        # iPhone Duo layouts (ArrangementView) need the 27.1+ SDK; see docs/iphone-duo.md.
+        "SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.1]": "$(inherited) IPHONE_DUO_LAYOUTS"
+        "SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.1]": "$(inherited) IPHONE_DUO_LAYOUTS"
+        "SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.2]": "$(inherited) IPHONE_DUO_LAYOUTS"
+        "SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.2]": "$(inherited) IPHONE_DUO_LAYOUTS"
         PRODUCT_BUNDLE_IDENTIFIER: com.vanities.truffle
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Truffle/Resources/Info.plist

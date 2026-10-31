@@ -23,7 +23,7 @@ struct PlayerState: Codable, Sendable {
     var queue: PlayQueue
     var time: TimeInterval
     var source: PlaySource?
-    var endless: Bool
+    var feed: ShuffleFeed?
     var savedAt: Date
 }
 
@@ -37,8 +37,9 @@ final class PlayerEngine {
     private(set) var isLoading = false
     private(set) var currentTime: TimeInterval = 0
     private(set) var errorMessage: String?
-    /// Shuffle All: the queue tops itself up from the library's true shuffle as it runs low.
-    private(set) var isEndless = false
+    /// Shuffle All (or a big playlist's shuffle): the queue tops itself up as it runs low.
+    private(set) var feed: ShuffleFeed?
+    var isEndless: Bool { feed != nil }
 
     var current: Track? { queue.current }
     var duration: TimeInterval { current?.duration ?? 0 }
@@ -113,7 +114,7 @@ final class PlayerEngine {
             start = 0
         }
         Logger.player.info("[player] play \(source.kind.rawValue, privacy: .public) \"\(source.title, privacy: .public)\" \(list.count) songs from \(start) shuffled=\(shuffled)")
-        isEndless = false
+        feed = nil
         self.source = source
         queue.replace(with: list, startAt: start)
         load(autoplay: true)
@@ -121,25 +122,53 @@ final class PlayerEngine {
 
     /// Every song in the library in a true random order, one round before any repeat.
     func shuffleAll() async {
-        Logger.player.info("[player] shuffle all")
+        await startShuffle(.library, source: .shuffleAll)
+    }
+
+    /// A playlist in a true random order. Big ones are walked by position, not downloaded.
+    func shuffle(_ playlist: Playlist) async {
+        let source = PlaySource(kind: .playlist, title: playlist.title, id: playlist.id)
+        if playlist.isLarge {
+            await startShuffle(.playlist(id: playlist.id, total: playlist.trackCount), source: source)
+            return
+        }
         isLoading = true
         notify()
         do {
-            let tracks = try await library.nextShuffled(5)
+            var all: [Track] = []
+            while all.count < playlist.trackCount {
+                let page = try await library.tracks(of: playlist, start: all.count, size: 500)
+                if page.isEmpty { break }
+                all += page
+            }
+            play(all, source: source, shuffled: true)
+        } catch {
+            isLoading = false
+            errorMessage = "Couldn't load \(playlist.title): \(error.localizedDescription)"
+            notify()
+        }
+    }
+
+    private func startShuffle(_ newFeed: ShuffleFeed, source newSource: PlaySource) async {
+        Logger.player.info("[player] shuffle \(newSource.title, privacy: .public)")
+        isLoading = true
+        notify()
+        do {
+            let tracks = try await library.nextShuffled(5, from: newFeed)
             guard !tracks.isEmpty else {
                 isLoading = false
                 errorMessage = "Your library is empty."
                 notify()
                 return
             }
-            isEndless = true
-            source = .shuffleAll
+            feed = newFeed
+            source = newSource
             queue.replace(with: tracks, startAt: 0)
             load(autoplay: true)
         } catch {
             isLoading = false
             errorMessage = "Couldn't start the shuffle: \(error.localizedDescription)"
-            Logger.player.error("[player] shuffle all failed: \(error.localizedDescription, privacy: .public)")
+            Logger.player.error("[player] shuffle failed: \(error.localizedDescription, privacy: .public)")
             notify()
         }
     }
@@ -299,10 +328,26 @@ final class PlayerEngine {
 
     func cycleRepeat() { repeatMode = repeatMode.next }
 
+    /// Puts what's coming up in a new random order (what's playing keeps playing).
+    func shuffleUpcoming() {
+        var upcoming = Array(queue.upcoming)
+        guard upcoming.count > 1 else { return }
+        upcoming.shuffle()
+        let played = Array(queue.played)
+        let current = queue.current.map { [$0] } ?? []
+        let mode = queue.repeatMode
+        queue.replace(with: played + current + upcoming, startAt: played.count)
+        queue.repeatMode = mode
+        Logger.player.info("[player] shuffled \(upcoming.count) upcoming")
+        preloadNext()
+        save()
+        notify()
+    }
+
     func toggleLike() async {
         guard let track = current else { return }
         do {
-            try await library.setLiked(track, !track.isLiked)
+            try await library.setLiked(track, !library.isLiked(track))
         } catch {
             errorMessage = "Couldn't update the like: \(error.localizedDescription)"
             notify()
@@ -321,7 +366,7 @@ final class PlayerEngine {
         if clearing {
             queue = PlayQueue()
             source = nil
-            isEndless = false
+            feed = nil
             currentTime = 0
             library.store.remove(Self.stateFile)
         }
@@ -458,7 +503,11 @@ final class PlayerEngine {
 
     private func applyVolume() {
         guard let track = current else { return }
-        let volume = settings.evenOutVolume ? Loudness.volume(for: track, albumMode: source?.albumInOrder == true) : 1
+        var volume = settings.evenOutVolume ? Loudness.volume(for: track, albumMode: source?.albumInOrder == true) : 1
+        #if DEBUG
+        // `-TruffleMute YES`: test runs against a real library play silently.
+        if UserDefaults.standard.bool(forKey: "TruffleMute") { volume = 0 }
+        #endif
         player.volume = volume
         Logger.player.debug("[player] volume \(volume, format: .fixed(precision: 2)) (loudness \(track.loudness ?? .nan, format: .fixed(precision: 1)))")
     }
@@ -474,8 +523,9 @@ final class PlayerEngine {
         guard !toppingUp else { return }
         toppingUp = true
         defer { toppingUp = false }
+        guard let feed else { return }
         do {
-            let more = try await library.nextShuffled(5)
+            let more = try await library.nextShuffled(5, from: feed)
             queue.append(more)
             Logger.player.info("[player] shuffle topped up +\(more.count), \(self.queue.upcoming.count) upcoming")
             if thenAdvance, let index = queue.indexForNext() {
@@ -686,7 +736,7 @@ final class PlayerEngine {
         var saved = queue
         // A long shuffle session needn't save hundreds of songs already played.
         saved.trimPlayed(keeping: 50)
-        library.store.save(PlayerState(queue: saved, time: currentTime, source: source, endless: isEndless, savedAt: .now),
+        library.store.save(PlayerState(queue: saved, time: currentTime, source: source, feed: feed, savedAt: .now),
                            to: Self.stateFile)
     }
 
@@ -694,7 +744,7 @@ final class PlayerEngine {
         guard let state = library.store.load(PlayerState.self, from: Self.stateFile), !state.queue.isEmpty else { return }
         queue = state.queue
         source = state.source
-        isEndless = state.endless
+        feed = state.feed
         currentTime = state.time
         pendingSeek = state.time > 1 ? state.time : nil
         needsLoad = true

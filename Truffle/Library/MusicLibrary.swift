@@ -37,8 +37,9 @@ final class MusicLibrary {
     private(set) var likedCount = 0
     private(set) var shuffleProgress: ShuffleProgress?
     private(set) var lastRefresh: Date?
-    /// Bumped whenever a song's rating changes, so lists showing hearts redraw.
-    private(set) var ratingsVersion = 0
+    /// Likes changed in this session, so every list showing a song shows its heart right away
+    /// (lists hold the copies they fetched).
+    private(set) var likedOverrides: [String: Bool] = [:]
 
     /// The player swaps upcoming songs onto the new address when the connection changes.
     @ObservationIgnored var onEndpointChanged: ((PlexEndpoint) -> Void)?
@@ -51,6 +52,8 @@ final class MusicLibrary {
     @ObservationIgnored private let keychain: Keychain
     @ObservationIgnored private(set) var userToken: String?
     @ObservationIgnored var walk: ShuffleWalk?
+    /// Big playlists' shuffles, for this session only.
+    @ObservationIgnored var playlistWalks: [String: ShuffleWalk] = [:]
     @ObservationIgnored var moodKeys: MoodKeys?
     @ObservationIgnored var earliestPlay: Date?
     @ObservationIgnored private var connecting: Task<Void, Never>?
@@ -115,8 +118,15 @@ final class MusicLibrary {
     /// Step one of Plex's PIN sign-in: the page to open in a browser sheet.
     func beginSignIn() async throws -> (pin: PlexPin, url: URL) {
         let pin = try await account.createPin()
-        guard let url = account.authURL(code: pin.code, forwardURL: "truffle://signed-in") else { throw PlexError.signInExpired }
+        // No forwardUrl: with an app scheme (truffle://) Plex's auth page skips the sign-in form and
+        // lands on watch.plex.tv (seen 2026-10-30). Polling notices the sign-in and closes the sheet.
+        guard let url = account.authURL(code: pin.code, forwardURL: nil) else { throw PlexError.signInExpired }
         Logger.auth.info("[auth] pin \(pin.id) created, expires in \(pin.expiresIn ?? 0)s")
+        #if DEBUG
+        // The link code (not a token: it only becomes one when the account owner approves it), so a
+        // test run can approve it with PUT plex.tv/api/v2/pins/link instead of typing a password.
+        Logger.auth.debug("[auth] pin code \(pin.code, privacy: .public)")
+        #endif
         return (pin, url)
     }
 
@@ -183,6 +193,7 @@ final class MusicLibrary {
         moodKeys = nil
         earliestPlay = nil
         shuffleProgress = nil
+        likedOverrides = [:]
         settings.sectionID = nil
         phase = .signedOut
         onSignedOut?()
@@ -287,6 +298,7 @@ final class MusicLibrary {
 
     /// Runs a request, and once more on a fresh connection if the address went dead (the phone left
     /// home Wi-Fi mid-drive).
+    @discardableResult
     func withClient<T>(_ label: String, _ body: (PlexClient) async throws -> T) async throws -> T {
         if client == nil { await reconnect(reason: label) }
         guard let client else { throw PlexError.unreachable(server: serverName) }
@@ -475,6 +487,14 @@ final class MusicLibrary {
         saveWalk()
     }
 
+    /// Throws away this round's progress and starts a new random order.
+    func startNewShuffleRound() {
+        guard trackCount > 0 else { return }
+        walk = ShuffleWalk(total: trackCount, round: (walk?.round ?? 0) + 1)
+        Logger.shuffle.info("[shuffle] new round \(self.walk?.round ?? 0) by request")
+        saveWalk()
+    }
+
     private func publishWalk() {
         shuffleProgress = walk.map { ShuffleProgress(played: $0.played, total: $0.total, round: $0.round) }
     }
@@ -486,9 +506,11 @@ final class MusicLibrary {
 
     // MARK: - Ratings bookkeeping
 
+    func isLiked(_ track: Track) -> Bool { likedOverrides[track.id] ?? track.isLiked }
+
     func noteRatingChanged(_ track: Track, wasLiked: Bool) {
         if track.isLiked != wasLiked { likedCount = max(0, likedCount + (track.isLiked ? 1 : -1)) }
-        ratingsVersion += 1
+        likedOverrides[track.id] = track.isLiked
         onTrackUpdated?(track)
     }
 }

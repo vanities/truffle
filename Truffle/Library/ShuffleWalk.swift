@@ -25,9 +25,9 @@ struct ShuffleWalk: Codable, Sendable, Equatable {
         remaining = order
     }
 
-    init(total: Int) {
+    init(total: Int, round: Int = 1) {
         var generator = SystemRandomNumberGenerator()
-        self.init(total: total, using: &generator)
+        self.init(total: total, round: round, using: &generator)
     }
 
     var isExhausted: Bool { remaining.isEmpty }
