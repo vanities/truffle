@@ -14,7 +14,7 @@ No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it
 - **Shuffle All, for real.** Every song once before any song twice, in a truly random order. No
   favorites: not your ratings, not your play counts, not what's popular.
 - **A CarPlay screen with only the good buttons:** Shuffle All, Liked, the season's mixes, your
-  playlists and your library. Now Playing gets one extra button, the heart.
+  playlists and your library. Now Playing adds just three: back 15, the heart and repeat.
 - **Mixes that know what month it is.** Halloween, Thanksgiving, the holidays, New Year, Valentine's,
   and every season, built from your library's mood tags, plus This Time Last Year and your favorites
   from seasons past. The colors (and the little falling leaves) change with them.

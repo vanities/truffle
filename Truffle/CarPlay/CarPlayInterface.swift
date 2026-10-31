@@ -4,7 +4,8 @@ import UIKit
 import os
 
 /// The car: a Home grid of big buttons (Shuffle All first), Playlists, and Library. Now Playing adds
-/// one button, the heart. Nothing else to read or reach for while driving.
+/// back 15, the heart and repeat, and the album name opens the album. Nothing else to read or reach for
+/// while driving.
 @MainActor
 final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
     private let interfaceController: CPInterfaceController
@@ -242,12 +243,23 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         template.add(self)
         template.isUpNextButtonEnabled = true
         template.upNextTitle = "Up Next"
-        template.isAlbumArtistButtonEnabled = false
+        template.isAlbumArtistButtonEnabled = true
         updateNowPlayingButtons()
     }
 
-    /// Just the heart. It stays in place, filled or not, so it never moves under a driver's finger.
+    /// Back 15, the heart, repeat. Each keeps its place whether it's on or off, so nothing moves under a
+    /// driver's finger.
     private func updateNowPlayingButtons() {
+        let playing = player.current != nil
+        let back = CPNowPlayingImageButton(image: UIImage(systemName: "gobackward.15") ?? UIImage()) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                Logger.carplay.info("[carplay] back 15 from \(self.player.currentTime, format: .fixed(precision: 0))s")
+                self.player.seek(to: max(0, self.player.currentTime - 15))
+            }
+        }
+        back.isEnabled = playing
+
         let liked = player.current.map(library.isLiked) ?? false
         let heart = CPNowPlayingImageButton(image: UIImage(systemName: liked ? "heart.fill" : "heart") ?? UIImage()) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -257,8 +269,20 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
             }
         }
         heart.isSelected = liked
-        heart.isEnabled = player.current != nil
-        CPNowPlayingTemplate.shared.updateNowPlayingButtons([heart])
+        heart.isEnabled = playing
+
+        let mode = player.repeatMode
+        let again = CPNowPlayingImageButton(image: UIImage(systemName: mode == .one ? "repeat.1" : "repeat") ?? UIImage()) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.player.cycleRepeat()
+                Logger.carplay.info("[carplay] repeat → \(self.player.repeatMode.rawValue, privacy: .public)")
+                self.updateNowPlayingButtons()
+            }
+        }
+        again.isSelected = mode != .off
+        again.isEnabled = playing
+        CPNowPlayingTemplate.shared.updateNowPlayingButtons([back, heart, again])
     }
 
     private func showNowPlaying() {
@@ -268,6 +292,16 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
 
     nonisolated func nowPlayingTemplateUpNextButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {
         MainActor.assumeIsolated { pushUpNext() }
+    }
+
+    nonisolated func nowPlayingTemplateAlbumArtistButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {
+        MainActor.assumeIsolated { openPlayingAlbum() }
+    }
+
+    private func openPlayingAlbum() {
+        guard let track = player.current, let albumID = track.albumID else { return }
+        Logger.carplay.info("[carplay] open the album that's playing")
+        open(library.album(id: albumID) ?? Album(id: albumID, title: track.album, artist: track.artist, artistID: track.artistID))
     }
 
     private func pushUpNext() {
@@ -323,6 +357,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
     private func observeTrack() {
         withObservationTracking {
             _ = player.current?.id
+            _ = player.repeatMode
             _ = library.likedOverrides
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in

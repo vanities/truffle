@@ -29,7 +29,8 @@ Truffle/
   Library/    MusicLibrary (+Browse, +Mixes, +Edits), ShuffleWalk, Seasons, Mixes, LibraryStore
   Playback/   PlayerEngine (AVQueuePlayer, gapless preload), PlayQueue (pure rules), Loudness,
               PlexReporter (timeline), NowPlayingController, ArtworkCache, AudioSessionManager
-  CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing heart)
+  CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing: back 15,
+              heart, repeat, and the album name opens the album)
   Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
               from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components (SeasonalBackdrop…)

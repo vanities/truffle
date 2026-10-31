@@ -43,7 +43,7 @@ EVERY SONG. NO FAVORITES.
 Shuffle All plays your library in a truly random order, every song once before any song twice. Not your ratings, not your play counts, not what's popular. Just luck.
 
 ONLY THE GOOD BUTTONS
-CarPlay gets a big Shuffle All, your likes, the season's mixes and your playlists. Now Playing adds one button: the heart.
+CarPlay gets a big Shuffle All, your likes, the season's mixes and your playlists. Now Playing adds just three: back 15, the heart and repeat.
 
 MIXES THAT KNOW WHAT MONTH IT IS
 Halloween, Thanksgiving, the holidays, New Year, Valentine's and every season, made from your library's own moods. Plus This Time Last Year, and your favorites from seasons past.
