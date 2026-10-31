@@ -12,6 +12,8 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py attach-build [N]      # bind a processed TestFlight build (default: newest) to the version
   uv run --script scripts/appstore.py status                # print what App Store Connect has
   uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
+  uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review
+  uv run --script scripts/appstore.py cancel                # pull it back out ("Remove from Review"), to change it
 """
 from __future__ import annotations
 
@@ -28,7 +30,7 @@ spec = importlib.util.spec_from_file_location("tf", ROOT / "testflight.py")
 tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 LOCALE = "en-US"
 SITE = "https://am2.biz/truffle"
 
@@ -43,22 +45,25 @@ EVERY SONG. NO FAVORITES.
 Shuffle All plays your library in a truly random order, every song once before any song twice. Not your ratings, not your play counts, not what's popular. Just luck.
 
 ONLY THE GOOD BUTTONS
-CarPlay gets a big Shuffle All, your likes, the season's mixes and your playlists. Now Playing adds just three: back 15, the heart and repeat.
+CarPlay gets a big Shuffle All, your likes, the season's mixes and your playlists, and it can start playing the moment you get in. Now Playing adds just three: back 15, the heart and repeat.
 
 MIXES THAT KNOW WHAT MONTH IT IS
-Halloween, Thanksgiving, the holidays, New Year, Valentine's and every season, made from your library's own moods. Plus This Time Last Year, and your favorites from seasons past.
+Halloween, Thanksgiving, the holidays, New Year, Valentine's, St. Patrick's, the Fourth of July in the US, and every season, made from your library's own moods. Plus This Time Last Year, and your favorites from seasons past. Holiday songs stay in their season, too.
+
+PLAYLISTS, YOUR WAY
+Make one in a few taps: a cover from your photos, a name, and songs you search and pick. Rename it, reorder it, or add a whole album at once.
 
 YOUR FLACS, AS THEY ARE
-Truffle plays your files straight from your server, at even volume. Leave home Wi-Fi and it hops to your server's public address without missing a beat.
+Truffle plays your files straight from your server, at even volume. Leave home Wi-Fi and it hops to your server's public address without missing a beat. Low on data? Data Saver streams a lighter copy on cellular.
 
 DRESSED UP FOR THE SEASON
-Colors, falling leaves and an app icon that change with the seasons.
+Twinkling Christmas lights, a flickering jack-o'-lantern, leaves on the wind, northern lights, Santa now and then, and an app icon that changes with the seasons.
 
 PROOF YOU HAVE GREAT TASTE
 Stats from your Plex history: plays, listening time, streaks, your most-played artists, albums and songs, and the ones you haven't heard in a while.
 
 ALL THE USUAL GOOD STUFF
-Playlists, likes, artists, albums, search, Recently Added and Recently Played, a queue you can reorder, AirPlay, and lock screen and steering-wheel controls.
+Likes, artists, albums, search, sorting, Recently Added and Recently Played, a queue you can reorder, crossfade for shuffles, AirPlay, and lock screen and steering-wheel controls.
 
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",
@@ -363,6 +368,19 @@ def cmd_submit(asc: Store, dry_run: bool) -> None:
     report("submitted for review", result)
 
 
+def cmd_cancel(asc: Store) -> None:
+    """Pull the submission waiting for (or in) review, so the version can change again."""
+    app = asc.app() or sys.exit("no app record")
+    submissions = asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "fields[reviewSubmissions]": "state,submittedDate", "limit": 10})["data"]
+    pending = [s for s in submissions if s["attributes"]["state"] in ("WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES")]
+    if not pending:
+        print("nothing waiting for review")
+    for submission in pending:
+        a = submission["attributes"]
+        result = asc.patch_ok(f"/v1/reviewSubmissions/{submission['id']}", {"data": {"type": "reviewSubmissions", "id": submission["id"], "attributes": {"canceled": True}}})
+        report(f"pulled submission {submission['id'][:8]}… ({a['state']}, submitted {a.get('submittedDate')})", result)
+
+
 def cmd_submission_status(asc: Store) -> None:
     app = asc.app() or sys.exit("no app record")
     for submission in asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "fields[reviewSubmissions]": "state,submittedDate", "limit": 5})["data"]:
@@ -385,6 +403,7 @@ def main() -> None:
     sub.add_parser("beta-review")
     submit = sub.add_parser("submit"); submit.add_argument("--dry-run", action="store_true")
     sub.add_parser("submission-status")
+    sub.add_parser("cancel")
     args = parser.parse_args()
     asc = Store(tf.load_env())
     match args.command:
@@ -399,6 +418,7 @@ def main() -> None:
         case "beta-review": cmd_beta_review(asc)
         case "submit": cmd_submit(asc, args.dry_run)
         case "submission-status": cmd_submission_status(asc)
+        case "cancel": cmd_cancel(asc)
 
 
 if __name__ == "__main__":

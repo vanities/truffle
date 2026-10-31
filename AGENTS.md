@@ -152,13 +152,15 @@ on a flat color and keyed out.
 
 ## Releasing
 
-- `MARKETING_VERSION` lives in project.yml (then `make gen`). 1.0.0 is the first App Store release.
+- `MARKETING_VERSION` lives in project.yml (then `make gen`). 1.1.0 is the first App Store release: 1.0.0 was
+  pulled from review before it started (2026-10-31) so everything since could launch with it. `appstore.py`'s
+  `VERSION` names the version `setup` edits, and renames it to.
 - Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
   lands in TestFlight. Xcode Cloud numbers builds itself, from 1. The workflow lives in App Store
   Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
   because the API can't create an Xcode Cloud product.
 - The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
-  `screenshots marketing/ipad`, `attach-build`, `submit`, `status`. App Privacy ("Data Not Collected")
+  `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `status`. App Privacy ("Data Not Collected")
   can only be set on the web.
 - Store screenshots come from the demo server. Launch a debug build with
   `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
