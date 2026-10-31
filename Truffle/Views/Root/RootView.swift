@@ -88,6 +88,7 @@ struct RootView: View {
             try? await Task.sleep(for: .seconds(1))
             router.scrollTarget = "appIcon"
         case "stats", "settings":
+            // `-TruffleScroll`: a Stats card, or a Settings section (shuffle, car, holidays, appIcon).
             tab = scene == "stats" ? .stats : .settings
             guard let target = UserDefaults.standard.string(forKey: "TruffleScroll") else { break }
             try? await Task.sleep(for: .seconds(3))
@@ -123,11 +124,6 @@ struct RootView: View {
         case "playlist":
             tab = .library
             if let mine = library.playlists.first(where: { !$0.isSmart }) { router.libraryPath = [.playlists, .playlist(mine)] }
-        case "settings":
-            // `-TruffleScroll shuffle|car|holidays|appIcon`
-            tab = .settings
-            try? await Task.sleep(for: .seconds(1))
-            router.scrollTarget = UserDefaults.standard.string(forKey: "TruffleScroll")
         case "album":
             // `-TruffleAlbum "A Low Tide Christmas"`
             let title = UserDefaults.standard.string(forKey: "TruffleAlbum")
