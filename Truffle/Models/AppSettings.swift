@@ -28,7 +28,7 @@ final class AppSettings {
 
     private enum Keys {
         static let evenOutVolume = "settings.evenOutVolume"
-        static let hemisphere = "settings.hemisphere"
+        static let hemisphere = Hemisphere.defaultsKey
         static let seasonalEffects = "settings.seasonalEffects"
         static let playInTheCar = "settings.playInTheCar"
         static let holidaysInSeason = "settings.holidaysInSeason"

@@ -8,6 +8,10 @@ import os
 /// while driving.
 @MainActor
 final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
+    /// The car's screen while it's connected, so Siri and Shortcuts can bring up Now Playing the way the
+    /// car's own buttons do.
+    private(set) static weak var current: CarPlayInterface?
+
     private let interfaceController: CPInterfaceController
     private let environment: AppEnvironment
     private var homeTemplate: CPGridTemplate?
@@ -48,12 +52,14 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         observeLibrary()
         observeSeason()
         observeTrack()
+        Self.current = self
         Logger.carplay.info("[carplay] started with \(self.library.playlists.count) playlists, \(self.library.albums.count) albums")
     }
 
     func stop() {
         observing = false
         CPNowPlayingTemplate.shared.remove(self)
+        if Self.current === self { Self.current = nil }
     }
 
     // MARK: - Home
@@ -64,18 +70,9 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         mixes += season.mixes
         mixes.append(.randomAlbum)
         return mixes.prefix(CPGridTemplateMaximumItems).map { mix in
-            CPGridButton(titleVariants: [mix.title, Self.shortTitle(mix)], image: Self.gridImage(mix, theme: theme)) { [weak self] _ in
+            CPGridButton(titleVariants: [mix.title, mix.shortTitle], image: Self.gridImage(mix, theme: theme)) { [weak self] _ in
                 MainActor.assumeIsolated { self?.start(mix) }
             }
-        }
-    }
-
-    private static func shortTitle(_ mix: Mix) -> String {
-        switch mix.kind {
-        case .lastYear: "Last Year"
-        case .seasonFavorites: "Favorites"
-        case .randomAlbum: "Roulette"
-        default: mix.title
         }
     }
 

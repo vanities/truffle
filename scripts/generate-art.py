@@ -10,7 +10,7 @@ in this repo, then ../game/.env where the art pipeline keeps it. Nothing secret 
 
     uv run --script scripts/generate-art.py icons            # icon concepts → build/art/icon-*.png
     uv run --script scripts/generate-art.py icon-set CONCEPT [--name AppIcon-Note]  # light/dark/tinted icon set
-    uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mix-*.imageset
+    uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mixes.xcassets/Mix-*.imageset
     uv run --script scripts/generate-art.py props [KEY ...]  # transparent seasonal props into Prop-*.imageset
     uv run --script scripts/generate-art.py glow             # the jack-o'-lantern's candle masks, from its drawing
 """
@@ -32,6 +32,8 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 REPO = Path(__file__).resolve().parent.parent
 ASSETS = REPO / "Truffle/Resources/Assets.xcassets"
+# Their own catalog, so the widget extension carries the covers without the rest of the art.
+MIX_ASSETS = REPO / "Truffle/Resources/Mixes.xcassets"
 OUT = REPO / "build/art"
 API_URL = "https://api.openai.com/v1/images/generations"
 MODEL = "gpt-image-2"
@@ -213,7 +215,7 @@ def cmd_mixes(key: str, keys: list[str]) -> None:
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         for name, image in pool.map(make, keys):
-            folder = ASSETS / f"Mix-{name}.imageset"
+            folder = MIX_ASSETS / f"Mix-{name}.imageset"
             folder.mkdir(parents=True, exist_ok=True)
             # 768 px covers a 196 pt card at 3x; JPEG keeps the app small.
             image.resize((768, 768), Image.LANCZOS).save(folder / "art.jpg", quality=86, optimize=True)

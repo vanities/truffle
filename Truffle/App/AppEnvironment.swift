@@ -13,6 +13,7 @@ final class AppEnvironment {
     let season: SeasonClock
     let router: AppRouter
     let stats: StatsModel
+    let siri: SiriSetup
 
     private init() {
         let sw = Stopwatch()
@@ -24,6 +25,7 @@ final class AppEnvironment {
         season = SeasonClock(settings: settings)
         router = AppRouter()
         stats = StatsModel(library: library)
+        siri = SiriSetup(library: library)
         nowPlaying.activate()
         #if DEBUG
         let arguments = UserDefaults.standard
@@ -34,6 +36,10 @@ final class AppEnvironment {
         }
         #else
         library.start()
+        #endif
+        siri.start()
+        #if DEBUG
+        SiriPlayback.runLaunchRequests()
         #endif
         Logger.ui.info("[app] environment ready in \(sw.ms, format: .fixed(precision: 1))ms")
     }

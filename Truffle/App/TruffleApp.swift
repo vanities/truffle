@@ -3,6 +3,7 @@ import os
 
 @main
 struct TruffleApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let environment = AppEnvironment.shared
     @Environment(\.scenePhase) private var scenePhase
 

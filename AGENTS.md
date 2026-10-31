@@ -36,6 +36,12 @@ Truffle/
               from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components, Seasonal (the backdrop,
               its sky events, the props resting on Home's cards)
+  Intents/    App Intents (Shuffle All, Liked, a mix, a playlist), App Shortcuts, MixCatalog (mixes by id),
+              IntentPlayback (starts them through PlayerEngine, like Home and the car)
+  Siri/       SiriKit's INPlayMediaIntent, handled in the app: MediaSearchResolver, PlayMediaIntentHandler,
+              SiriSetup (vocabulary, permission) and the AppDelegate that hands Siri the handler
+  Widgets/    MixesWidgetView, compiled into the app too so tests can draw it
+TruffleWidgets/ the widget extension: Home Screen widget (small, medium) and a Control Center control
 TruffleTests/ shuffle uniformity, query encoding, decoding, seasons, mixes, queue, loudness, connections
 scripts/      demo_server.py + demo-catalog.json + make-demo-covers.swift (a stand-in Plex server),
               appstore.py (App Store listing), testflight.py (uploads, groups, Xcode Cloud runs),
@@ -136,9 +142,42 @@ Debug launch arguments: `-TruffleDate 2026-12-15T19:00` fakes the date; `-Truffl
 `-TruffleFireworks YES`, `-TruffleRainbow YES`, `-TruffleGust YES`, `-TruffleBat YES` and
 `-TruffleShootingStar YES` start that event two seconds in and repeat it every 14 seconds, for captures.
 A date whose theme uses another app icon raises iOS's "You have changed the icon" alert, and the
-animations pause behind it: launch twice before recording. Art: `scripts/generate-art.py mixes <key>` (covers), `props <key>` (pumpkins,
+animations pause behind it: launch twice before recording. Art: `scripts/generate-art.py mixes <key>` (covers, in `Mixes.xcassets` for the widget's sake), `props <key>` (pumpkins,
 the sleigh) and `glow` (the candle's masks). gpt-image-2 has no transparent output, so props are drawn
 on a flat color and keyed out.
+
+## Siri, Shortcuts and widgets
+
+Everything starts music through `IntentPlayback`, which waits for the library on a cold start (an intent
+can wake the app), puts the car on Now Playing if it's connected, then makes the same `PlayerEngine` call
+Home or the car would.
+
+- **App Intents** (`Intents/`): Shuffle All, Liked, Play a Mix and Play a Playlist are
+  `AudioPlaybackIntent`s, so the system runs them in the app's process even from the widget, and starts
+  music without opening the app. `TruffleShortcuts` gives Siri, Spotlight, Shortcuts and the Action button
+  their phrases with no setup ("Shuffle all in Truffle", "Play the Halloween Mix in Truffle"). Mixes are
+  named by place (`moment`, `season`, `lastYear`…), so a widget button drawn in October plays whatever the
+  moment is when tapped; other holidays and seasons are `theme.<key>` and play out of season on request.
+- **SiriKit** (`Siri/`): "Play … on Truffle" for anything in the library arrives as `INPlayMediaIntent`,
+  handled in the app (`application(_:handlerFor:)`, which iOS only calls for multi-scene apps; CarPlay
+  makes Truffle one). `MediaSearchResolver` matches names from the saved lists first and asks the server's
+  search for songs: your playlists beat mixes, then artists, albums, songs. "Play some music" is Shuffle
+  All. A playlist plays from the top unless Siri heard "shuffle"; one over 1,000 songs shuffles by position
+  anyway. A song plays on into its album. Siri needs permission, asked once when the library is ready in
+  the foreground, never in the demo (store screenshots and App Review start there).
+- **Widget** (`TruffleWidgets/`, `Widgets/`): small is Shuffle All in the season's colors; medium adds
+  Liked and the season's mixes with their covers (`Resources/Mixes.xcassets`, in both targets). It shares
+  the season and intent sources with the app and needs no App Group: nothing it shows comes from the app.
+  The one cost is the hemisphere: it can't read Settings, so it goes by the time zone. The Control Center
+  control runs Shuffle All.
+- The extension's `IntentRunner` only logs: if `[widget] … ran in the widget extension` ever shows up,
+  an intent lost its `AudioPlaybackIntent` conformance.
+
+Debug: `-TruffleSiri "Road Trip"` asks the handler the way Siri would, and `-TruffleIntent moment` (a
+`MixCatalog` id) runs the mix intent, three seconds after launch; watch the `siri` and `intents` log
+categories. The simulator can't take Siri requests or add widgets from a script. `WidgetTests` draws both
+widget sizes for a few seasons; run the tests with `TEST_RUNNER_TRUFFLE_RENDER_DIR=<folder>` to keep the
+PNGs.
 
 ## Conventions
 
@@ -152,7 +191,8 @@ on a flat color and keyed out.
 
 ## Releasing
 
-- `MARKETING_VERSION` lives in project.yml (then `make gen`). 1.1.0 is the first App Store release: 1.0.0 was
+- `MARKETING_VERSION` lives in project.yml's project-wide settings (then `make gen`), so the widget
+  extension always matches the app. 1.1.0 is the first App Store release: 1.0.0 was
   pulled from review before it started (2026-10-31) so everything since could launch with it. `appstore.py`'s
   `VERSION` names the version `setup` edits, and renames it to.
 - Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
@@ -175,4 +215,6 @@ on a flat color and keyed out.
   app record ("Truffle: Music Player for Plex") can't be created through the API (403 "apps does not
   allow CREATE"); Adam made it on the web.
 - CarPlay audio is enabled on the App ID (in the developer portal; the API rejects that capability type).
+- Siri (`com.apple.developer.siri`) has to be enabled on `com.vanities.truffle`, and the widget extension
+  is its own App ID, `com.vanities.truffle.widgets`, with no capabilities.
 - Public TestFlight link: https://testflight.apple.com/join/ZXeFFhZM (the External group).

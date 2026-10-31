@@ -3,6 +3,14 @@ import Foundation
 enum Hemisphere: String, Codable, CaseIterable, Sendable {
     case automatic, northern, southern
 
+    /// Where Settings keeps the choice. The widget can't see the app's defaults (no App Group), so it
+    /// goes by the time zone.
+    static let defaultsKey = "settings.hemisphere"
+
+    static func saved(in defaults: UserDefaults = .standard) -> Hemisphere {
+        defaults.string(forKey: defaultsKey).flatMap(Hemisphere.init(rawValue:)) ?? .automatic
+    }
+
     /// Automatic goes by the time zone: close enough to put Sydney in summer at Christmas.
     func isSouthern(timeZone: TimeZone = .current) -> Bool {
         switch self {

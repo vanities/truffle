@@ -37,6 +37,17 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Siri's "Play … on Truffle", handled in the app (PlayMediaIntentHandler), in the car too. -->
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryMusic</string>
+	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>So you can say “Play the Halloween Mix on Truffle,” even while you drive.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Truffle plays music straight from your Plex server when you're on the same network as it.</string>
 	<!-- Plex servers on the home network can answer over plain http (and the demo server is on

@@ -1,23 +1,6 @@
 import SwiftUI
 import os
 
-extension RGB {
-    var color: Color { Color(.sRGB, red: red, green: green, blue: blue) }
-}
-
-extension SeasonTheme {
-    var accentColor: Color { accent.color }
-    var colors: [Color] { palette.map(\.color) }
-    /// Deep to bright, for cards and the home header.
-    var gradient: LinearGradient {
-        LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-    /// The small caps line over the greeting: "HALLOWEEN · FALL".
-    var label: String {
-        moment == nil ? title.uppercased() : "\(title.uppercased()) · \(season.title.uppercased())"
-    }
-}
-
 /// The season, the moment and the mixes for right now, kept current while the app runs (Night Drive
 /// appears at 8 pm, Halloween ends at midnight).
 @MainActor @Observable

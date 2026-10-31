@@ -21,6 +21,10 @@ settings:
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     CODE_SIGN_STYLE: Automatic
+    # Project-wide so the widget extension's version always matches the app's (App Store validation
+    # rejects a mismatch). Xcode Cloud sets the build number for both.
+    MARKETING_VERSION: 1.1.0
+    CURRENT_PROJECT_VERSION: 1
   configs:
     Debug:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -42,6 +46,8 @@ targets:
         buildPhase: resources
       - path: scripts/demo-catalog.json
         buildPhase: resources
+    dependencies:
+      - target: TruffleWidgets
     configFiles:
       Debug: Config/Debug.xcconfig
       Release: Config/Release.xcconfig
@@ -66,9 +72,38 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Note AppIcon-Headphones"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        MARKETING_VERSION: 1.1.0
-        CURRENT_PROJECT_VERSION: 1
         ENABLE_PREVIEWS: YES
+
+  # Home Screen widget and the Control Center control. It shares the season, mix and intent sources
+  # with the app; its intents' perform() runs in the app's process (they're AudioPlaybackIntents).
+  TruffleWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TruffleWidgets
+        excludes:
+          - "Info.plist"
+      - path: Truffle/Library/Seasons.swift
+      - path: Truffle/Library/MixMenu.swift
+      - path: Truffle/Views/Components/SeasonColors.swift
+      - path: Truffle/Extensions/Logger+Truffle.swift
+      - path: Truffle/Intents/MixCatalog.swift
+      - path: Truffle/Intents/MediaText.swift
+      - path: Truffle/Intents/PlayIntents.swift
+      - path: Truffle/Widgets/MixesWidgetView.swift
+      - path: Truffle/Resources/Mixes.xcassets
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_NAME: TruffleWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.vanities.truffle.widgets
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TruffleWidgets/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
 
   TruffleTests:
     type: bundle.unit-test
