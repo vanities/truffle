@@ -57,19 +57,23 @@ final class HolidayShuffleTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// A library on the in-app demo with its own settings and store, signed out (which stops the demo
-    /// server and forgets it) when the test ends.
+    /// A library on the in-app demo with its own settings, store and Keychain service. The app hosting
+    /// the tests shares the Keychain and UserDefaults.standard, so this never signs out (that deletes
+    /// the real Plex sign-in) and puts the demo flag back the way it was.
     @MainActor
     private func demoLibrary() async throws -> MusicLibrary {
         let suite = "HolidayShuffleTests"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defaults.removePersistentDomain(forName: suite)
         let directory = FileManager.default.temporaryDirectory.appending(path: "holiday-shuffle-\(UUID().uuidString)")
+        let demoFlag = "demo.active"
+        let wasDemo = UserDefaults.standard.object(forKey: demoFlag) as? Bool
         let library = MusicLibrary(identity: .current(), settings: AppSettings(defaults: defaults),
-                                   store: LibraryStore(directory: directory))
+                                   store: LibraryStore(directory: directory),
+                                   keychain: Keychain(service: "com.vanities.truffle.tests"))
         library.startDemo()
-        addTeardownBlock { @MainActor in
-            library.signOut()
+        addTeardownBlock {
+            if let wasDemo { UserDefaults.standard.set(wasDemo, forKey: demoFlag) } else { UserDefaults.standard.removeObject(forKey: demoFlag) }
             try? FileManager.default.removeItem(at: directory)
             UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
         }
