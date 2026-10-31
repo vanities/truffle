@@ -114,17 +114,17 @@ final class SeasonsTests: XCTestCase {
         func decor(_ year: Int, _ month: Int, _ day: Int) -> SeasonTheme.Decor {
             SeasonCalendar.theme(for: date(year, month, day), southern: false, calendar: calendar, region: .unitedStates).decor
         }
-        XCTAssertEqual(decor(2026, 9, 20), [.moon, .pumpkins], "fall")
-        XCTAssertEqual(decor(2026, 10, 30), [.moon, .pumpkins], "Halloween")
-        XCTAssertEqual(decor(2026, 11, 24), [.moon, .pumpkins], "Thanksgiving")
+        XCTAssertEqual(decor(2026, 9, 20), [.moon, .pumpkins, .wind], "fall")
+        XCTAssertEqual(decor(2026, 10, 30), [.moon, .pumpkins, .wind, .bats], "Halloween")
+        XCTAssertEqual(decor(2026, 11, 24), [.moon, .pumpkins, .wind], "Thanksgiving")
         XCTAssertEqual(decor(2026, 12, 15), [.sleigh, .snowCaps], "the holidays")
         XCTAssertEqual(decor(2026, 12, 31), [.fireworks], "New Year")
-        XCTAssertEqual(decor(2027, 1, 20), [.snowCaps], "winter")
+        XCTAssertEqual(decor(2027, 1, 20), [.snowCaps, .aurora], "winter")
         XCTAssertEqual(decor(2027, 2, 12), [], "Valentine's")
         XCTAssertEqual(decor(2027, 3, 16), [.rainbow], "St. Patrick's")
-        XCTAssertEqual(decor(2027, 4, 20), [.butterflies], "spring")
+        XCTAssertEqual(decor(2027, 4, 20), [.butterflies, .sunbeams], "spring")
         XCTAssertEqual(decor(2027, 7, 3), [.fireworks], "the Fourth")
-        XCTAssertEqual(decor(2027, 7, 20), [], "summer")
+        XCTAssertEqual(decor(2027, 7, 20), [.shootingStars], "summer")
     }
 
     /// Mix covers come from scripts/generate-art.py; a moment without one shows a bare gradient.

@@ -109,6 +109,15 @@ struct SeasonTheme: Equatable, Sendable {
         /// A quick rainbow shimmer now and then.
         static let rainbow = Decor(rawValue: 1 << 5)
         static let butterflies = Decor(rawValue: 1 << 6)
+        /// Gusts now and then that sweep the leaves (and embers) along, with wisps of wind curling past.
+        static let wind = Decor(rawValue: 1 << 7)
+        /// Sunlight slanting down in soft shafts, pollen drifting through it.
+        static let sunbeams = Decor(rawValue: 1 << 8)
+        /// Northern lights rippling across the top of the sky.
+        static let aurora = Decor(rawValue: 1 << 9)
+        /// A bat flitting past the moon now and then.
+        static let bats = Decor(rawValue: 1 << 10)
+        static let shootingStars = Decor(rawValue: 1 << 11)
     }
 
     let season: Season
@@ -189,22 +198,22 @@ enum SeasonCalendar {
     static func theme(season: Season) -> SeasonTheme {
         switch season {
         case .fall:
-            SeasonTheme(season: .fall, moment: nil, title: "Fall", greeting: "Sweater weather", particles: .leaves, decor: [.moon, .pumpkins],
+            SeasonTheme(season: .fall, moment: nil, title: "Fall", greeting: "Sweater weather", particles: .leaves, decor: [.moon, .pumpkins, .wind],
                         palette: [RGB(0x3A1C12), RGB(0xB5532A), RGB(0xF2A541)], accent: RGB(0xE8762D),
                         recipe: MoodRecipe(title: "Fall Mix", subtitle: "Leaf peeping", symbol: "leaf.fill",
                                            primary: ["Autumnal"], secondary: ["Wistful", "Bittersweet", "Nostalgic", "Earthy"]))
         case .winter:
-            SeasonTheme(season: .winter, moment: nil, title: "Winter", greeting: "Bundle up", particles: .snow, decor: [.snowCaps],
+            SeasonTheme(season: .winter, moment: nil, title: "Winter", greeting: "Bundle up", particles: .snow, decor: [.snowCaps, .aurora],
                         palette: [RGB(0x0E1A33), RGB(0x2E5A8C), RGB(0xA9D2FF)], accent: RGB(0x4A9DEB),
                         recipe: MoodRecipe(title: "Winter Mix", subtitle: "Brr.", symbol: "snowflake",
                                            primary: ["Wintry", "Cold"], secondary: ["Ethereal", "Somber", "Calm/Peaceful", "Introspective"]))
         case .spring:
-            SeasonTheme(season: .spring, moment: nil, title: "Spring", greeting: "Hello, pollen", particles: .petals, decor: [.butterflies],
+            SeasonTheme(season: .spring, moment: nil, title: "Spring", greeting: "Hello, pollen", particles: .petals, decor: [.butterflies, .sunbeams],
                         palette: [RGB(0x1C2E1F), RGB(0x5E9A62), RGB(0xF6B8C8)], accent: RGB(0xD9577F),
                         recipe: MoodRecipe(title: "Spring Mix", subtitle: "Windows down", symbol: "camera.macro",
                                            primary: ["Springlike", "Pastoral"], secondary: ["Uplifting", "Cheerful", "Gentle", "Light"]))
         case .summer:
-            SeasonTheme(season: .summer, moment: nil, title: "Summer", greeting: "SPF on", particles: .fireflies, decor: [],
+            SeasonTheme(season: .summer, moment: nil, title: "Summer", greeting: "SPF on", particles: .fireflies, decor: [.shootingStars],
                         palette: [RGB(0x10233B), RGB(0x1F8A8A), RGB(0xFFD166)], accent: RGB(0xE8960C),
                         recipe: MoodRecipe(title: "Summer Mix", subtitle: "Sun's out", symbol: "sun.max.fill",
                                            primary: ["Summery"], secondary: ["Carefree", "Exuberant", "Playful", "Celebratory"]))
@@ -215,13 +224,13 @@ enum SeasonCalendar {
         switch moment {
         case .halloween:
             SeasonTheme(season: season, moment: .halloween, title: "Halloween", greeting: "Spooky season", particles: .embers,
-                        decor: [.moon, .pumpkins],
+                        decor: [.moon, .pumpkins, .wind, .bats],
                         palette: [RGB(0x14091F), RGB(0x4B1D5E), RGB(0xFF7518)], accent: RGB(0xF2711C),
                         recipe: MoodRecipe(title: "Halloween Mix", subtitle: "Boo.", symbol: "moon.stars.fill",
                                            primary: ["Spooky", "Eerie"], secondary: ["Ominous", "Menacing", "Malevolent", "Dark"]))
         case .thanksgiving:
             SeasonTheme(season: season, moment: .thanksgiving, title: "Thanksgiving", greeting: "Pass the pie", particles: .leaves,
-                        decor: [.moon, .pumpkins],
+                        decor: [.moon, .pumpkins, .wind],
                         palette: [RGB(0x2B170D), RGB(0xA0522D), RGB(0xF2B661)], accent: RGB(0xD9772B),
                         recipe: MoodRecipe(title: "Thanksgiving Mix", subtitle: "Gobble gobble", symbol: "fork.knife",
                                            primary: ["Warm", "Autumnal"], secondary: ["Earthy", "Nostalgic", "Celebratory"]))

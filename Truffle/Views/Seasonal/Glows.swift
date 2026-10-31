@@ -80,21 +80,21 @@ enum LightShow {
 enum Candle {
     /// The flame at `time`, from 0 (embers) to 1 (blazing).
     static func flame(at time: TimeInterval, seed: Int = 0) -> Double {
-        let swell = noise(time * 1.1, seed: seed)
-        let flutter = noise(time * 5, seed: seed &+ 1) - 0.5
+        let swell = smoothNoise(time * 1.1, seed: seed)
+        let flutter = smoothNoise(time * 5, seed: seed &+ 1) - 0.5
         // A slow wander that only matters near its peaks, which come about every half minute.
-        let draft = smoothstep(0.82, 0.95, noise(time * 0.15, seed: seed &+ 2))
+        let draft = smoothstep(0.82, 0.95, smoothNoise(time * 0.15, seed: seed &+ 2))
         return min(1, max(0, 0.3 + 0.62 * swell + 0.2 * flutter - 0.45 * draft))
     }
+}
 
-    /// Smooth random wandering in 0...1: a random height at each whole number of `x`, eased between them.
-    static func noise(_ x: Double, seed: Int) -> Double {
-        let whole = x.rounded(.down)
-        let knot = Int(whole)
-        let a = EventSchedule.unit(knot, salt: seed)
-        let b = EventSchedule.unit(knot &+ 1, salt: seed)
-        return a + (b - a) * smoothstep(0, 1, x - whole)
-    }
+/// Smooth random wandering in 0...1: a random height at each whole number of `x`, eased between them.
+func smoothNoise(_ x: Double, seed: Int) -> Double {
+    let whole = x.rounded(.down)
+    let knot = Int(whole)
+    let a = EventSchedule.unit(knot, salt: seed)
+    let b = EventSchedule.unit(knot &+ 1, salt: seed)
+    return a + (b - a) * smoothstep(0, 1, x - whole)
 }
 
 /// 0 at or below `edge0`, 1 at or above `edge1`, and an S-curve between.

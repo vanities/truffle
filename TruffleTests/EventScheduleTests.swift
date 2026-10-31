@@ -49,6 +49,26 @@ final class EventScheduleTests: XCTestCase {
         XCTAssertEqual(schedule.duration, EventSchedule.flyby.duration)
     }
 
+    func testTheRunningCountClimbsOnePerEventAndNeverJumps() {
+        let schedule = EventSchedule.gust
+        let from: TimeInterval = 800_000_000
+        var previous = schedule.runningCount(at: from) { smoothstep(0, 1, $0) }
+        let first = previous
+        for step in 1...(600 * 30) {
+            let now = schedule.runningCount(at: from + Double(step) / 30) { smoothstep(0, 1, $0) }
+            XCTAssertGreaterThanOrEqual(now, previous, "it never goes back")
+            XCTAssertLessThan(now - previous, 0.02, "and never jumps (frame \(step))")
+            previous = now
+        }
+        XCTAssertEqual(previous - first, 600 / schedule.period, accuracy: 1, "one per gust")
+    }
+
+    func testTheNewVisitorsComeNowAndThen() {
+        XCTAssertEqual(Double(starts(.gust).count), 3600 / EventSchedule.gust.period, accuracy: 2)
+        XCTAssertEqual(Double(starts(.bat).count), 3600 / EventSchedule.bat.period, accuracy: 2)
+        XCTAssertEqual(Double(starts(.shootingStar).count), 3600 / EventSchedule.shootingStar.period, accuracy: 2)
+    }
+
     func testFireworksComeMoreOftenOnTheFourthThanAtNewYear() {
         XCTAssertLessThan(EventSchedule.fourthFireworks.period, EventSchedule.newYearFireworks.period)
         XCTAssertEqual(Double(starts(.fourthFireworks).count), 3600 / EventSchedule.fourthFireworks.period, accuracy: 2)

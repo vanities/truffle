@@ -184,6 +184,37 @@ enum SeasonalShapes {
         return path
     }()
 
+    // MARK: - Bats
+
+    /// A bat's right wing, from the shoulder at the origin out to its tip at about (1, -0.12): an arched
+    /// leading edge, and a trailing edge scalloped between the fingers. The left wing is this, mirrored.
+    static let batWing: Path = {
+        var path = Path()
+        path.move(to: CGPoint(x: 0.04, y: -0.06))
+        path.addQuadCurve(to: CGPoint(x: 0.46, y: -0.3), control: CGPoint(x: 0.22, y: -0.3))
+        path.addQuadCurve(to: CGPoint(x: 1, y: -0.12), control: CGPoint(x: 0.76, y: -0.34))
+        path.addQuadCurve(to: CGPoint(x: 0.72, y: 0.06), control: CGPoint(x: 0.8, y: -0.06))
+        path.addQuadCurve(to: CGPoint(x: 0.42, y: 0.12), control: CGPoint(x: 0.54, y: 0))
+        path.addQuadCurve(to: CGPoint(x: 0.06, y: 0.1), control: CGPoint(x: 0.22, y: 0.02))
+        path.closeSubpath()
+        return path
+    }()
+
+    /// The bat's body, head and pointed ears, around the origin.
+    static let batBody: Path = {
+        var shape = Path(ellipseIn: CGRect(x: -0.09, y: -0.1, width: 0.18, height: 0.3))
+            .union(Path(ellipseIn: CGRect(x: -0.08, y: -0.24, width: 0.16, height: 0.15)))
+        for side: CGFloat in [-1, 1] {
+            var ear = Path()
+            ear.move(to: CGPoint(x: side * 0.025, y: -0.2))
+            ear.addLine(to: CGPoint(x: side * 0.08, y: -0.34))
+            ear.addLine(to: CGPoint(x: side * 0.08, y: -0.18))
+            ear.closeSubpath()
+            shape = shape.union(ear)
+        }
+        return shape
+    }()
+
     // MARK: - Butterflies
 
     /// The right wings (the left are mirrored), for a butterfly seen from above with its head toward -y.

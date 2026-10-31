@@ -66,14 +66,18 @@ struct SeasonalTimeline<Content: View>: View {
     }
 }
 
-/// The occasional events' schedules. In debug builds `-TruffleFlyby YES`, `-TruffleFireworks YES` and
-/// `-TruffleRainbow YES` start the first one two seconds after the backdrop first draws, then repeat
-/// every 14 seconds, so they can be captured.
+/// The occasional events' schedules. In debug builds `-TruffleFlyby YES`, `-TruffleFireworks YES`,
+/// `-TruffleRainbow YES`, `-TruffleGust YES`, `-TruffleBat YES` and `-TruffleShootingStar YES` start the
+/// first one two seconds after the backdrop first draws, then repeat every 14 seconds, so they can be
+/// captured.
 enum SeasonEvents {
     static let flyby = schedule(.flyby, debugKey: "TruffleFlyby")
     static let fourthFireworks = schedule(.fourthFireworks, debugKey: "TruffleFireworks")
     static let newYearFireworks = schedule(.newYearFireworks, debugKey: "TruffleFireworks")
     static let rainbow = schedule(.rainbow, debugKey: "TruffleRainbow")
+    static let gust = schedule(.gust, debugKey: "TruffleGust")
+    static let bat = schedule(.bat, debugKey: "TruffleBat")
+    static let shootingStar = schedule(.shootingStar, debugKey: "TruffleShootingStar")
 
     private static func schedule(_ schedule: EventSchedule, debugKey: String) -> EventSchedule {
         #if DEBUG

@@ -112,16 +112,19 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
 
 `Library/Seasons.swift` decides what's seasonal right now: the season, a moment on top (Halloween,
 Thanksgiving, the holidays, New Year, Valentine's, St. Patrick's, the Fourth of July), colors, greeting,
-particles, `Decor` (moon, pumpkins, snow caps, sleigh, fireworks, rainbow, butterflies) and the mix's
-moods. The Fourth only shows where `Locale.current.region` is the US or a US territory; elsewhere early
+particles, `Decor` (moon, pumpkins, snow caps, sleigh, fireworks, rainbow, butterflies, wind, sunbeams,
+aurora, bats, shooting stars) and the mix's moods. The Fourth only shows where `Locale.current.region` is the US or a US territory; elsewhere early
 July is summer.
 
 `Views/Seasonal/` draws it. Everything moving runs on one clock, `SeasonalTimeline` (30 fps), stopped when
 effects are off, the screen sets `seasonalInView` false (Home: scrolled away, or the player on top), another
 tab or page is on top, or the app isn't active; Reduce Motion gets a still frame without the occasional
 events. The sky is one `Canvas` per frame (`SeasonScene`), a pure function of time. Those events
-(`EventSchedule`) are too: Santa about once a minute, fireworks now and then, a rainbow. The pumpkins and
-snow on the cards (`seasonalPerch`) sit inside the cards' buttons and never take taps.
+(`EventSchedule`) are too: Santa about once a minute, fireworks now and then, a rainbow, gusts of wind, a
+bat past the moon, shooting stars. `SeasonScene+Atmosphere.swift` has the wind (a gust's push is
+`EventSchedule.runningCount`, which only climbs, so leaves never snap back; blown off one side, they wrap
+round out of sight), the spring sunbeams, the winter aurora, the bat and the shooting stars. The pumpkins
+and snow on the cards (`seasonalPerch`) sit inside the cards' buttons and never take taps.
 
 The glows (`Glows.swift`) ease, never blink, and `GlowTests` fails any frame-to-frame jump: the string
 lights run like a light controller (`LightShow`: twinkle, chase, slow fade, waves, color by color, 15 s
@@ -130,8 +133,10 @@ cut from the drawing (`generate-art.py glow`, run by `props jackOLantern`); a te
 on its carved face.
 
 Debug launch arguments: `-TruffleDate 2026-12-15T19:00` fakes the date; `-TruffleFlyby YES`,
-`-TruffleFireworks YES` and `-TruffleRainbow YES` start that event two seconds in and repeat it every 14
-seconds, for captures. Art: `scripts/generate-art.py mixes <key>` (covers), `props <key>` (pumpkins,
+`-TruffleFireworks YES`, `-TruffleRainbow YES`, `-TruffleGust YES`, `-TruffleBat YES` and
+`-TruffleShootingStar YES` start that event two seconds in and repeat it every 14 seconds, for captures.
+A date whose theme uses another app icon raises iOS's "You have changed the icon" alert, and the
+animations pause behind it: launch twice before recording. Art: `scripts/generate-art.py mixes <key>` (covers), `props <key>` (pumpkins,
 the sleigh) and `glow` (the candle's masks). gpt-image-2 has no transparent output, so props are drawn
 on a flat color and keyed out.
 

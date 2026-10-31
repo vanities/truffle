@@ -12,17 +12,22 @@ struct SeasonScene {
     /// Reduce Motion: a still frame, without the occasional events.
     let still: Bool
 
-    private var isWide: Bool { size.width > 600 }
+    var isWide: Bool { size.width > 600 }
 
     func draw(in context: inout GraphicsContext) {
         // The far sky first, then the weather in front of it.
+        if theme.decor.contains(.sunbeams) { sunbeams(in: &context) }
+        if theme.decor.contains(.aurora) { aurora(in: &context) }
         if theme.decor.contains(.moon) { nightStars(in: &context) }
+        if theme.decor.contains(.shootingStars) { shootingStar(in: &context) }
+        if theme.decor.contains(.bats) { bat(in: &context) }
         if theme.decor.contains(.rainbow) { rainbow(in: &context) }
         if theme.decor.contains(.fireworks) { fireworks(in: &context) }
         if theme.decor.contains(.sleigh) { flyby(in: &context) }
+        let gust = theme.decor.contains(.wind) ? Gust(at: time, still: still) : nil
         switch theme.particles {
         case .leaves:
-            falling("leaf.fill", in: &context, count: count(16), scale: 14...26, speed: 0.035...0.07, sway: 28)
+            falling("leaf.fill", in: &context, count: count(16), scale: 14...26, speed: 0.035...0.07, sway: 28, gust: gust)
         case .snow:
             snow(in: &context, dots: count(48), flakes: count(20))
         case .petals:
@@ -30,8 +35,8 @@ struct SeasonScene {
         case .fireflies:
             fireflies(in: &context, count: count(22))
         case .embers:
-            embers(in: &context, count: count(34))
-            falling("leaf.fill", in: &context, count: count(7), scale: 12...20, speed: 0.03...0.05, sway: 30)
+            embers(in: &context, count: count(34), gust: gust)
+            falling("leaf.fill", in: &context, count: count(7), scale: 12...20, speed: 0.03...0.05, sway: 30, gust: gust)
         case .lights:
             snow(in: &context, dots: count(36), flakes: count(8))
             stringLights(in: &context)
@@ -44,13 +49,14 @@ struct SeasonScene {
         case .stars:
             starConfetti(in: &context, count: count(18))
         }
+        if gust != nil { windWisps(in: &context) }
         if theme.decor.contains(.butterflies) { butterflies(in: &context) }
     }
 
     // MARK: - Helpers
 
     /// A stable pseudo-random number in 0..<1 for particle `index`, attribute `salt`.
-    private func random(_ index: Int, _ salt: Int) -> Double {
+    func random(_ index: Int, _ salt: Int) -> Double {
         var x = UInt64(truncatingIfNeeded: index &* 73_856_093 ^ salt &* 19_349_663) &+ 0x9E37_79B9_7F4A_7C15
         x = (x ^ (x >> 30)) &* 0xBF58_476D_1CE4_E5B9
         x = (x ^ (x >> 27)) &* 0x94D0_49BB_1331_11EB
@@ -59,19 +65,19 @@ struct SeasonScene {
     }
 
     /// Wider screens get more, so an iPad isn't sparse.
-    private func count(_ base: Int) -> Int {
+    func count(_ base: Int) -> Int {
         let widthScale = min(1.8, max(1, size.width / 440))
         return max(1, Int(Double(base) * density * widthScale))
     }
 
-    private func circle(_ center: CGPoint, _ radius: CGFloat) -> Path {
+    func circle(_ center: CGPoint, _ radius: CGFloat) -> Path {
         Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
     }
 
     // MARK: - Falling and rising
 
     private func falling(_ symbol: String, in context: inout GraphicsContext, count: Int,
-                         scale: ClosedRange<Double>, speed: ClosedRange<Double>, sway: Double) {
+                         scale: ClosedRange<Double>, speed: ClosedRange<Double>, sway: Double, gust: Gust? = nil) {
         // Resolved once per color, not once per particle.
         let images = theme.colors.dropFirst().map { color in
             var image = context.resolve(Image(systemName: symbol))
@@ -81,12 +87,19 @@ struct SeasonScene {
         for index in 0..<count {
             let fall = speed.lowerBound + random(index, 1) * (speed.upperBound - speed.lowerBound)
             let progress = cycle(time * fall + random(index, 2))
-            let y = -0.1 * size.height + progress * size.height * 1.2
-            let x = random(index, 3) * size.width + sin(time * (0.6 + random(index, 4)) + random(index, 5) * 6.28) * sway
+            var y = -0.1 * size.height + progress * size.height * 1.2
+            var x = random(index, 3) * size.width + sin(time * (0.6 + random(index, 4)) + random(index, 5) * 6.28) * sway
             let side = scale.lowerBound + random(index, 6) * (scale.upperBound - scale.lowerBound)
+            var turn = time * (random(index, 7) - 0.5) * 2.4 + random(index, 8) * 6.28
+            if let gust {
+                let blown = gust.blow(index, carry: 0.6 + 0.8 * random(index, 11))
+                x = wrap(x + blown.dx, margin: side)
+                y += blown.dy
+                turn += blown.turn
+            }
             var leaf = context
             leaf.translateBy(x: x, y: y)
-            leaf.rotate(by: .radians(time * (random(index, 7) - 0.5) * 2.4 + random(index, 8) * 6.28))
+            leaf.rotate(by: .radians(turn))
             leaf.opacity = 0.55 + random(index, 9) * 0.4
             leaf.draw(images[index % images.count], in: CGRect(x: -side / 2, y: -side / 2, width: side, height: side))
         }
@@ -236,14 +249,19 @@ struct SeasonScene {
         }
     }
 
-    private func embers(in context: inout GraphicsContext, count: Int) {
+    private func embers(in context: inout GraphicsContext, count: Int, gust: Gust? = nil) {
         for index in 0..<count {
             let rise = 0.04 + random(index, 1) * 0.06
             let progress = cycle(time * rise + random(index, 2))
-            let y = size.height * (1.05 - progress * 1.15)
-            let x = random(index, 3) * size.width + sin(time * 1.3 + random(index, 4) * 6.28) * 10
+            var y = size.height * (1.05 - progress * 1.15)
+            var x = random(index, 3) * size.width + sin(time * 1.3 + random(index, 4) * 6.28) * 10
             let flicker = 0.55 + 0.45 * sin(time * (3 + random(index, 5) * 4) + random(index, 6) * 6.28)
             let radius = 2 + random(index, 7) * 3.5
+            if let gust {
+                let blown = gust.blow(index, carry: 0.8 + 0.6 * random(index, 11))
+                x = wrap(x + blown.dx, margin: radius * 2)
+                y += blown.dy
+            }
             let color = index.isMultiple(of: 3) ? theme.colors[1] : theme.accentColor
             let glow = Gradient(colors: [color.opacity(flicker * (1 - progress * 0.6)), .clear])
             context.fill(circle(CGPoint(x: x, y: y), radius * 2),
