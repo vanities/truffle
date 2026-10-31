@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["requests", "pillow"]
+# dependencies = ["requests", "pillow", "numpy"]
 # ///
 """Truffle's generated art, with OpenAI's image API (gpt-image-2, Adam's pick).
 
@@ -11,6 +11,7 @@ in this repo, then ../game/.env where the art pipeline keeps it. Nothing secret 
     uv run --script scripts/generate-art.py icons            # icon concepts → build/art/icon-*.png
     uv run --script scripts/generate-art.py icon-set CONCEPT [--name AppIcon-Note]  # light/dark/tinted icon set
     uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mix-*.imageset
+    uv run --script scripts/generate-art.py props [KEY ...]  # transparent seasonal props into Prop-*.imageset
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
+import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
 
 REPO = Path(__file__).resolve().parent.parent
@@ -83,9 +85,46 @@ MIXES = {
     "christmas": "A gingerbread cookie person playing a tiny keyboard next to a glowing little tree with string lights. Cozy red, pine green and warm gold.",
     "newYear": "A disco ball wearing a party hat, surrounded by confetti and little fireworks. Midnight navy, gold and silver sparkle.",
     "valentines": "Two cassette tapes in love with heart eyes, little hearts floating up between them. Pink, red and soft cream.",
+    "stPatricks": "A cheerful little shamrock wearing big headphones and a tiny green top hat, dancing a jig on top of a pot of gold coins, a small rainbow arcing behind it. Emerald and kelly green, shiny gold and soft cream.",
+    "fourthOfJuly": "A happy hot dog in a bun wearing star-shaped sunglasses and headphones, waving a sparkler, with red, white and blue fireworks bursting in the night sky behind it. Deep navy blue, bright red, white and a little gold.",
     "nightDrive": "A tiny cute car with glowing headlights driving down an empty neon highway toward a big moon under a starry sky. Synthwave purple, magenta and electric blue.",
     "lastYear": "A smiling flip calendar flipping its pages backwards with a nostalgic little sparkle, a faded polaroid photo tucked into it. Warm sepia, dusty rose and plum.",
     "favorites": "A proud gold star wearing headphones standing on a small trophy pedestal, sparkles all around. Gold, warm orange and deep purple.",
+}
+
+
+# Small figures the seasonal backdrop draws on top of the cards and across the sky. Each is
+# (size, max output side in px, silhouette?, prompt). gpt-image-2 has no transparent background, so props
+# are drawn on a flat key color and keyed out; silhouettes come out as one white shape the app tints.
+PROP_KEY = "a perfectly flat, solid, uniform pure magenta (#FF00FF) background"
+SILHOUETTE_KEY = "a perfectly flat, solid, uniform pure white background"
+PROP_STYLE = (
+    f"A single small decorative object for a music app's seasonal theme, alone on {PROP_KEY}, with a generous empty "
+    "margin around it. Cute flat vector illustration with bold simple shapes, soft gradients and gentle highlights, "
+    "rich saturated color, a thin darker outline, in a playful cartoon style. No magenta or pink anywhere on the "
+    "object. No ground, no cast shadow, no scenery, no frame. Absolutely no text, letters, numbers or words anywhere."
+)
+SILHOUETTE_STYLE = (
+    f"One solid flat pure black silhouette with crisp clean edges and no interior detail, on {SILHOUETTE_KEY}, "
+    "with a generous empty margin around it. No moon, no stars, no ground, no scenery, no frame. Absolutely no "
+    "text, letters, numbers or words anywhere."
+)
+PROPS = {
+    "pumpkin": ("1024x1024", 300, False,
+                "A plump round orange pumpkin with deep ribs, a short curly green stem, a curling vine tendril and one "
+                "small green leaf, seen from the front, sitting upright as if resting on a shelf."),
+    "gourd": ("1024x1024", 300, False,
+              "A small squat cream-white pumpkin with soft pale green ribs and a stubby brown stem, seen from the front, "
+              "sitting upright as if resting on a shelf."),
+    "jackOLantern": ("1024x1024", 300, False,
+                     "A cute carved jack-o'-lantern pumpkin with a friendly toothy grin and triangle eyes glowing warm "
+                     "yellow-orange from the candle inside, a short curly green stem, seen from the front, sitting upright "
+                     "as if resting on a shelf."),
+    "sleigh": ("1536x1024", 900, True,
+               "Santa Claus in his sleigh pulled by a team of six reindeer flying to the right through the air, seen from "
+               "the side: the classic Christmas Eve silhouette. The reindeer run in a graceful rising line, two by two, "
+               "legs mid-gallop, antlers up, reins to the sleigh; Santa waves, his sack of toys behind him. Wide and "
+               "short, the whole team in one row."),
 }
 
 
@@ -109,10 +148,11 @@ def api_key() -> str:
     return key
 
 
-def generate(prompt: str, key: str, quality: str, label: str) -> Image.Image:
+def generate(prompt: str, key: str, quality: str, label: str, size: str = "1024x1024") -> Image.Image:
     started = time.monotonic()
+    body = {"model": MODEL, "prompt": prompt, "n": 1, "size": size, "quality": quality}
     response = requests.post(API_URL, timeout=300, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                             json={"model": MODEL, "prompt": prompt, "n": 1, "size": "1024x1024", "quality": quality})
+                             json=body)
     if not response.ok:
         sys.exit(f"[art] {label}: HTTP {response.status_code} {response.text[:400]}")
     data = response.json()["data"][0]
@@ -181,6 +221,55 @@ def cmd_mixes(key: str, keys: list[str]) -> None:
     print(f"[art] {len(keys)} mix covers in the asset catalog")
 
 
+def chroma_key(image: Image.Image, solid: float = 120, clear: float = 36) -> Image.Image:
+    """Keys out the flat background the prop was drawn on. The key color is read from the border, and
+    edge pixels are unmixed from it, so there's no colored fringe once the app scales the prop down."""
+    rgb = np.asarray(image.convert("RGB")).astype(np.float32)
+    border = np.concatenate([rgb[:6].reshape(-1, 3), rgb[-6:].reshape(-1, 3), rgb[:, :6].reshape(-1, 3), rgb[:, -6:].reshape(-1, 3)])
+    key = np.median(border, axis=0)
+    distance = np.linalg.norm(rgb - key, axis=2)
+    alpha = np.clip((distance - clear) / (solid - clear), 0, 1)
+    a = alpha[..., None]
+    color = np.clip((rgb - (1 - a) * key) / np.maximum(a, 1e-3), 0, 255)
+    out = np.dstack([color, alpha * 255]).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+
+def cmd_props(key: str, keys: list[str]) -> None:
+    def make(name: str) -> tuple[str, Image.Image]:
+        size, _, silhouette, prompt = PROPS[name]
+        style = SILHOUETTE_STYLE if silhouette else PROP_STYLE
+        return name, generate(f"{style} {prompt}", key, "high", f"prop {name}", size=size)
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for name, raw in pool.map(make, keys):
+            _, longest, silhouette, _ = PROPS[name]
+            raw.save(OUT / f"prop-{name}-raw.png")
+            image = chroma_key(raw)
+            if silhouette:
+                # One white shape; the app tints it (template rendering).
+                white = Image.new("RGBA", image.size, (255, 255, 255, 0))
+                white.putalpha(image.getchannel("A"))
+                image = white
+            box = image.getchannel("A").point(lambda a: 255 if a > 10 else 0).getbbox()
+            if box:
+                pad = max(4, int(max(box[2] - box[0], box[3] - box[1]) * 0.02))
+                image = image.crop((max(0, box[0] - pad), max(0, box[1] - pad),
+                                    min(image.width, box[2] + pad), min(image.height, box[3] + pad)))
+            scale = min(1.0, longest / max(image.size))
+            image = image.resize((round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
+            folder = ASSETS / f"Prop-{name}.imageset"
+            folder.mkdir(parents=True, exist_ok=True)
+            image.save(folder / f"{name}.png", optimize=True)
+            contents: dict = {"images": [{"filename": f"{name}.png", "idiom": "universal"}], "info": {"author": "xcode", "version": 1}}
+            if silhouette:
+                contents["properties"] = {"template-rendering-intent": "template"}
+            (folder / "Contents.json").write_text(json.dumps(contents, indent=2))
+            print(f"[art] prop {name}: {image.width}x{image.height} (raw render in {OUT})", flush=True)
+    print(f"[art] {len(keys)} props in the asset catalog")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -191,13 +280,19 @@ def main() -> None:
     icon_set.add_argument("--name", default="AppIcon")
     mixes = sub.add_parser("mixes")
     mixes.add_argument("keys", nargs="*", default=list(MIXES))
+    props = sub.add_parser("props")
+    props.add_argument("keys", nargs="*", default=list(PROPS), help=", ".join(PROPS))
     args = parser.parse_args()
+    if args.command == "props" and (unknown := set(args.keys) - set(PROPS)):
+        parser.error(f"unknown prop(s) {', '.join(sorted(unknown))}; one of: {', '.join(PROPS)}")
     key = api_key()
     print(f"[art] {MODEL}, OPENAI_API_KEY", flush=True)
     if args.command == "icons":
         cmd_icons(key, args.concepts)
     elif args.command == "icon-set":
         cmd_icon_set(key, args.concept, args.name)
+    elif args.command == "props":
+        cmd_props(key, args.keys)
     else:
         cmd_mixes(key, args.keys)
 

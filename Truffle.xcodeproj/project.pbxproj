@@ -46,6 +46,7 @@
 		6D3294F553BED8968569DE86 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450734228257F27E94F2C89C /* MiniPlayerView.swift */; };
 		70A9380F941A71B97271C943 /* PlexDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0585067CF286BD4AACDCB7F7 /* PlexDecodingTests.swift */; };
 		8048A65F2227D7D59F63702B /* HolidayMusic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64951E3D73AC98D90EA230F9 /* HolidayMusic.swift */; };
+		87469B94ED7D5B8A87B59976 /* EventSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86F03255A70809AE614FB14 /* EventSchedule.swift */; };
 		89BDB20E9A1BD8F15C4212FB /* MusicLibrary+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8799CD7D69050E486743418B /* MusicLibrary+Browse.swift */; };
 		8CB3F4593A7C3E2347E7161F /* ConnectionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB79EE6236E51A46E0E72D5 /* ConnectionPicker.swift */; };
 		8CFAA2E3F06EBAC194943DAB /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772138EA2001480F74125F2C /* PlayerView.swift */; };
@@ -57,12 +58,13 @@
 		9995C7132EF7088A9CBEA5F3 /* Routes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F34A01A1ADC0E3A9CC903AD5 /* Routes.swift */; };
 		9EECFE5FD99E90839FA8230E /* SeasonsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97A55201F3C7196B21A92BB8 /* SeasonsTests.swift */; };
 		A5B36F50A4F17E6A5FBB00DC /* DataSaverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */; };
+		A6EDF3FA38B02B36273D2223 /* SeasonalBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17001118A7637FB4AD869BF /* SeasonalBackdrop.swift */; };
 		A8D83996982A6461B045016F /* PlaylistDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DEAF7F6DD300594607504C /* PlaylistDraft.swift */; };
 		AA032E8E3FA5D4CF25FDEEF2 /* StatsParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E355597E49656183E679C0 /* StatsParts.swift */; };
 		B0AF0E1BD17EA2BF37DB1BB7 /* PlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2948D6D81719189C99CA61 /* PlayerEngine.swift */; };
 		B0D85A4A4455A06E57D48899 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */; };
 		B104108546201139C607DDD6 /* PlayQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4467DDE075AF53657BE39 /* PlayQueue.swift */; };
-		BF7103FB604F1010779A7148 /* SeasonalBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000B70099900B70D770C49B8 /* SeasonalBackdrop.swift */; };
+		B979204DBABA3683A71438B9 /* SeasonScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = E24681489EA21B1463E20EA2 /* SeasonScene.swift */; };
 		C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */; };
 		C272AFCEC144D3CF4C661774 /* PlaylistEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */; };
 		C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B74BA7300D9A4E9E265725 /* AudioSessionManager.swift */; };
@@ -73,6 +75,7 @@
 		D316E505BDD024E93CFCC0EC /* AppIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51D109DD152AB41AB801330 /* AppIcons.swift */; };
 		D4F3BFF289795B6758F38837 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1924EFE6A49592C8FEF4DDDC /* LibraryStore.swift */; };
 		D4F47839DED7E874CB2300FC /* TruffleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D7BB33E028A89E9CD5F4D3 /* TruffleApp.swift */; };
+		D6A1633CC8E50727237B16CA /* SeasonalShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C309F7BA164AAAE9555E0F /* SeasonalShapes.swift */; };
 		D753F61EBEE80A8763D3E7E1 /* SortOrders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946860EFD0A5B2F192107B56 /* SortOrders.swift */; };
 		DC3C70D784623E6DCF0F8820 /* Crossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97246DE9F1386157C9A7CD9 /* Crossfade.swift */; };
 		DE5090CA74EAC6D319492A84 /* MusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941D765F06A3A146405A71E3 /* MusicModels.swift */; };
@@ -89,7 +92,9 @@
 		F50A642AB16E0A855E7FC4D5 /* SortMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA6AE04B6B023E377890E6C /* SortMenu.swift */; };
 		F529BE1CFD83C3668C699909 /* PlexClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DD4B9AEFBDCB88EEAF68390 /* PlexClient.swift */; };
 		F6972DBC98B72054C4AD35D0 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4782A125842678340454C69E /* Formatting.swift */; };
+		F8F5F820BF3019D3D1D53CB3 /* EventScheduleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F289979192B8135FF0A59A8 /* EventScheduleTests.swift */; };
 		F9C7B6980FF3C9E4F7119977 /* ArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D5EFF73C339EF41EEF1096 /* ArtworkView.swift */; };
+		FA4BC42AC24B4D40D35127EC /* SeasonalPerch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4611A1A3B223DF6CBB72AED /* SeasonalPerch.swift */; };
 		FAB6916E0703B3112D42B81D /* PlaybackLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */; };
 		FBAC6E4DFB5BFBFD854B3484 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07DFDC2908DDE5971BB69CE7 /* RootView.swift */; };
 		FD70C7DD0DB4E88413962B70 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500B6ED0A56F665DA95D981D /* SignInView.swift */; };
@@ -106,7 +111,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		000B70099900B70D770C49B8 /* SeasonalBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalBackdrop.swift; sourceTree = "<group>"; };
 		046C5D957717E52303CF4226 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		0585067CF286BD4AACDCB7F7 /* PlexDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexDecodingTests.swift; sourceTree = "<group>"; };
 		05A1296E6CEA505BF8FCA369 /* Rows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rows.swift; sourceTree = "<group>"; };
@@ -136,6 +140,7 @@
 		3C3433890152218710849CE2 /* MusicLibrary+Edits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+Edits.swift"; sourceTree = "<group>"; };
 		3DD4B9AEFBDCB88EEAF68390 /* PlexClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexClient.swift; sourceTree = "<group>"; };
 		3E5864F63FED22B4C65A23FC /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		43C309F7BA164AAAE9555E0F /* SeasonalShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalShapes.swift; sourceTree = "<group>"; };
 		450734228257F27E94F2C89C /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		4684A534BAB73B9064FDC259 /* StatsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsModel.swift; sourceTree = "<group>"; };
 		4782A125842678340454C69E /* Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatting.swift; sourceTree = "<group>"; };
@@ -157,6 +162,7 @@
 		7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		7C9EADC05234287B9B320BD1 /* CrossfadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossfadeTests.swift; sourceTree = "<group>"; };
 		7D10FB64FB796DDF3670EF2D /* PlaySource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaySource.swift; sourceTree = "<group>"; };
+		7F289979192B8135FF0A59A8 /* EventScheduleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventScheduleTests.swift; sourceTree = "<group>"; };
 		83F5BE32175DAFF0C5E241B0 /* Truffle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Truffle.entitlements; sourceTree = "<group>"; };
 		8799CD7D69050E486743418B /* MusicLibrary+Browse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+Browse.swift"; sourceTree = "<group>"; };
 		882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayMusicTests.swift; sourceTree = "<group>"; };
@@ -178,7 +184,9 @@
 		AB2948D6D81719189C99CA61 /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		AEE1D853E8D7A907E6B84272 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarAutoplayTests.swift; sourceTree = "<group>"; };
+		B4611A1A3B223DF6CBB72AED /* SeasonalPerch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalPerch.swift; sourceTree = "<group>"; };
 		B8313876A2644C87F5AF9782 /* PlexQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexQuery.swift; sourceTree = "<group>"; };
+		B86F03255A70809AE614FB14 /* EventSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventSchedule.swift; sourceTree = "<group>"; };
 		BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayShuffleTests.swift; sourceTree = "<group>"; };
 		C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPickerTests.swift; sourceTree = "<group>"; };
 		C1CDDD4754C10F7DAA1CD65F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -188,11 +196,13 @@
 		D2204D083129C9B501443D97 /* ShuffleWalkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuffleWalkTests.swift; sourceTree = "<group>"; };
 		D527F835CCF0EB90EB08D9BB /* MusicLibrary+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+History.swift"; sourceTree = "<group>"; };
 		E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistEditorView.swift; sourceTree = "<group>"; };
+		E24681489EA21B1463E20EA2 /* SeasonScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonScene.swift; sourceTree = "<group>"; };
 		E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSaverTests.swift; sourceTree = "<group>"; };
 		E97246DE9F1386157C9A7CD9 /* Crossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crossfade.swift; sourceTree = "<group>"; };
 		EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLogicTests.swift; sourceTree = "<group>"; };
 		EC74B88AABF4283C1E75353C /* DemoServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServer.swift; sourceTree = "<group>"; };
 		EC869D4E37CEC29A12AC7DB5 /* CoverImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverImage.swift; sourceTree = "<group>"; };
+		F17001118A7637FB4AD869BF /* SeasonalBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalBackdrop.swift; sourceTree = "<group>"; };
 		F2698F08657BB26BCFBFB3B5 /* Logger+Truffle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Truffle.swift"; sourceTree = "<group>"; };
 		F34A01A1ADC0E3A9CC903AD5 /* Routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Routes.swift; sourceTree = "<group>"; };
 		F3C5C015BFD0A51A28D6856E /* DemoLibrary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DemoLibrary; path = Truffle/Resources/DemoLibrary; sourceTree = SOURCE_ROOT; };
@@ -270,7 +280,6 @@
 				28D5EFF73C339EF41EEF1096 /* ArtworkView.swift */,
 				F34A01A1ADC0E3A9CC903AD5 /* Routes.swift */,
 				05A1296E6CEA505BF8FCA369 /* Rows.swift */,
-				000B70099900B70D770C49B8 /* SeasonalBackdrop.swift */,
 				193E78D80BF538C781E0CBC4 /* SeasonStyle.swift */,
 				CAA6AE04B6B023E377890E6C /* SortMenu.swift */,
 				68C0B248E9BC5CA42EB17EF7 /* TrackMenu.swift */,
@@ -396,6 +405,7 @@
 			isa = PBXGroup;
 			children = (
 				EC869D4E37CEC29A12AC7DB5 /* CoverImage.swift */,
+				B86F03255A70809AE614FB14 /* EventSchedule.swift */,
 				64951E3D73AC98D90EA230F9 /* HolidayMusic.swift */,
 				1924EFE6A49592C8FEF4DDDC /* LibraryStore.swift */,
 				9FC9D75A16617DB3DFB87577 /* ListeningStats.swift */,
@@ -424,6 +434,7 @@
 				24FE90B6DD2469A1EE15AF29 /* Playlists */,
 				7C3E4A52BA90794CE6767C3B /* Root */,
 				5272C2A4B728BF50B18BB11B /* Search */,
+				AAAE9108B3A59F4052E10CA2 /* Seasonal */,
 				89E523EAF96185B333C642D2 /* Settings */,
 				FFFE6A8F98A9EBA9CD08F203 /* SignIn */,
 				1A9051B67C13D5C4E0A027EA /* Stats */,
@@ -437,6 +448,17 @@
 				046C5D957717E52303CF4226 /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		AAAE9108B3A59F4052E10CA2 /* Seasonal */ = {
+			isa = PBXGroup;
+			children = (
+				F17001118A7637FB4AD869BF /* SeasonalBackdrop.swift */,
+				B4611A1A3B223DF6CBB72AED /* SeasonalPerch.swift */,
+				43C309F7BA164AAAE9555E0F /* SeasonalShapes.swift */,
+				E24681489EA21B1463E20EA2 /* SeasonScene.swift */,
+			);
+			path = Seasonal;
 			sourceTree = "<group>";
 		};
 		AB6371F786CD74ECFB8D0861 /* Library */ = {
@@ -477,6 +499,7 @@
 				7C9EADC05234287B9B320BD1 /* CrossfadeTests.swift */,
 				E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */,
 				76EEB37F68CD342683163396 /* DemoServerTests.swift */,
+				7F289979192B8135FF0A59A8 /* EventScheduleTests.swift */,
 				882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */,
 				BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */,
 				0951FE990A6C60857AF47035 /* ListeningStatsTests.swift */,
@@ -602,6 +625,7 @@
 				9513F37B2AB19EA3CB1535E5 /* CrossfadeTests.swift in Sources */,
 				A5B36F50A4F17E6A5FBB00DC /* DataSaverTests.swift in Sources */,
 				C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */,
+				F8F5F820BF3019D3D1D53CB3 /* EventScheduleTests.swift in Sources */,
 				382A3DDD7AD499CE73BD3A7D /* HolidayMusicTests.swift in Sources */,
 				22CF064F722C1326A5EC46EF /* HolidayShuffleTests.swift in Sources */,
 				E44F8441A407EACF71E6B6F9 /* ListeningStatsTests.swift in Sources */,
@@ -635,6 +659,7 @@
 				2F15533DEBCD1E44E38E90DE /* DemoLibrary.swift in Sources */,
 				E1D707B3920C40988CFDCCD2 /* DemoServer.swift in Sources */,
 				00BCBE5F46D94A8AB78DACC1 /* DetailViews.swift in Sources */,
+				87469B94ED7D5B8A87B59976 /* EventSchedule.swift in Sources */,
 				F6972DBC98B72054C4AD35D0 /* Formatting.swift in Sources */,
 				8048A65F2227D7D59F63702B /* HolidayMusic.swift in Sources */,
 				686BBB721F3397AED55EB727 /* HomeView.swift in Sources */,
@@ -671,8 +696,11 @@
 				9995C7132EF7088A9CBEA5F3 /* Routes.swift in Sources */,
 				21F1DAEECD3B9EC8B48E0DA4 /* Rows.swift in Sources */,
 				985F4DB899C53554094F5C02 /* SearchView.swift in Sources */,
+				B979204DBABA3683A71438B9 /* SeasonScene.swift in Sources */,
 				644898DABFA7A16BF76546C7 /* SeasonStyle.swift in Sources */,
-				BF7103FB604F1010779A7148 /* SeasonalBackdrop.swift in Sources */,
+				A6EDF3FA38B02B36273D2223 /* SeasonalBackdrop.swift in Sources */,
+				FA4BC42AC24B4D40D35127EC /* SeasonalPerch.swift in Sources */,
+				D6A1633CC8E50727237B16CA /* SeasonalShapes.swift in Sources */,
 				3460103FD367BEC19CB72123 /* Seasons.swift in Sources */,
 				2E5CC9D37619F33C0A003A0E /* SettingsView.swift in Sources */,
 				0BB4CC8F98C951FF0E25F178 /* ShuffleWalk.swift in Sources */,

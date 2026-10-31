@@ -69,6 +69,14 @@ THEMES: dict[str, dict] = {
     "valentines": {"emoji": "💘", "title": "Valentine's", "window": ((2, 1), (2, 14)),
                    "moods": ["Romantic", "Tender", "Sensual", "Passionate", "Intimate"],
                    "keywords": ["love", "heart", "kiss", "darling", "baby", "valentine", "sweetheart", "forever"]},
+    "stpatricks": {"emoji": "☘️", "title": "St. Patrick's", "window": ((3, 1), (3, 17)),
+                   "moods": ["Rollicking", "Boisterous", "Rowdy", "Joyous", "Lively", "Celebratory"],
+                   "keywords": ["irish", "ireland", "dublin", "galway", "whiskey", "pub", "luck", "green", "shamrock", "rover",
+                                "drunken", "sailor", "jig", "reel"]},
+    "fourthofjuly": {"emoji": "🎆", "title": "Fourth of July", "window": ((6, 25), (7, 4)),
+                     "moods": ["Anthemic", "Rousing", "Triumphant", "Celebratory", "Summery"],
+                     "keywords": ["america", "american", "usa", "freedom", "free", "fireworks", "independence", "flag",
+                                  "liberty", "born in", "fourth", "july", "stars"]},
     "spring": {"emoji": "🌷", "title": "Spring", "window": ((3, 1), (5, 31)),
                "moods": ["Springlike", "Pastoral", "Uplifting", "Cheerful", "Gentle", "Light"],
                "keywords": ["spring", "flower", "bloom", "garden", "rain", "april", "may", "sunshine", "bird"]},
@@ -76,7 +84,9 @@ THEMES: dict[str, dict] = {
                "moods": ["Summery", "Carefree", "Exuberant", "Playful", "Celebratory"],
                "keywords": ["summer", "sun", "beach", "july", "august", "heat", "ocean", "surf", "pool", "vacation"]},
 }
-ALIASES = {"xmas": "christmas", "holidays": "christmas", "holiday": "christmas", "new-year": "newyear", "valentine": "valentines"}
+ALIASES = {"xmas": "christmas", "holidays": "christmas", "holiday": "christmas", "new-year": "newyear", "valentine": "valentines",
+           "st-patricks": "stpatricks", "stpats": "stpatricks", "st-pats": "stpatricks", "fourth": "fourthofjuly",
+           "july4": "fourthofjuly", "4th": "fourthofjuly", "fourth-of-july": "fourthofjuly"}
 
 
 # MARK: Plex, through the NAS

@@ -34,7 +34,8 @@ Truffle/
               heart, repeat, and the album name opens the album)
   Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
               from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
-  Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components (SeasonalBackdrop…)
+  Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components, Seasonal (the backdrop,
+              its sky events, the props resting on Home's cards)
 TruffleTests/ shuffle uniformity, query encoding, decoding, seasons, mixes, queue, loudness, connections
 scripts/      demo_server.py + demo-catalog.json + make-demo-covers.swift (a stand-in Plex server),
               appstore.py (App Store listing), testflight.py (uploads, groups, Xcode Cloud runs),
@@ -106,6 +107,26 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
   `DEMO_TRANSCODE_FAILS=1` (Python) turn them all down, to watch the fallback.
 - On Adam's network the plain `http://<LAN IP>:32400` address answers first; the `*.plex.direct`
   names may not resolve at home, which is why `PlexServerInfo` adds the plain address.
+
+## Seasons
+
+`Library/Seasons.swift` decides what's seasonal right now: the season, a moment on top (Halloween,
+Thanksgiving, the holidays, New Year, Valentine's, St. Patrick's, the Fourth of July), colors, greeting,
+particles, `Decor` (moon, pumpkins, snow caps, sleigh, fireworks, rainbow, butterflies) and the mix's
+moods. The Fourth only shows where `Locale.current.region` is the US or a US territory; elsewhere early
+July is summer.
+
+`Views/Seasonal/` draws it. Everything moving is one `TimelineView` + `Canvas` at 30 fps (`SeasonScene`),
+a pure function of time, stopped when effects are off, the backdrop is scrolled away, the player or
+another tab or page is on top, or the app isn't active. Reduce Motion gets a still frame without the
+occasional events. Those events (`EventSchedule`) are also a function of the clock: Santa about once a
+minute, fireworks now and then, a rainbow. The pumpkins and snow on the cards (`seasonalPerch`) are
+static views inside the cards' buttons and never take taps.
+
+Debug launch arguments: `-TruffleDate 2026-12-15T19:00` fakes the date; `-TruffleFlyby YES`,
+`-TruffleFireworks YES` and `-TruffleRainbow YES` start that event two seconds in and repeat it every 14
+seconds, for captures. Art: `scripts/generate-art.py mixes <key>` (covers) and `props <key>` (pumpkins,
+the sleigh). gpt-image-2 has no transparent output, so props are drawn on a flat color and keyed out.
 
 ## Conventions
 

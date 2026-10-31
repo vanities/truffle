@@ -16,8 +16,10 @@ No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it
 - **A CarPlay screen with only the good buttons:** Shuffle All, Liked, the season's mixes, your
   playlists and your library. Now Playing adds just three: back 15, the heart and repeat.
 - **Mixes that know what month it is.** Halloween, Thanksgiving, the holidays, New Year, Valentine's,
-  and every season, built from your library's mood tags, plus This Time Last Year and your favorites
-  from seasons past. The colors (and the little falling leaves) change with them.
+  St. Patrick's, the Fourth of July (in the US) and every season, built from your library's mood tags,
+  plus This Time Last Year and your favorites from seasons past. The colors change with them, and so
+  does the sky: falling leaves under a crescent moon, pumpkins on the cards, Santa's sleigh, snow piling
+  up, fireworks, a rainbow. All of it turns off in Settings, and stands still with Reduce Motion.
 - **Hand-picked seasonal mixes.** The `seasonal-mix` skill (`.claude/skills/seasonal-mix`) picks songs
   for a theme from your library, draws cover art from the picks, and saves "🎃 Halloween 2026" as a
   Plex playlist. Truffle plays it for that season's card.

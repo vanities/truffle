@@ -8,6 +8,12 @@ struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var startingMix: String?
+    /// Whether any of the header's backdrop is still on screen; its animation stops once it's scrolled away.
+    @State private var backdropInView = true
+
+    /// The backdrop starts this far above the content (behind the status bar) and runs this tall.
+    private static let backdropRise: CGFloat = 200
+    private static let backdropHeight: CGFloat = 640
 
     var body: some View {
         NavigationStack {
@@ -47,6 +53,11 @@ struct HomeView: View {
             .scrollIndicators(.hidden)
             // The season's colors run up under the status bar.
             .scrollClipDisabled()
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top < Self.backdropHeight - Self.backdropRise
+            } action: { _, inView in
+                backdropInView = inView
+            }
             .refreshable { await library.refresh() }
             .onChange(of: router.scrollTarget) { _, target in
                 guard let target else { return }
@@ -78,16 +89,17 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The season's colors behind the top of the screen, fading into the page, with its particles.
+    /// The season's colors behind the top of the screen, fading into the page, with its particles. The
+    /// open sky starts where the content does, just under the status bar.
     private var headerBackdrop: some View {
         ZStack {
             season.theme.gradient
-            SeasonalBackdrop(theme: season.theme)
+            SeasonalBackdrop(theme: season.theme, skyTop: Self.backdropRise, isActive: backdropInView && !router.showsPlayer)
         }
-        .frame(height: 640)
+        .frame(height: Self.backdropHeight)
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.68),
                                      .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-        .offset(y: -200)
+        .offset(y: -Self.backdropRise)
     }
 
     // MARK: - Shelves
@@ -147,6 +159,8 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
             }
             .scrollIndicators(.hidden)
+            // Pumpkins and snow rest on the cards' top edges, above the shelf's bounds.
+            .scrollClipDisabled()
         }
     }
 
@@ -272,6 +286,7 @@ struct ShuffleAllCard: View {
             .frame(height: 236)
             .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
             .shadow(color: theme.colors[1].opacity(0.45), radius: 24, y: 12)
+            .seasonalPerch(theme, spot: .shuffleAll, cornerRadius: 30)
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("Shuffle All")
@@ -345,6 +360,7 @@ struct MixCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: colors[1].opacity(0.35), radius: 12, y: 6)
+        .seasonalPerch(theme, spot: .mix(variant), cornerRadius: 24)
         .accessibilityElement(children: .combine)
     }
 }

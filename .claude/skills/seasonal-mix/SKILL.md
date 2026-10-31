@@ -11,7 +11,7 @@ Truffle finds mixes by the `truffle-mix:<theme>:<year>` tag at the end of the pl
 plays this year's for the season's card on Home and in the car.
 
 Themes: halloween, fall, thanksgiving, christmas (xmas, holidays), winter, newyear, valentines,
-spring, summer. `uv run --script scripts/plex_mix.py themes` lists their moods and keywords; add one
+stpatricks (stpats), spring, fourthofjuly (fourth, july4; Truffle shows it in the US only), summer. `uv run --script scripts/plex_mix.py themes` lists their moods and keywords; add one
 to `THEMES` in that script for anything new.
 
 ## Steps

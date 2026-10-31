@@ -33,7 +33,7 @@ enum HolidayMusic {
     static func isInSeason(_ date: Date, calendar: Calendar = .current) -> Bool {
         switch SeasonCalendar.moment(for: date, calendar: calendar) {
         case .christmas, .newYear: true
-        case .halloween, .thanksgiving, .valentines, nil: false
+        case .halloween, .thanksgiving, .valentines, .stPatricks, .fourthOfJuly, nil: false
         }
     }
 

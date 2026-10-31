@@ -61,8 +61,27 @@ final class MixesTests: XCTestCase {
         XCTAssertEqual(mixes.map(\.kind), [.moment, .season, .lastYear, .seasonFavorites, .nightDrive])
         XCTAssertEqual(mixes.first?.title, "Halloween Mix")
 
-        let morning = MixPlanner.seasonal(theme: SeasonCalendar.theme(for: date(2026, 7, 4, hour: 9), southern: false, calendar: calendar),
-                                          date: date(2026, 7, 4, hour: 9), calendar: calendar)
+        // Outside the US, the Fourth is a summer morning: no moment, no Night Drive.
+        let london = SeasonCalendar.theme(for: date(2026, 7, 4, hour: 9), southern: false, calendar: calendar, region: Locale.Region("GB"))
+        let morning = MixPlanner.seasonal(theme: london, date: date(2026, 7, 4, hour: 9), calendar: calendar)
         XCTAssertEqual(morning.map(\.kind), [.season, .lastYear, .seasonFavorites])
+    }
+
+    func testTheFourthsMixLeadsInTheUS() {
+        let evening = date(2027, 7, 3, hour: 21)
+        let theme = SeasonCalendar.theme(for: evening, southern: false, calendar: calendar, region: .unitedStates)
+        let mixes = MixPlanner.seasonal(theme: theme, date: evening, calendar: calendar)
+        XCTAssertEqual(mixes.map(\.kind), [.moment, .season, .lastYear, .seasonFavorites, .nightDrive])
+        XCTAssertEqual(mixes.first?.title, "Fourth of July Mix")
+        XCTAssertEqual(mixes.first?.art, "fourthOfJuly")
+        XCTAssertEqual(mixes[1].title, "Summer Mix")
+    }
+
+    func testStPatricksMixInTheSpring() {
+        let theme = SeasonCalendar.theme(for: date(2027, 3, 16, hour: 19), southern: false, calendar: calendar)
+        let mixes = MixPlanner.seasonal(theme: theme, date: date(2027, 3, 16, hour: 19), calendar: calendar)
+        XCTAssertEqual(mixes.map(\.kind), [.moment, .season, .lastYear, .seasonFavorites])
+        XCTAssertEqual(mixes.first?.art, "stPatricks")
+        XCTAssertEqual(mixes[1].title, "Spring Mix")
     }
 }
