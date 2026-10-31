@@ -32,7 +32,7 @@ final class AppSettings {
         hemisphere = defaults.string(forKey: Keys.hemisphere).flatMap(Hemisphere.init(rawValue:)) ?? .automatic
         seasonalEffects = defaults.object(forKey: Keys.seasonalEffects) as? Bool ?? true
         sectionID = defaults.string(forKey: Keys.sectionID)
-        appIcon = defaults.string(forKey: Keys.appIcon).flatMap(AppIconChoice.init(rawValue:)) ?? .headphones
+        appIcon = defaults.string(forKey: Keys.appIcon).flatMap(AppIconChoice.init(rawValue:)) ?? .record
         seasonalIcon = defaults.object(forKey: Keys.seasonalIcon) as? Bool ?? true
     }
 

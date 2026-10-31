@@ -2,17 +2,17 @@ import SwiftUI
 import UIKit
 import os
 
-/// The three icons. Headphones is the default (Angela's pick); the note is the fall one (Adam's);
-/// the record stays as an option.
+/// The three icons. The record is the default (the one Adam and Angela liked); the note is the fall
+/// one (Adam's); the headphones stay as an option.
 enum AppIconChoice: String, CaseIterable, Codable, Sendable {
-    case headphones, note, record
+    case record, note, headphones
 
     /// The alternate icon set, or nil for the primary.
     var assetName: String? {
         switch self {
-        case .headphones: nil
+        case .record: nil
         case .note: "AppIcon-Note"
-        case .record: "AppIcon-Record"
+        case .headphones: "AppIcon-Headphones"
         }
     }
 
