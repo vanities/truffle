@@ -140,10 +140,8 @@ struct SettingsView: View {
                     Button("Sign Out", role: .destructive) { confirmingSignOut = true }
                 }
 
-                Section {
-                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
-                    LabeledContent("Made by", value: "AM2 LLC")
-                }
+                AboutSection()
+                    .id("about")
             }
             .onChange(of: router.scrollTarget) { _, target in
                 guard let target else { return }

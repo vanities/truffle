@@ -16,6 +16,7 @@
 		0B6B314B42474B155BB58E5D /* SongPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A141A2FF5A54EA9C2BD8042A /* SongPickerView.swift */; };
 		0BB4CC8F98C951FF0E25F178 /* ShuffleWalk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326989A024936F462CAEA158 /* ShuffleWalk.swift */; };
 		0C0A80E4CCEE7FC560D5B63D /* PlaylistBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DD09D62F8071E0E7E42DC30 /* PlaylistBuilderTests.swift */; };
+		0CAE263907AA3FCE8AEE9B25 /* AboutSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01FCE2F503FB89B5031A43F /* AboutSection.swift */; };
 		0EAA88671F50A9BD376F1234 /* DemoLibrary in Resources */ = {isa = PBXBuildFile; fileRef = F3C5C015BFD0A51A28D6856E /* DemoLibrary */; };
 		117E35955292B04EA5C978D5 /* MusicLibrary+Holidays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D4E87664BD19D57D662DC8 /* MusicLibrary+Holidays.swift */; };
 		21F1DAEECD3B9EC8B48E0DA4 /* Rows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A1296E6CEA505BF8FCA369 /* Rows.swift */; };
@@ -30,6 +31,7 @@
 		3460103FD367BEC19CB72123 /* Seasons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C33C5B282967FC4AE14DEC1 /* Seasons.swift */; };
 		377355E132BC77D48CF8BE6E /* CoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC869D4E37CEC29A12AC7DB5 /* CoverImage.swift */; };
 		382A3DDD7AD499CE73BD3A7D /* HolidayMusicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */; };
+		393FCFD98A55D7406EA25E02 /* BugReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6861EAFF9D79616BF5A87C /* BugReportTests.swift */; };
 		42ED2624FF1DD79C82164519 /* MusicLibrary+Edits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3433890152218710849CE2 /* MusicLibrary+Edits.swift */; };
 		44E7380396C61D08A9E29E54 /* MixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C34BD6B5A649E1AE8708DFA7 /* MixesTests.swift */; };
 		4F60AD47C5B997EE1242AD01 /* ShuffleWalkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2204D083129C9B501443D97 /* ShuffleWalkTests.swift */; };
@@ -39,6 +41,7 @@
 		572BD78C5A21D4D6194593BF /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2B98316C425CB828799899 /* AppSettingsTests.swift */; };
 		599D1103C408D64377E27C06 /* Loudness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A882B9352F6CF3E327749 /* Loudness.swift */; };
 		5AA26471E4783D007FF08AF4 /* Mixes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2426C033908AF205ABB46E95 /* Mixes.swift */; };
+		5D7B232D65AB4EEAB5C8FC53 /* BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D7FB7D9D36F8186E3812BB /* BugReport.swift */; };
 		644898DABFA7A16BF76546C7 /* SeasonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 193E78D80BF538C781E0CBC4 /* SeasonStyle.swift */; };
 		686BBB721F3397AED55EB727 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55BCE77079B5E40B5AC503A0 /* HomeView.swift */; };
 		6927588EB0824F5A31421644 /* MusicLibrary+Mixes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A852A0FD04D35C5C5BBAFC3E /* MusicLibrary+Mixes.swift */; };
@@ -151,6 +154,7 @@
 		5F2F8B8ABAD6347916A0F04D /* TruffleTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TruffleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		608E6C74E78D9DF79D136BE6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		64951E3D73AC98D90EA230F9 /* HolidayMusic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayMusic.swift; sourceTree = "<group>"; };
+		64D7FB7D9D36F8186E3812BB /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		6594CABCE96496FAD9F98382 /* DataSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSaver.swift; sourceTree = "<group>"; };
 		660156FECF3F676CDBDA7A1C /* NowPlayingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingController.swift; sourceTree = "<group>"; };
 		68C0B248E9BC5CA42EB17EF7 /* TrackMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMenu.swift; sourceTree = "<group>"; };
@@ -187,12 +191,14 @@
 		B4611A1A3B223DF6CBB72AED /* SeasonalPerch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalPerch.swift; sourceTree = "<group>"; };
 		B8313876A2644C87F5AF9782 /* PlexQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexQuery.swift; sourceTree = "<group>"; };
 		B86F03255A70809AE614FB14 /* EventSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventSchedule.swift; sourceTree = "<group>"; };
+		BB6861EAFF9D79616BF5A87C /* BugReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReportTests.swift; sourceTree = "<group>"; };
 		BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayShuffleTests.swift; sourceTree = "<group>"; };
 		C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPickerTests.swift; sourceTree = "<group>"; };
 		C1CDDD4754C10F7DAA1CD65F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C34BD6B5A649E1AE8708DFA7 /* MixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixesTests.swift; sourceTree = "<group>"; };
 		C89ED237CF5FF9F021C05866 /* PlexReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexReporter.swift; sourceTree = "<group>"; };
 		CAA6AE04B6B023E377890E6C /* SortMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortMenu.swift; sourceTree = "<group>"; };
+		D01FCE2F503FB89B5031A43F /* AboutSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSection.swift; sourceTree = "<group>"; };
 		D2204D083129C9B501443D97 /* ShuffleWalkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuffleWalkTests.swift; sourceTree = "<group>"; };
 		D527F835CCF0EB90EB08D9BB /* MusicLibrary+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+History.swift"; sourceTree = "<group>"; };
 		E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistEditorView.swift; sourceTree = "<group>"; };
@@ -445,6 +451,7 @@
 		89E523EAF96185B333C642D2 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				D01FCE2F503FB89B5031A43F /* AboutSection.swift */,
 				046C5D957717E52303CF4226 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -485,6 +492,7 @@
 			isa = PBXGroup;
 			children = (
 				AEE1D853E8D7A907E6B84272 /* AppEnvironment.swift */,
+				64D7FB7D9D36F8186E3812BB /* BugReport.swift */,
 				07D7BB33E028A89E9CD5F4D3 /* TruffleApp.swift */,
 			);
 			path = App;
@@ -494,6 +502,7 @@
 			isa = PBXGroup;
 			children = (
 				FB2B98316C425CB828799899 /* AppSettingsTests.swift */,
+				BB6861EAFF9D79616BF5A87C /* BugReportTests.swift */,
 				AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */,
 				C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */,
 				7C9EADC05234287B9B320BD1 /* CrossfadeTests.swift */,
@@ -620,6 +629,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				572BD78C5A21D4D6194593BF /* AppSettingsTests.swift in Sources */,
+				393FCFD98A55D7406EA25E02 /* BugReportTests.swift in Sources */,
 				0B099CE0D1CE2444F544DF4C /* CarAutoplayTests.swift in Sources */,
 				E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */,
 				9513F37B2AB19EA3CB1535E5 /* CrossfadeTests.swift in Sources */,
@@ -643,12 +653,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0CAE263907AA3FCE8AEE9B25 /* AboutSection.swift in Sources */,
 				EC4C3726F5115C37CAFBEABC /* AppEnvironment.swift in Sources */,
 				D316E505BDD024E93CFCC0EC /* AppIcons.swift in Sources */,
 				F14592EA95B949FA7CC20E8F /* AppSettings.swift in Sources */,
 				2E07C69B63F28E8D1017D17C /* ArtworkCache.swift in Sources */,
 				F9C7B6980FF3C9E4F7119977 /* ArtworkView.swift in Sources */,
 				C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */,
+				5D7B232D65AB4EEAB5C8FC53 /* BugReport.swift in Sources */,
 				C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */,
 				2D8DAEC6FDC331AE6F5146F4 /* CarPlayInterface.swift in Sources */,
 				B0D85A4A4455A06E57D48899 /* CarPlaySceneDelegate.swift in Sources */,
