@@ -7,7 +7,7 @@ No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it
 
 > Bundle ID `com.vanities.truffle`. GPL-3.0. Website: https://am2.biz/truffle · [Support](https://am2.biz/truffle/support) · [Privacy](https://am2.biz/truffle/privacy)
 
-<p align="center"><img src="docs/images/home.png" width="260" alt="Truffle's home screen in October"> <img src="docs/images/player.png" width="260" alt="The player"></p>
+<p align="center"><img src="docs/images/home.png" width="250" alt="Truffle's home screen in October"> <img src="docs/images/stats.png" width="250" alt="Stats: plays, listening time and streaks"> <img src="docs/images/player.png" width="250" alt="The player"></p>
 
 ## What it does
 
@@ -23,7 +23,10 @@ No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it
   Plex playlist. Truffle plays it for that season's card.
 - **Your files as they are,** FLAC included, straight from your server, at even volume from Plex's
   loudness analysis. It hops to your server's public address when you drive away from home Wi-Fi.
-- Playlists, likes, artists, albums and search, all kept in Plex. Seasonal app icons, too.
+- **Stats that prove you have great taste:** plays, listening time, streaks, your most-played artists,
+  albums and songs, and the ones you haven't heard in a while, all from your Plex history.
+- Playlists, likes, artists, albums, search, Recently Added and Recently Played, all kept in Plex.
+  Seasonal app icons, too.
 
 ## Building
 

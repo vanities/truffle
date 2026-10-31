@@ -54,8 +54,11 @@ Truffle plays your files straight from your server, at even volume. Leave home W
 DRESSED UP FOR THE SEASON
 Colors, falling leaves and an app icon that change with the seasons.
 
+PROOF YOU HAVE GREAT TASTE
+Stats from your Plex history: plays, listening time, streaks, your most-played artists, albums and songs, and the ones you haven't heard in a while.
+
 ALL THE USUAL GOOD STUFF
-Playlists, likes, artists, albums, search, a queue you can reorder, AirPlay, and lock screen and steering-wheel controls.
+Playlists, likes, artists, albums, search, Recently Added and Recently Played, a queue you can reorder, AirPlay, and lock screen and steering-wheel controls.
 
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",

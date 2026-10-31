@@ -81,6 +81,32 @@
         ]
       },
       {
+        "raw": "stats.png",
+        "headline": [
+          "Proof you have",
+          "great taste."
+        ],
+        "subtitle": [
+          "Plays, streaks and all-time favorites."
+        ],
+        "tilt": 2,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
         "raw": "albums.png",
         "headline": [
           "Your whole library.",
@@ -89,7 +115,7 @@
         "subtitle": [
           "Artists, albums, playlists and likes."
         ],
-        "tilt": 2,
+        "tilt": 0,
         "top": [
           34,
           14,
@@ -168,6 +194,32 @@
         ],
         "subtitle": [
           "Your FLACs, straight from your server."
+        ],
+        "tilt": 0,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
+        "raw": "stats.png",
+        "headline": [
+          "Proof you have",
+          "great taste."
+        ],
+        "subtitle": [
+          "Plays, streaks and all-time favorites."
         ],
         "tilt": 0,
         "top": [
