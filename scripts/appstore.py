@@ -7,7 +7,8 @@
 Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
 
   uv run --script scripts/appstore.py setup                 # categories, age rating, rights, URLs, version + copy, price, review info
-  uv run --script scripts/appstore.py screenshots DIR       # upload marketing/iphone (6.9" iPhone) or marketing/ipad (13" iPad)
+  uv run --script scripts/appstore.py screenshots DIR       # upload marketing/iphone (6.9" iPhone) or marketing/ipad (13" iPad);
+                                                            # --replace swaps out what's there
   uv run --script scripts/appstore.py attach-build [N]      # bind a processed TestFlight build (default: newest) to the version
   uv run --script scripts/appstore.py status                # print what App Store Connect has
   uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
@@ -264,7 +265,7 @@ def cmd_beta_review(asc: Store) -> None:
         "type": "betaAppReviewDetails", "id": detail["id"], "attributes": {"notes": REVIEW_NOTES, "demoAccountRequired": False}}}))
 
 
-def cmd_screenshots(asc: Store, directory: Path) -> None:
+def cmd_screenshots(asc: Store, directory: Path, replace: bool = False) -> None:
     display_type = DISPLAY_TYPES.get(directory.resolve().name) or sys.exit(f"expected a folder named one of {sorted(DISPLAY_TYPES)}")
     app = asc.app() or sys.exit("no app record")
     version = editable_version(asc, app["id"], create=False) or sys.exit("no editable version; run setup first")
@@ -275,6 +276,11 @@ def cmd_screenshots(asc: Store, directory: Path) -> None:
         shot_set = asc.post("/v1/appScreenshotSets", {"data": {"type": "appScreenshotSets", "attributes": {"screenshotDisplayType": display_type}, "relationships": {"appStoreVersionLocalization": {"data": {"type": "appStoreVersionLocalizations", "id": loc["id"]}}}}})["data"]
         print(f"created screenshot set {display_type}")
     existing = asc.get(f"/v1/appScreenshotSets/{shot_set['id']}/appScreenshots", {"fields[appScreenshots]": "fileName,assetDeliveryState", "limit": 20})["data"]
+    if replace:
+        for old in existing:
+            gone = requests.delete(f"{tf.API}/v1/appScreenshots/{old['id']}", headers=asc._headers(), timeout=30)
+            print(f"  {'✓' if gone.ok else '✗'} removed {old['attributes']['fileName']}" + ("" if gone.ok else f": {gone.status_code} {gone.text[:200]}"))
+        existing = []
     existing_names = {e["attributes"]["fileName"] for e in existing}
     files = sorted(p for p in directory.iterdir() if p.suffix.lower() == ".png")
     for path in files[:10]:
@@ -370,7 +376,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     setup = sub.add_parser("setup"); setup.add_argument("--phone", help="App Review contact phone, e.g. '+1 555 555 5555'")
     review = sub.add_parser("review"); review.add_argument("--phone", required=True)
-    shots = sub.add_parser("screenshots"); shots.add_argument("directory")
+    shots = sub.add_parser("screenshots"); shots.add_argument("directory"); shots.add_argument("--replace", action="store_true", help="delete the set's current screenshots first")
     attach = sub.add_parser("attach-build"); attach.add_argument("build", nargs="?")
     sub.add_parser("status")
     sub.add_parser("beta-review")
@@ -384,7 +390,7 @@ def main() -> None:
             app = asc.app() or sys.exit("no app record")
             version = editable_version(asc, app["id"], create=False) or sys.exit("no editable version")
             set_review_details(asc, version["id"], args.phone)
-        case "screenshots": cmd_screenshots(asc, Path(args.directory))
+        case "screenshots": cmd_screenshots(asc, Path(args.directory), args.replace)
         case "attach-build": cmd_attach_build(asc, args.build)
         case "status": cmd_status(asc)
         case "beta-review": cmd_beta_review(asc)
