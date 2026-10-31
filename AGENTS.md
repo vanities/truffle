@@ -33,7 +33,9 @@ Truffle/
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components (SeasonalBackdrop…)
 TruffleTests/ shuffle uniformity, query encoding, decoding, seasons, mixes, queue, loudness, connections
 scripts/      demo_server.py + demo-catalog.json + make-demo-covers.swift (a stand-in Plex server),
-              asc.py (App Store Connect), render-icon.swift
+              appstore.py (App Store listing), testflight.py (uploads, groups, Xcode Cloud runs),
+              asc.py (bundle ID), render-store-screenshots.py, generate-art.py, plex_mix.py, render-icon.swift
+marketing/    store screenshots: raw captures (raw/iphone, raw/ipad), framed sets, screenshots.json
 ```
 
 ## Build / run / test
@@ -91,10 +93,27 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
 - iPhone Duo: the player is an `ArrangementView` split under `IPHONE_DUO_LAYOUTS` (27.1+ SDK), Home
   goes two-column at regular width. See docs/iphone-duo.md.
 
+## Releasing
+
+- `MARKETING_VERSION` lives in project.yml (then `make gen`). 1.0.0 is the first App Store release.
+- Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
+  lands in TestFlight. Xcode Cloud numbers builds itself, from 1. The workflow lives in App Store
+  Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
+  because the API can't create an Xcode Cloud product.
+- The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
+  `screenshots marketing/ipad`, `attach-build`, `submit`, `status`. App Privacy ("Data Not Collected")
+  can only be set on the web.
+- Store screenshots come from the demo server. Launch a debug build with
+  `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
+  (2064x2752) simulator, save captures to `marketing/raw/{iphone,ipad}/`, then
+  `uv run --script scripts/render-store-screenshots.py`. A fresh simulator's first launch shows iOS's
+  "You have changed the icon" alert, which UI automation can't dismiss; relaunch.
+- `make testflight` archives and uploads from this Mac, for when Xcode Cloud isn't an option.
+
 ## Apple setup
 
 - Bundle ID `com.vanities.truffle` is registered (ASC API, `scripts/asc.py`). The App Store Connect
-  app record can't be created through the API (403 "apps does not allow CREATE"); Adam makes it on the web.
-- CarPlay: Earmark's App ID has `CARPLAY_PLAYABLE_CONTENT`; Truffle's needs it turned on in the
-  developer portal (the API rejects that capability type). Until then device builds fail with
-  "Entitlement com.apple.developer.carplay-audio not found".
+  app record ("Truffle: Music Player for Plex") can't be created through the API (403 "apps does not
+  allow CREATE"); Adam made it on the web.
+- CarPlay audio is enabled on the App ID (in the developer portal; the API rejects that capability type).
+- Public TestFlight link: https://testflight.apple.com/join/ZXeFFhZM (the External group).
