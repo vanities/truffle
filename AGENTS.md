@@ -220,11 +220,13 @@ prints each screen's accessibility tree.
 ## Releasing
 
 - `MARKETING_VERSION` lives in project.yml's project-wide settings (then `make gen`), so the widget
-  extension always matches the app. 1.1.0 is the first App Store release: 1.0.0 was
-  pulled from review before it started (2026-10-31) so everything since could launch with it. Main moved
-  on to 1.2.0 (Siri, widgets, accessibility) while 1.1.0 (build 12) was in review: once a version is
-  approved, App Store Connect refuses new builds that carry its number. `appstore.py`'s `VERSION` names
-  the version `setup` edits, and renames it to; it stays 1.1.0 until 1.2.0's listing is set up.
+  extension always matches the app. 1.2.0 (build 13) is the first App Store submission still standing:
+  1.0.0 was pulled from review before it started, and 1.1.0 (build 12) came back on 2026-10-31 with
+  "Guideline 2.1 - Information Needed - New App Submission", so the same version was renamed 1.2.0 and
+  resubmitted with build 13 (Siri, widgets, accessibility). Once a version is approved, App Store Connect
+  refuses new builds that carry its number: bump `MARKETING_VERSION` after 1.2.0 is approved, not before
+  (a fix for another rejection can still ship as 1.2.0). `appstore.py`'s `VERSION` names the version
+  `setup` edits, and renames it to.
 - Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
   lands in TestFlight. Xcode Cloud numbers builds itself, from 1. The workflow lives in App Store
   Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
@@ -232,6 +234,13 @@ prints each screen's accessibility tree.
 - The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
   `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `status`. App Privacy ("Data Not Collected")
   can only be set on the web.
+- App Review's messages are only in App Store Connect (the app's App Review page, or the App Store Connect
+  iPhone app); the API has no Resolution Center. Answers go in `REVIEW_NOTES` (`appstore.py review`), files
+  only App Review sees go up with `review-attachment` (App Review Information → Attachment), and `submit`
+  resubmits a rejected submission (marks its rejected items resolved, then submits it again). For a new
+  app, Apple asked for a screen recording from a physical device that starts by launching the app from the
+  Home Screen and shows the sign-in, plus purpose, audience, setup, external services, regional
+  differences and third-party material; `REVIEW_NOTES` answers those in Apple's numbering.
 - Store screenshots come from the demo server. Launch a debug build with
   `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
   (2064x2752) simulator, save captures to `marketing/raw/{iphone,ipad}/`, then

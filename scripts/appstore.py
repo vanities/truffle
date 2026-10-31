@@ -10,9 +10,11 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py screenshots DIR       # upload marketing/iphone (6.9" iPhone) or marketing/ipad (13" iPad);
                                                             # --replace swaps out what's there
   uv run --script scripts/appstore.py attach-build [N]      # bind a processed TestFlight build (default: newest) to the version
+  uv run --script scripts/appstore.py review                # App Review contact + notes (REVIEW_NOTES), no demo account
+  uv run --script scripts/appstore.py review-attachment F   # a file for App Review alone, e.g. a screen recording; --replace
   uv run --script scripts/appstore.py status                # print what App Store Connect has
   uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
-  uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review
+  uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review, or resubmit a rejected one
   uv run --script scripts/appstore.py cancel                # pull it back out ("Remove from Review"), to change it
 """
 from __future__ import annotations
@@ -30,7 +32,7 @@ spec = importlib.util.spec_from_file_location("tf", ROOT / "testflight.py")
 tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 LOCALE = "en-US"
 SITE = "https://am2.biz/truffle"
 
@@ -46,6 +48,9 @@ Shuffle All plays your library in a truly random order, every song once before a
 
 ONLY THE GOOD BUTTONS
 CarPlay gets a big Shuffle All, your likes, the season's mixes and your playlists, and it can start playing the moment you get in. Now Playing adds just three: back 15, the heart and repeat.
+
+HEY SIRI, SHUFFLE ALL
+Ask Siri for a playlist, an album or the season's mix. Or tap Shuffle All on your Home Screen widget or in Control Center, no app opening required.
 
 MIXES THAT KNOW WHAT MONTH IT IS
 Halloween, Thanksgiving, the holidays, New Year, Valentine's, St. Patrick's, the Fourth of July in the US, and every season, made from your library's own moods. Plus This Time Last Year, and your favorites from seasons past. Holiday songs stay in their season, too.
@@ -109,7 +114,7 @@ AGE_RATING = {
     "koreaAgeRatingOverride": "NONE",
 }
 
-REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing in with Plex needs your own Plex server with music, so the app includes a built-in demo:
+BETA_REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing in with Plex needs your own Plex server with music, so the app includes a built-in demo:
 
 1. On the first screen, tap "Take it for a spin."
 2. Truffle opens a demo library of made-up artists and albums with sample songs. No account or server is needed.
@@ -117,6 +122,36 @@ REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing in wi
 4. Settings > Sign Out returns to the first screen.
 
 Audio keeps playing in the background, on the lock screen and in CarPlay, which is why audio is declared in UIBackgroundModes. The app has no developer-operated backend and collects no data."""
+
+# App Review's "Guideline 2.1 - Information Needed - New App Submission" (1.1.0, 2026-10-31) asked for six
+# things in the Notes field; the numbers match its list. The recording goes up with `review-attachment`.
+RECORDED_ON = "an iPhone 17 Pro"
+REVIEW_NOTES = f"""Thank you for the review. Here is what you asked for, numbered to match your message.
+
+1. SCREEN RECORDING
+Attached in this App Review Information section (Attachment), recorded on {RECORDED_ON} with the build under review, 1.2.0 (13). It starts by launching the app from the Home Screen, already signed in to a real Plex server, and plays music (Shuffle All, a seasonal mix, an album from Search), then signs out in Settings. Next it opens the built-in sample library ("Take it for a spin") and signs out of that, then signs in with Plex: Plex's page, then the person's library. The email address and IP address on Plex's sign-in page are blurred. Truffle has no accounts of its own, so there is no registration or account deletion flow. It has no user-generated content that other people see, and nothing to buy.
+
+2. PURPOSE AND AUDIENCE
+Truffle is for people who keep their own music collection on a Plex Media Server, Plex's free server software for a home computer or NAS. It plays their own songs from their own server on iPhone, iPad and CarPlay. The problem it solves: playing a big home music collection simply, especially while driving. The value: a CarPlay screen with a few big buttons, a Shuffle All that's truly random (every song once before any song twice), seasonal mixes made from the person's own library, likes, playlists they build themselves, and listening stats. Their music stays on their own server, at full quality.
+
+3. HOW TO REVIEW IT
+No login credentials or sample files are needed. On the first screen, tap "Take it for a spin." Truffle starts a sample library built into the app (invented artists and albums with original audio), served from inside the app with no account and no network. Everything works there: Shuffle All and the seasonal mixes on Home, the player (with AirPlay), the heart, Library (Library > Playlists > + makes a playlist), Search, Stats, Settings and CarPlay. Settings > Sign Out returns to the first screen.
+With a Plex server of your own: tap "Sign in with Plex," sign in on Plex's page, and Truffle finds your servers and their music.
+Siri and widgets: Shuffle All, Liked and the season's mixes also start from Siri and Shortcuts ("Shuffle all in Truffle," "Play my liked songs in Truffle"), the Truffle widget (small and medium) and the Control Center control, without opening the app; these work in the sample library too. Asking Siri for a playlist, album, artist or song by name ("Play [name] on Truffle") searches the person's own Plex library and needs Siri permission, which Truffle asks for once after signing in with Plex (not in the sample library).
+
+4. EXTERNAL SERVICES
+- Plex (plex.tv): signs in with the person's existing Plex account and lists their servers.
+- The person's own Plex Media Server: their music, artwork, likes and playlists.
+Nothing else: no analytics, ads, tracking, payment processors or AI services, and no backend of our own. Report a Bug in Settings opens Mail or a GitHub issue page, only when the person chooses to.
+
+5. REGIONAL DIFFERENCES
+Truffle works the same in every region. The only differences are seasonal decorations: the Fourth of July theme appears only in the US and its territories, and the seasons follow the hemisphere (from the time zone, or as chosen in Settings).
+
+6. REGULATED INDUSTRY OR THIRD-PARTY MATERIAL
+Neither applies. Truffle provides no content: it plays music people already have on their own server. The sample library's audio, covers and names were made for Truffle. Truffle is an independent app from AM2 LLC, not affiliated with Plex, Inc.; "for Plex" says which server it works with.
+
+Audio keeps playing in the background, on the lock screen and in CarPlay, which is why audio is declared in UIBackgroundModes. Truffle collects no data."""
+assert len(REVIEW_NOTES) <= 4000, f"App Review notes are {len(REVIEW_NOTES)} characters; App Store Connect takes 4,000"
 
 # The App Review contact is the same person for every AM2 LLC app: copied from Earmark's live
 # listing at run time, so it isn't written into this public repo.
@@ -270,7 +305,7 @@ def cmd_beta_review(asc: Store) -> None:
     app = asc.app() or sys.exit("no app record")
     detail = asc.get(f"/v1/apps/{app['id']}/betaAppReviewDetail").get("data") or sys.exit("no beta review details yet")
     report("beta review: demo notes, no sign-in", asc.patch_ok(f"/v1/betaAppReviewDetails/{detail['id']}", {"data": {
-        "type": "betaAppReviewDetails", "id": detail["id"], "attributes": {"notes": REVIEW_NOTES, "demoAccountRequired": False}}}))
+        "type": "betaAppReviewDetails", "id": detail["id"], "attributes": {"notes": BETA_REVIEW_NOTES, "demoAccountRequired": False}}}))
 
 
 def cmd_screenshots(asc: Store, directory: Path, replace: bool = False) -> None:
@@ -295,15 +330,44 @@ def cmd_screenshots(asc: Store, directory: Path, replace: bool = False) -> None:
         if path.name in existing_names:
             print(f"  = {path.name} already uploaded")
             continue
-        data = path.read_bytes()
-        reservation = asc.post("/v1/appScreenshots", {"data": {"type": "appScreenshots", "attributes": {"fileName": path.name, "fileSize": len(data)}, "relationships": {"appScreenshotSet": {"data": {"type": "appScreenshotSets", "id": shot_set["id"]}}}}})["data"]
-        for op in reservation["attributes"]["uploadOperations"]:
-            chunk = data[op["offset"]: op["offset"] + op["length"]]
-            headers = {h["name"]: h["value"] for h in op["requestHeaders"]}
-            response = requests.request(op["method"], op["url"], headers=headers, data=chunk, timeout=120)
-            response.raise_for_status()
-        asc.patch(f"/v1/appScreenshots/{reservation['id']}", {"data": {"type": "appScreenshots", "id": reservation["id"], "attributes": {"uploaded": True, "sourceFileChecksum": hashlib.md5(data).hexdigest()}}})
-        print(f"  ✓ uploaded {path.name} ({len(data) // 1024} KB)")
+        upload_asset(asc, "appScreenshots", ("appScreenshotSet", "appScreenshotSets", shot_set["id"]), path)
+        print(f"  ✓ uploaded {path.name} ({path.stat().st_size // 1024} KB)")
+
+
+def upload_asset(asc: Store, kind: str, parent: tuple[str, str, str], path: Path) -> str:
+    """App Store Connect's upload: reserve the file under its parent, send the parts it asks for, then mark it uploaded."""
+    relationship, parent_type, parent_id = parent
+    data = path.read_bytes()
+    reservation = asc.post(f"/v1/{kind}", {"data": {"type": kind, "attributes": {"fileName": path.name, "fileSize": len(data)}, "relationships": {relationship: {"data": {"type": parent_type, "id": parent_id}}}}})["data"]
+    for op in reservation["attributes"]["uploadOperations"]:
+        chunk = data[op["offset"]: op["offset"] + op["length"]]
+        headers = {h["name"]: h["value"] for h in op["requestHeaders"]}
+        response = requests.request(op["method"], op["url"], headers=headers, data=chunk, timeout=300)
+        response.raise_for_status()
+    asc.patch(f"/v1/{kind}/{reservation['id']}", {"data": {"type": kind, "id": reservation["id"], "attributes": {"uploaded": True, "sourceFileChecksum": hashlib.md5(data).hexdigest()}}})
+    return reservation["id"]
+
+
+def cmd_review_attachment(asc: Store, path: Path, replace: bool) -> None:
+    """A file only App Review sees (App Review Information → Attachment), such as the screen recording they asked for."""
+    if not path.is_file():
+        sys.exit(f"no file at {path}")
+    app = asc.app() or sys.exit("no app record")
+    version = editable_version(asc, app["id"], create=False) or sys.exit("no editable version")
+    detail = asc.get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail").get("data") or sys.exit("no App Review details yet; run review first")
+    existing = asc.get(f"/v1/appStoreReviewDetails/{detail['id']}/appStoreReviewAttachments", {"fields[appStoreReviewAttachments]": "fileName,assetDeliveryState"})["data"]
+    for old in existing:
+        name = old["attributes"]["fileName"]
+        if not replace:
+            print(f"  = already attached: {name}" + ("" if name == path.name else " (--replace swaps it out)"))
+            continue
+        gone = requests.delete(f"{tf.API}/v1/appStoreReviewAttachments/{old['id']}", headers=asc._headers(), timeout=30)
+        print(f"  {'✓' if gone.ok else '✗'} removed {name}" + ("" if gone.ok else f": {gone.status_code} {gone.text[:200]}"))
+    if existing and not replace:
+        return
+    attachment_id = upload_asset(asc, "appStoreReviewAttachments", ("appStoreReviewDetail", "appStoreReviewDetails", detail["id"]), path)
+    state = asc.get(f"/v1/appStoreReviewAttachments/{attachment_id}", {"fields[appStoreReviewAttachments]": "assetDeliveryState"})["data"]["attributes"]["assetDeliveryState"]
+    print(f"  ✓ attached {path.name} ({path.stat().st_size // 1024} KB) to version {version['attributes']['versionString']}'s App Review details: {state.get('state')}")
 
 
 def cmd_attach_build(asc: Store, build_number: str | None) -> None:
@@ -329,8 +393,13 @@ def cmd_status(asc: Store) -> None:
         a = version["attributes"]
         build_id = (version.get("relationships", {}).get("build", {}).get("data") or {}).get("id")
         build = asc.get(f"/v1/builds/{build_id}", {"fields[builds]": "version"})["data"]["attributes"]["version"] if build_id else None
-        detail = asc.get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail", {"fields[appStoreReviewDetails]": "contactPhone"}).get("data")
+        detail = asc.get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail", {"fields[appStoreReviewDetails]": "contactPhone,notes"}).get("data")
         print(f"  version {a['versionString']} state={a.get('appVersionState')} release={a.get('releaseType')} build={build or 'none'} reviewContact={'set' if detail and detail['attributes'].get('contactPhone') else 'missing phone'}")
+        if detail:
+            notes = detail["attributes"].get("notes") or ""
+            attachments = asc.get(f"/v1/appStoreReviewDetails/{detail['id']}/appStoreReviewAttachments", {"fields[appStoreReviewAttachments]": "fileName,assetDeliveryState"})["data"]
+            print(f"    review notes: {len(notes)} chars, {'current' if notes == REVIEW_NOTES else 'differ from REVIEW_NOTES'}; attachments: "
+                  + (", ".join(f"{x['attributes']['fileName']} ({x['attributes']['assetDeliveryState']['state']})" for x in attachments) or "none"))
         for loc in asc.get(f"/v1/appStoreVersions/{version['id']}/appStoreVersionLocalizations", {"fields[appStoreVersionLocalizations]": "locale,keywords,supportUrl,marketingUrl"})["data"]:
             a = loc["attributes"]; print(f"    {a['locale']}: keywords={a.get('keywords')!r} support={a.get('supportUrl')} marketing={a.get('marketingUrl')}")
             sets = asc.get(f"/v1/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets", {"fields[appScreenshotSets]": "screenshotDisplayType"})["data"]
@@ -348,6 +417,20 @@ def cmd_submit(asc: Store, dry_run: bool) -> None:
     print(f"version {version['attributes']['versionString']} build {attached or 'NONE'}")
     if not attached:
         sys.exit("no build attached; run attach-build first")
+    unresolved = asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "filter[state]": "UNRESOLVED_ISSUES"})["data"]
+    if unresolved:
+        # A rejected submission stays open: once it's answered (notes, attachment or a new build), its rejected
+        # items are marked resolved and the same submission goes back to App Review.
+        submission = unresolved[0]
+        items = asc.get(f"/v1/reviewSubmissions/{submission['id']}/items", {"fields[reviewSubmissionItems]": "state", "limit": 10}).get("data", [])
+        rejected = [item for item in items if item["attributes"]["state"] == "REJECTED"]
+        print(f"  submission {submission['id'][:8]}… has unresolved issues: {len(rejected)} rejected item(s)")
+        if dry_run:
+            print("dry run: not resubmitting"); return
+        for item in rejected:
+            report(f"item {item['id'][:8]}… resolved", asc.patch_ok(f"/v1/reviewSubmissionItems/{item['id']}", {"data": {"type": "reviewSubmissionItems", "id": item["id"], "attributes": {"resolved": True}}}))
+        report("resubmitted for review", asc.patch_ok(f"/v1/reviewSubmissions/{submission['id']}", {"data": {"type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True}}}))
+        return
     if dry_run:
         print("dry run: not submitting"); return
     existing = asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "filter[state]": "READY_FOR_REVIEW"})["data"]
@@ -396,7 +479,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
     setup = sub.add_parser("setup"); setup.add_argument("--phone", help="App Review contact phone, e.g. '+1 555 555 5555'")
-    review = sub.add_parser("review"); review.add_argument("--phone", required=True)
+    review = sub.add_parser("review"); review.add_argument("--phone", help="App Review contact phone (default: Earmark's)")
+    attachment = sub.add_parser("review-attachment"); attachment.add_argument("file"); attachment.add_argument("--replace", action="store_true", help="remove what's attached first")
     shots = sub.add_parser("screenshots"); shots.add_argument("directory"); shots.add_argument("--replace", action="store_true", help="delete the set's current screenshots first")
     attach = sub.add_parser("attach-build"); attach.add_argument("build", nargs="?")
     sub.add_parser("status")
@@ -412,6 +496,7 @@ def main() -> None:
             app = asc.app() or sys.exit("no app record")
             version = editable_version(asc, app["id"], create=False) or sys.exit("no editable version")
             set_review_details(asc, version["id"], args.phone)
+        case "review-attachment": cmd_review_attachment(asc, Path(args.file).expanduser(), args.replace)
         case "screenshots": cmd_screenshots(asc, Path(args.directory), args.replace)
         case "attach-build": cmd_attach_build(asc, args.build)
         case "status": cmd_status(asc)
