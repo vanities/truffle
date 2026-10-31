@@ -125,7 +125,8 @@ class Library:
         self.playlists.append({"ratingKey": "900", "title": "All Music", "smart": True, "_items": None})
         for offset, playlist in enumerate(catalog["playlists"]):
             items = [by_title[name]["ratingKey"] for name in playlist["pick"] if name in by_title]
-            self.playlists.append({"ratingKey": str(901 + offset), "title": playlist["title"], "smart": False, "_items": items})
+            self.playlists.append({"ratingKey": str(901 + offset), "title": playlist["title"], "smart": False, "_items": items,
+                                   "_summary": playlist.get("summary"), "_poster": playlist.get("poster")})
 
     def _make_history(self, rng: random.Random) -> list[dict]:
         """~900 plays since March 2024, each song played mostly in the seasons its album's moods suit."""
@@ -168,9 +169,14 @@ class Library:
 
     def playlist_public(self, playlist: dict) -> dict:
         items = self.playlist_items(playlist)
-        return {"ratingKey": playlist["ratingKey"], "key": f"/playlists/{playlist['ratingKey']}/items", "type": "playlist",
-                "title": playlist["title"], "smart": playlist["smart"], "playlistType": "audio", "leafCount": len(items),
-                "duration": sum(t["duration"] for t in items), "composite": f"/playlists/{playlist['ratingKey']}/composite/{STAMP}"}
+        public = {"ratingKey": playlist["ratingKey"], "key": f"/playlists/{playlist['ratingKey']}/items", "type": "playlist",
+                  "title": playlist["title"], "smart": playlist["smart"], "playlistType": "audio", "leafCount": len(items),
+                  "duration": sum(t["duration"] for t in items), "composite": f"/playlists/{playlist['ratingKey']}/composite/{STAMP}"}
+        if playlist.get("_summary"):
+            public["summary"] = playlist["_summary"]
+        if playlist.get("_poster"):
+            public["thumb"] = f"/library/metadata/{playlist['ratingKey']}/thumb/{STAMP}"
+        return public
 
 
 LIB: Library
@@ -314,6 +320,9 @@ class Handler(BaseHTTPRequestHandler):
                 cover = items[0]["_album"]["_cover"] if items else None
                 return self.send_file(LIBRARY / cover, "image/jpeg") if cover else self.send_empty(404)
             if (match := re.fullmatch(r"/library/metadata/(\d+)/thumb/\d+", thumb)):
+                poster = next((p.get("_poster") for p in lib.playlists if p["ratingKey"] == match.group(1)), None)
+                if poster:
+                    return self.send_file(LIBRARY / poster, "image/jpeg")
                 item = lib.by_id.get(match.group(1))
                 relative = item and (item.get("_cover") or item.get("_portrait"))
                 return self.send_file(LIBRARY / relative, "image/jpeg") if relative else self.send_empty(404)

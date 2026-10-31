@@ -11,6 +11,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     header
@@ -31,6 +32,7 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                         quickButtons
                             .padding(.horizontal, 20)
+                            .id("quick")
                         mixesShelf
                     }
                     if !library.recentlyAdded.isEmpty { recentlyAddedShelf }
@@ -45,6 +47,11 @@ struct HomeView: View {
             // The season's colors run up under the status bar.
             .scrollClipDisabled()
             .refreshable { await library.refresh() }
+            .onChange(of: router.scrollTarget) { _, target in
+                guard let target else { return }
+                proxy.scrollTo(target, anchor: .top)
+            }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .libraryDestinations()
         }

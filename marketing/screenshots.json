@@ -1,0 +1,137 @@
+{
+  "brand": "Truffle",
+  "sets": {
+    "iphone": [
+      {
+        "raw": "home.png",
+        "headline": [
+          "Every song.",
+          "No favorites."
+        ],
+        "subtitle": [
+          "A true shuffle of your whole Plex library."
+        ],
+        "tilt": 0,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
+        "raw": "mixes.png",
+        "headline": [
+          "Mixes that know",
+          "what month it is."
+        ],
+        "subtitle": [
+          "Halloween, the holidays, summer and more."
+        ],
+        "tilt": -2,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
+        "raw": "player.png",
+        "headline": [
+          "Plex music,",
+          "but sweeter."
+        ],
+        "subtitle": [
+          "Your FLACs, straight from your server."
+        ],
+        "tilt": 0,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
+        "raw": "albums.png",
+        "headline": [
+          "Your whole library.",
+          "Pocket-sized."
+        ],
+        "subtitle": [
+          "Artists, albums, playlists and likes."
+        ],
+        "tilt": 2,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      },
+      {
+        "raw": "icons.png",
+        "headline": [
+          "Dressed up",
+          "for the season."
+        ],
+        "subtitle": [
+          "An icon that changes with the leaves."
+        ],
+        "tilt": 0,
+        "top": [
+          34,
+          14,
+          52
+        ],
+        "bottom": [
+          118,
+          38,
+          62
+        ],
+        "accent": [
+          255,
+          170,
+          92
+        ]
+      }
+    ]
+  }
+}

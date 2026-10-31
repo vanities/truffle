@@ -4,12 +4,14 @@ struct SettingsView: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(AppSettings.self) private var settings
     @Environment(SeasonClock.self) private var season
+    @Environment(AppRouter.self) private var router
     @State private var confirmingSignOut = false
     @State private var confirmingNewRound = false
 
     var body: some View {
         @Bindable var settings = settings
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 Section("Plex") {
                     LabeledContent("Signed in as", value: library.userName ?? "—")
@@ -82,6 +84,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("The note shows up in the fall.")
                 }
+                .id("appIcon")
 
                 Section {
                     Toggle("Seasonal Effects", isOn: $settings.seasonalEffects)
@@ -105,6 +108,11 @@ struct SettingsView: View {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                     LabeledContent("Made by", value: "AM2 LLC")
                 }
+            }
+            .onChange(of: router.scrollTarget) { _, target in
+                guard let target else { return }
+                proxy.scrollTo(target, anchor: .top)
+            }
             }
             .navigationTitle("Settings")
             .onChange(of: settings.hemisphere) { season.refresh() }

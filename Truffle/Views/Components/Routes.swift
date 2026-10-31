@@ -16,6 +16,9 @@ final class AppRouter {
     var addingToPlaylist: [Track]?
     var showsPlayer = false
     var toast: String?
+    var libraryPath: [Route] = []
+    /// Asks a screen to scroll to a marked spot (store screenshots).
+    var scrollTarget: String?
 
     func say(_ message: String) {
         toast = message

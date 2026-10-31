@@ -2,9 +2,11 @@ import SwiftUI
 
 struct LibraryView: View {
     @Environment(MusicLibrary.self) private var library
+    @Environment(AppRouter.self) private var router
 
     var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+        NavigationStack(path: $router.libraryPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(spacing: 0) {

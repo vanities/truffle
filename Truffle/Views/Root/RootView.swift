@@ -44,12 +44,41 @@ struct RootView: View {
             AppIconSwitcher.apply(settings: settings, theme: season.theme)
         }
         .onChange(of: settings.appIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
+        #if DEBUG
+        .task { await openDebugScene() }
+        #endif
         .onChange(of: settings.seasonalIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
         .onChange(of: library.phase == .signedOut) { _, signedOut in
             // Signing in again (after signing out from Settings) starts at Home.
             if signedOut { tab = .home }
         }
     }
+
+    #if DEBUG
+    /// `-TruffleScene mixes|player|albums|icons`: opens straight to a screen, for store screenshots.
+    private func openDebugScene() async {
+        guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
+        try? await Task.sleep(for: .seconds(4))
+        Logger.ui.info("[debug] scene \(scene, privacy: .public)")
+        switch scene {
+        case "mixes":
+            router.scrollTarget = "quick"
+        case "player":
+            if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
+            try? await Task.sleep(for: .seconds(2))
+            router.showsPlayer = true
+        case "albums":
+            tab = .library
+            router.libraryPath = [.albums]
+        case "icons":
+            tab = .settings
+            try? await Task.sleep(for: .seconds(1))
+            router.scrollTarget = "appIcon"
+        default:
+            break
+        }
+    }
+    #endif
 
     private var tabs: some View {
         TabView(selection: $tab) {
