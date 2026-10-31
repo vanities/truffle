@@ -168,6 +168,46 @@ def set_review_details(asc: Store, version_id: str, phone: str | None) -> None:
         report("review contact + notes", asc.post_ok("/v1/appStoreReviewDetails", {"data": {"type": "appStoreReviewDetails", "attributes": review_attrs, "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}}}}))
 
 
+def set_free_price(asc: Store, app_id: str) -> None:
+    # A new app answers /apps/{id}/appPriceSchedule with a placeholder, so look for actual prices.
+    probe = requests.get(f"{tf.API}/v1/appPriceSchedules/{app_id}/manualPrices", headers=asc._headers(), params={"limit": 1}, timeout=30)
+    if probe.ok and probe.json().get("data"):
+        print("  = price already set")
+        return
+    points = asc.get(f"/v1/apps/{app_id}/appPricePoints", {"filter[territory]": "USA", "fields[appPricePoints]": "customerPrice,proceeds", "limit": 200})["data"]
+    free = next((p for p in points if float(p["attributes"]["customerPrice"]) == 0.0), None)
+    if not free:
+        print("  ✗ price: could not find the free price point")
+        return
+    report("price: Free (USA base, all territories)", asc.post_ok("/v1/appPriceSchedules", {
+        "data": {"type": "appPriceSchedules", "relationships": {
+            "app": {"data": {"type": "apps", "id": app_id}},
+            "baseTerritory": {"data": {"type": "territories", "id": "USA"}},
+            "manualPrices": {"data": [{"type": "appPrices", "id": "${price-free}"}]},
+        }},
+        "included": [{"type": "appPrices", "id": "${price-free}", "attributes": {"startDate": None}, "relationships": {"appPricePoint": {"data": {"type": "appPricePoints", "id": free["id"]}}}}],
+    }))
+
+
+def set_availability(asc: Store, app_id: str) -> None:
+    """Every territory, and new ones as Apple adds them, like Earmark."""
+    probe = requests.get(f"{tf.API}/v1/apps/{app_id}/appAvailabilityV2", headers=asc._headers(), timeout=30)
+    if probe.ok and probe.json().get("data"):
+        print("  = availability already set")
+        return
+    territories = asc.get("/v1/territories", {"limit": 200})["data"]
+    local_ids = [f"${{{t['id']}}}" for t in territories]
+    report(f"availability: all {len(territories)} territories + new ones", asc.post_ok("/v2/appAvailabilities", {
+        "data": {"type": "appAvailabilities", "attributes": {"availableInNewTerritories": True}, "relationships": {
+            "app": {"data": {"type": "apps", "id": app_id}},
+            "territoryAvailabilities": {"data": [{"type": "territoryAvailabilities", "id": i} for i in local_ids]},
+        }},
+        "included": [{"type": "territoryAvailabilities", "id": i, "attributes": {"available": True},
+                      "relationships": {"territory": {"data": {"type": "territories", "id": t["id"]}}}}
+                     for i, t in zip(local_ids, territories)],
+    }))
+
+
 def cmd_setup(asc: Store, phone: str | None) -> None:
     app = asc.app() or sys.exit("no app record")
     app_id = app["id"]
@@ -202,24 +242,8 @@ def cmd_setup(asc: Store, phone: str | None) -> None:
 
         set_review_details(asc, version["id"], phone)
 
-    # Price: free, USA as base territory.
-    if asc.get(f"/v1/apps/{app_id}/appPriceSchedule").get("data"):
-        print("  = price schedule already set")
-        return
-    points = asc.get(f"/v1/apps/{app_id}/appPricePoints", {"filter[territory]": "USA", "fields[appPricePoints]": "customerPrice,proceeds", "limit": 200})["data"]
-    free = next((p for p in points if float(p["attributes"]["customerPrice"]) == 0.0), None)
-    if free:
-        result = asc.post_ok("/v1/appPriceSchedules", {
-            "data": {"type": "appPriceSchedules", "relationships": {
-                "app": {"data": {"type": "apps", "id": app_id}},
-                "baseTerritory": {"data": {"type": "territories", "id": "USA"}},
-                "manualPrices": {"data": [{"type": "appPrices", "id": "${price-free}"}]},
-            }},
-            "included": [{"type": "appPrices", "id": "${price-free}", "attributes": {"startDate": None}, "relationships": {"appPricePoint": {"data": {"type": "appPricePoints", "id": free["id"]}}}}],
-        })
-        report("price: Free (all territories)", result)
-    else:
-        print("  ✗ price: could not find the free price point")
+    set_free_price(asc, app_id)
+    set_availability(asc, app_id)
 
     print("\nStill manual in App Store Connect: App Privacy → 'Data Not Collected' (Get Started → No → Publish),")
     print("and the review contact phone number under Version → App Review Information.")
