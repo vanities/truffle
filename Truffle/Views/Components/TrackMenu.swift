@@ -33,14 +33,12 @@ struct TrackMenu: View {
     }
 }
 
-/// Pick one of your playlists (smart ones can't be added to), or make a new one.
+/// Pick one of your playlists (smart ones can't be added to), or make a new one in the editor.
 struct AddToPlaylistSheet: View {
     let tracks: [Track]
     @Environment(MusicLibrary.self) private var library
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
-    @State private var newName = ""
-    @State private var naming = false
     @State private var working = false
 
     private var editable: [Playlist] { library.playlists.filter { !$0.isSmart } }
@@ -50,9 +48,11 @@ struct AddToPlaylistSheet: View {
             List {
                 Section {
                     Button {
-                        naming = true
+                        router.startNewPlaylist(with: tracks)
                     } label: {
                         Label("New Playlist…", systemImage: "plus")
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
                 }
                 Section(editable.isEmpty ? "" : "Your playlists") {
@@ -74,11 +74,6 @@ struct AddToPlaylistSheet: View {
                     Button("Cancel", role: .cancel) { dismiss() }
                 }
             }
-            .alert("New Playlist", isPresented: $naming) {
-                TextField("Name", text: $newName)
-                Button("Create") { create() }
-                Button("Cancel", role: .cancel) {}
-            }
         }
     }
 
@@ -93,21 +88,6 @@ struct AddToPlaylistSheet: View {
                 working = false
                 router.say("Couldn't add to \(playlist.title)")
                 Logger.ui.error("[ui] add to playlist failed: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-    }
-
-    private func create() {
-        let name = newName
-        working = true
-        Task {
-            do {
-                try await library.createPlaylist(named: name, with: tracks)
-                router.say("Made \(name)")
-                dismiss()
-            } catch {
-                working = false
-                router.say("Couldn't make the playlist")
             }
         }
     }

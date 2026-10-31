@@ -6,7 +6,8 @@
 
 Serves the invented library in scripts/demo-catalog.json the way PMS 1.43 answers the requests
 Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `userRating>=`, `viewedAt>=`),
-paging, sort=id/random, the photo resizer, history, ratings, playlists, and audio with byte ranges.
+paging, the sorts Truffle asks for, the photo resizer, history, ratings, playlists (made, renamed,
+described, given a cover, songs added, removed and moved), and audio with byte ranges.
 
     make demo-library            # covers (Swift) and audio (ffmpeg) into ./demo-library
     scripts/demo_server.py       # http://127.0.0.1:32499
@@ -122,11 +123,16 @@ class Library:
         self.by_id = {item["ratingKey"]: item for item in self.artists + self.albums + self.tracks}
         self.history = self._make_history(rng)
         by_title = {track["title"]: track for track in self.tracks}
-        self.playlists.append({"ratingKey": "900", "title": "All Music", "smart": True, "_items": None})
+        # Playlist slots get their own ids (PMS's playlistItemID), which removing and moving go by.
+        self.next_item_id = 1
+        self.playlists.append({"ratingKey": "900", "title": "All Music", "smart": True, "_entries": None,
+                               "addedAt": STAMP - 60 * 86_400, "updatedAt": STAMP - 60 * 86_400})
         for offset, playlist in enumerate(catalog["playlists"]):
-            items = [by_title[name]["ratingKey"] for name in playlist["pick"] if name in by_title]
-            self.playlists.append({"ratingKey": str(901 + offset), "title": playlist["title"], "smart": False, "_items": items,
-                                   "_summary": playlist.get("summary"), "_poster": playlist.get("poster")})
+            ids = [by_title[name]["ratingKey"] for name in playlist["pick"] if name in by_title]
+            self.playlists.append({"ratingKey": str(901 + offset), "title": playlist["title"], "smart": False,
+                                   "_entries": self.make_entries(ids), "_summary": playlist.get("summary"),
+                                   "_poster": playlist.get("poster"), "addedAt": STAMP - 60 * 86_400,
+                                   "updatedAt": STAMP - offset * 9 * 86_400})
 
     def _make_history(self, rng: random.Random) -> list[dict]:
         """Listening sessions from March 2024 up to now, in this machine's time zone: the drive in, lunch, the
@@ -179,7 +185,25 @@ class Library:
             track["lastViewedAt"] = max(track.get("lastViewedAt", 0), play["viewedAt"])
             # Albums too: Home's Recently Played sorts them by it.
             track["_album"]["lastViewedAt"] = max(track["_album"].get("lastViewedAt", 0), play["viewedAt"])
+            # And artists, which Artists sorts by (Recently Played, Most Played).
+            artist = self.by_id[track["grandparentRatingKey"]]
+            artist["viewCount"] = artist.get("viewCount", 0) + 1
+            artist["lastViewedAt"] = max(artist.get("lastViewedAt", 0), play["viewedAt"])
         return sorted(plays, key=lambda play: play["viewedAt"])
+
+    def make_entries(self, track_ids: list[str]) -> list[tuple[int, str]]:
+        entries = []
+        for track_id in track_ids:
+            entries.append((self.next_item_id, track_id))
+            self.next_item_id += 1
+        return entries
+
+    def playlist(self, playlist_id: str) -> dict | None:
+        return next((p for p in self.playlists if p["ratingKey"] == playlist_id), None)
+
+    @staticmethod
+    def touch(playlist: dict) -> None:
+        playlist["updatedAt"] = int(time.time())
 
     # MARK: shapes
 
@@ -196,19 +220,27 @@ class Library:
             out["Media"] = [{"container": "mp4", "audioCodec": "aac", "bitrate": 96, "Part": [part]}]
         return out
 
+    def playlist_entries(self, playlist: dict) -> list[tuple[int, dict]]:
+        """(playlistItemID, track) per slot; the smart "All Music" numbers every song in order."""
+        entries = playlist["_entries"]
+        if entries is None:
+            return list(enumerate(self.tracks, start=1))
+        return [(item_id, self.by_id[track_id]) for item_id, track_id in entries if track_id in self.by_id]
+
     def playlist_items(self, playlist: dict) -> list[dict]:
-        ids = playlist["_items"]
-        return list(self.tracks) if ids is None else [self.by_id[i] for i in ids if i in self.by_id]
+        return [track for _, track in self.playlist_entries(playlist)]
 
     def playlist_public(self, playlist: dict) -> dict:
         items = self.playlist_items(playlist)
         public = {"ratingKey": playlist["ratingKey"], "key": f"/playlists/{playlist['ratingKey']}/items", "type": "playlist",
                   "title": playlist["title"], "smart": playlist["smart"], "playlistType": "audio", "leafCount": len(items),
-                  "duration": sum(t["duration"] for t in items), "composite": f"/playlists/{playlist['ratingKey']}/composite/{STAMP}"}
+                  "duration": sum(t["duration"] for t in items), "composite": f"/playlists/{playlist['ratingKey']}/composite/{STAMP}",
+                  "addedAt": playlist["addedAt"], "updatedAt": playlist["updatedAt"]}
         if playlist.get("_summary"):
             public["summary"] = playlist["_summary"]
-        if playlist.get("_poster"):
-            public["thumb"] = f"/library/metadata/{playlist['ratingKey']}/thumb/{STAMP}"
+        if playlist.get("_poster") or playlist.get("_poster_bytes"):
+            # A new upload gets a new stamp, like PMS, so cached art doesn't stick around.
+            public["thumb"] = f"/library/metadata/{playlist['ratingKey']}/thumb/{playlist.get('_poster_stamp', STAMP)}"
         return public
 
 
@@ -226,6 +258,15 @@ def container(items: list | None = None, total: int | None = None, directories: 
     if total is not None:
         body["totalSize"] = total
     return {"MediaContainer": body}
+
+
+def artist_sort(item: dict) -> str:
+    name = item.get("grandparentTitle", "") if item.get("type") == "track" else item.get("parentTitle", "")
+    return name.removeprefix("The ").lower()
+
+
+def album_sort(item: dict) -> str:
+    return (item.get("parentTitle", "") if item.get("type") == "track" else item.get("title", "")).lower()
 
 
 def page(items: list, query: dict) -> tuple[list, int]:
@@ -253,6 +294,24 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def send_bytes(self, data: bytes, content_type: str) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_art(self, item_id: str) -> None:
+        """An uploaded playlist cover, a bundled playlist poster, or an album cover or artist portrait."""
+        playlist = LIB.playlist(item_id)
+        if playlist and playlist.get("_poster_bytes"):
+            return self.send_bytes(playlist["_poster_bytes"], "image/jpeg")
+        if playlist and playlist.get("_poster"):
+            return self.send_file(LIBRARY / playlist["_poster"], "image/jpeg")
+        item = LIB.by_id.get(item_id)
+        relative = item and (item.get("_cover") or item.get("_portrait"))
+        return self.send_file(LIBRARY / relative, "image/jpeg") if relative else self.send_empty(404)
 
     def send_file(self, path: Path, content_type: str) -> None:
         if not path.exists():
@@ -307,14 +366,17 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(parts.path)
         query = dict(parse_qsl(parts.query, keep_blank_values=True))
         query.pop("X-Plex-Token", None)
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length > 0 else b""
         try:
-            self.dispatch(method, path, query)
+            self.dispatch(method, path, query, body)
         except Exception:  # noqa: BLE001 - a demo server should log and answer, not die
             log.exception("[demo] %s %s failed", method, path)
             self.send_empty(500)
-        log.info("[demo] %s %s %s in %.0fms", method, path, ",".join(sorted(query)), (time.monotonic() - started) * 1000)
+        log.info("[demo] %s %s %s%s in %.0fms", method, path, ",".join(sorted(query)), f" +{len(body)}B" if body else "",
+                 (time.monotonic() - started) * 1000)
 
-    def dispatch(self, method: str, path: str, query: dict) -> None:
+    def dispatch(self, method: str, path: str, query: dict, body: bytes = b"") -> None:
         lib = LIB
         if path == "/identity":
             return self.send_json(container(machineIdentifier="demo", version="1.43.5.demo"))
@@ -328,9 +390,27 @@ class Handler(BaseHTTPRequestHandler):
         if re.fullmatch(r"/library/sections/\d+/all", path):
             return self.send_json(self.library_all(query))
         if (match := re.fullmatch(r"/library/metadata/(\d+)/thumb/\d+", path)):
-            item = lib.by_id.get(match.group(1))
-            relative = item and (item.get("_cover") or item.get("_portrait"))
-            return self.send_file(LIBRARY / relative, "image/jpeg") if relative else self.send_empty(404)
+            return self.send_art(match.group(1))
+        if (match := re.fullmatch(r"/library/metadata/(\d+)/posters", path)) and method == "POST":
+            # A custom cover: the JPEG is the whole body, as Truffle and scripts/plex_mix.py send it.
+            playlist = lib.playlist(match.group(1))
+            if not playlist:
+                return self.send_empty(404)
+            if not body:
+                return self.send_empty(400)
+            with lib.lock:
+                playlist["_poster_bytes"] = body
+                playlist["_poster_stamp"] = max(int(time.time()), playlist.get("_poster_stamp", 0) + 1)
+                lib.touch(playlist)
+            return self.send_empty(200)
+        if (match := re.fullmatch(r"/library/metadata/(\d+)", path)) and method == "PUT":
+            # The locked summary Truffle and plex_mix.py set on a playlist's metadata item.
+            playlist = lib.playlist(match.group(1))
+            if playlist and "summary.value" in query:
+                with lib.lock:
+                    playlist["_summary"] = query["summary.value"]
+                    lib.touch(playlist)
+            return self.send_empty(200)
         if (match := re.fullmatch(r"/library/metadata/(\d+)/children", path)):
             item = lib.by_id.get(match.group(1))
             if item and item["type"] == "artist":
@@ -353,12 +433,7 @@ class Handler(BaseHTTPRequestHandler):
                 cover = items[0]["_album"]["_cover"] if items else None
                 return self.send_file(LIBRARY / cover, "image/jpeg") if cover else self.send_empty(404)
             if (match := re.fullmatch(r"/library/metadata/(\d+)/thumb/\d+", thumb)):
-                poster = next((p.get("_poster") for p in lib.playlists if p["ratingKey"] == match.group(1)), None)
-                if poster:
-                    return self.send_file(LIBRARY / poster, "image/jpeg")
-                item = lib.by_id.get(match.group(1))
-                relative = item and (item.get("_cover") or item.get("_portrait"))
-                return self.send_file(LIBRARY / relative, "image/jpeg") if relative else self.send_empty(404)
+                return self.send_art(match.group(1))
             return self.send_empty(404)
         if (match := re.fullmatch(r"/library/parts/(\d+)/\d+/file\.m4a", path)):
             track = lib.by_id.get(match.group(1))
@@ -367,20 +442,62 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(container([lib.playlist_public(p) for p in lib.playlists]))
         if path == "/playlists" and method == "POST":
             ids = re.findall(r"\d+", query.get("uri", "").split("/library/metadata/")[-1])
+            now = int(time.time())
             with lib.lock:
-                playlist = {"ratingKey": str(950 + len(lib.playlists)), "title": query.get("title", "Playlist"), "smart": False, "_items": ids}
+                playlist = {"ratingKey": str(950 + len(lib.playlists)), "title": query.get("title", "Playlist"), "smart": False,
+                            "_entries": lib.make_entries(ids), "addedAt": now, "updatedAt": now}
                 lib.playlists.append(playlist)
             return self.send_json(container([lib.playlist_public(playlist)]))
+        if (match := re.fullmatch(r"/playlists/(\d+)", path)):
+            playlist = lib.playlist(match.group(1))
+            if not playlist:
+                return self.send_empty(404)
+            if method == "PUT":
+                with lib.lock:
+                    if "title" in query:
+                        playlist["title"] = query["title"]
+                    if "summary" in query:
+                        playlist["_summary"] = query["summary"]
+                    lib.touch(playlist)
+            return self.send_json(container([lib.playlist_public(playlist)]))
+        if (match := re.fullmatch(r"/playlists/(\d+)/items/(\d+)/move", path)) and method == "PUT":
+            playlist = lib.playlist(match.group(1))
+            if not playlist or playlist["_entries"] is None:
+                return self.send_empty(404)
+            item_id, after = int(match.group(2)), query.get("after")
+            with lib.lock:
+                entries = playlist["_entries"]
+                moving = next((e for e in entries if e[0] == item_id), None)
+                if moving is None or (after and not any(e[0] == int(after) for e in entries if e[0] != item_id)):
+                    return self.send_empty(404)
+                entries.remove(moving)
+                # Right after `after`, or first without one.
+                position = next(i + 1 for i, e in enumerate(entries) if e[0] == int(after)) if after else 0
+                entries.insert(position, moving)
+                lib.touch(playlist)
+            return self.send_json(container([lib.playlist_public(playlist)]))
+        if (match := re.fullmatch(r"/playlists/(\d+)/items/(\d+)", path)) and method == "DELETE":
+            playlist = lib.playlist(match.group(1))
+            if not playlist or playlist["_entries"] is None:
+                return self.send_empty(404)
+            with lib.lock:
+                kept = [e for e in playlist["_entries"] if e[0] != int(match.group(2))]
+                if len(kept) == len(playlist["_entries"]):
+                    return self.send_empty(404)
+                playlist["_entries"] = kept
+                lib.touch(playlist)
+            return self.send_json(container([lib.playlist_public(playlist)]))
         if (match := re.fullmatch(r"/playlists/(\d+)/items", path)):
-            playlist = next((p for p in lib.playlists if p["ratingKey"] == match.group(1)), None)
+            playlist = lib.playlist(match.group(1))
             if not playlist:
                 return self.send_empty(404)
             if method == "PUT":
                 ids = re.findall(r"\d+", query.get("uri", "").split("/library/metadata/")[-1])
                 with lib.lock:
-                    playlist["_items"] = (playlist["_items"] or []) + ids
+                    playlist["_entries"] = (playlist["_entries"] or []) + lib.make_entries(ids)
+                    lib.touch(playlist)
                 return self.send_json(container([lib.playlist_public(playlist)]))
-            items = [dict(lib.public(t), playlistItemID=n) for n, t in enumerate(lib.playlist_items(playlist), start=1)]
+            items = [dict(lib.public(t), playlistItemID=item_id) for item_id, t in lib.playlist_entries(playlist)]
             chosen, total = page(items, query)
             return self.send_json(container(chosen, total=total))
         if path == "/hubs/search":
@@ -435,16 +552,19 @@ class Handler(BaseHTTPRequestHandler):
             floor = float(query["userRating>"])
             items = [i for i in items if i.get("userRating", 0) >= floor]
         sort = query.get("sort", "")
+        field, _, direction = sort.partition(":")
+        descending = direction == "desc"
         if sort == "random":
             items = random.sample(items, len(items))
-        elif sort.startswith("addedAt"):
-            items = sorted(items, key=lambda i: i.get("addedAt", 0), reverse=sort.endswith("desc"))
-        elif sort.startswith("lastRatedAt"):
-            items = sorted(items, key=lambda i: i.get("lastRatedAt", 0), reverse=sort.endswith("desc"))
-        elif sort.startswith("lastViewedAt"):
-            items = sorted(items, key=lambda i: i.get("lastViewedAt", 0), reverse=sort.endswith("desc"))
-        elif sort == "titleSort":
-            items = sorted(items, key=lambda i: i.get("titleSort", i["title"]).lower())
+        elif field in ("addedAt", "lastRatedAt", "lastViewedAt", "viewCount"):
+            items = sorted(items, key=lambda i: i.get(field, 0), reverse=descending)
+        elif field == "titleSort":
+            items = sorted(items, key=lambda i: i.get("titleSort", i["title"]).lower(), reverse=descending)
+        elif field == "artist.titleSort":
+            # PMS's "Album Artist" order; within an artist, albums then track numbers.
+            items = sorted(items, key=lambda i: (artist_sort(i), album_sort(i), i.get("index", 0)), reverse=descending)
+        elif field == "album.titleSort":
+            items = sorted(items, key=lambda i: (album_sort(i), i.get("index", 0)), reverse=descending)
         elif sort == "id":
             items = sorted(items, key=lambda i: int(i["ratingKey"]))
         chosen, total = page(items, query)

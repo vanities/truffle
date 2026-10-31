@@ -41,6 +41,8 @@ final class MusicLibrary {
     /// Likes changed in this session, so every list showing a song shows its heart right away
     /// (lists hold the copies they fetched).
     private(set) var likedOverrides: [String: Bool] = [:]
+    /// Bumped when the app changes a playlist's songs, so a screen showing it loads them again.
+    private(set) var playlistRevisions: [String: Int] = [:]
 
     /// The player swaps upcoming songs onto the new address when the connection changes.
     @ObservationIgnored var onEndpointChanged: ((PlexEndpoint) -> Void)?
@@ -552,6 +554,10 @@ final class MusicLibrary {
     func playlistsChanged(_ list: [Playlist]) {
         playlists = list
         saveSnapshot()
+    }
+
+    func notePlaylistChanged(_ id: String) {
+        playlistRevisions[id, default: 0] += 1
     }
 
     // MARK: - Ratings bookkeeping

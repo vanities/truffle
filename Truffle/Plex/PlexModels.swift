@@ -72,6 +72,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
     var addedAt: Int?
     var lastViewedAt: Int?
     var viewedAt: Int?
+    var updatedAt: Int?
     var smart: Bool?
     var playlistItemID: Int?
     var librarySectionID: String?
@@ -90,7 +91,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
         case ratingKey, key, type, title, originalTitle, parentTitle, grandparentTitle, parentRatingKey,
              grandparentRatingKey, index, parentIndex, year, parentYear, duration, thumb, parentThumb,
              grandparentThumb, composite, leafCount, childCount, viewCount, userRating, addedAt,
-             lastViewedAt, viewedAt, smart, playlistItemID, librarySectionID, summary
+             lastViewedAt, viewedAt, updatedAt, smart, playlistItemID, librarySectionID, summary
         case media = "Media", mood = "Mood", genre = "Genre"
     }
 
@@ -121,6 +122,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
         addedAt = c.flexibleInt(.addedAt)
         lastViewedAt = c.flexibleInt(.lastViewedAt)
         viewedAt = c.flexibleInt(.viewedAt)
+        updatedAt = c.flexibleInt(.updatedAt)
         smart = c.flexibleBool(.smart)
         playlistItemID = c.flexibleInt(.playlistItemID)
         librarySectionID = c.flexibleString(.librarySectionID)

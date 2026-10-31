@@ -8,6 +8,9 @@ struct DemoLibrary: Sendable {
         let name: String
         let portrait: String
         let albumCount: Int
+        /// From the history, as PMS reports them on artists.
+        var viewCount: Int?
+        var lastViewedAt: Int?
     }
 
     struct Album: Sendable {
@@ -49,13 +52,27 @@ struct DemoLibrary: Sendable {
     }
 
     struct Playlist: Sendable {
+        /// A slot, with its own id like PMS's playlistItemID, which removing and moving go by.
+        struct Entry: Sendable, Equatable {
+            let itemID: Int
+            let trackID: String
+        }
+
         let id: String
         var title: String
         let smart: Bool
         /// nil for the smart "All Music" playlist, which holds every song.
-        var items: [String]?
+        var entries: [Entry]?
         var summary: String?
+        /// A bundled poster, relative to the DemoLibrary folder.
         var poster: String?
+        /// A cover uploaded through `/library/metadata/<id>/posters`, and its stamp for the thumb path.
+        var uploadedPoster: Data?
+        var posterStamp: Int?
+        let addedAt: Int
+        var updatedAt: Int
+
+        var items: [String]? { entries?.map(\.trackID) }
     }
 
     struct Play: Sendable {
@@ -75,6 +92,7 @@ struct DemoLibrary: Sendable {
     private(set) var albums: [Album] = []
     var tracks: [Track] = []
     var playlists: [Playlist] = []
+    private var nextItemID = 1
     private(set) var moods: [(name: String, key: String)] = []
     private(set) var history: [Play] = []
     private var trackPositions: [String: Int] = [:]
@@ -121,20 +139,29 @@ struct DemoLibrary: Sendable {
         artistPositions = Dictionary(uniqueKeysWithValues: artists.enumerated().map { ($1.id, $0) })
         history = makeHistory(now: now, calendar: calendar, rng: &rng)
         var lastPlayed: [String: Int] = [:]
+        var artistPlays: [String: (count: Int, last: Int)] = [:]
         for play in history {
             guard let position = trackPositions[play.trackID] else { continue }
             tracks[position].viewCount = (tracks[position].viewCount ?? 0) + 1
             tracks[position].lastViewedAt = max(tracks[position].lastViewedAt ?? 0, play.viewedAt)
             lastPlayed[tracks[position].albumID] = max(lastPlayed[tracks[position].albumID] ?? 0, play.viewedAt)
+            let before = artistPlays[tracks[position].artistID] ?? (0, 0)
+            artistPlays[tracks[position].artistID] = (before.count + 1, max(before.last, play.viewedAt))
         }
         for position in albums.indices { albums[position].lastViewedAt = lastPlayed[albums[position].id] }
+        for position in artists.indices {
+            artists[position].viewCount = artistPlays[artists[position].id]?.count
+            artists[position].lastViewedAt = artistPlays[artists[position].id]?.last
+        }
 
         let byTitle = Dictionary(tracks.map { ($0.title, $0.id) }, uniquingKeysWith: { _, last in last })
-        playlists = [Playlist(id: "900", title: "All Music", smart: true, items: nil)]
+        let long = Self.stamp - 60 * 86_400
+        playlists = [Playlist(id: "900", title: "All Music", smart: true, entries: nil, addedAt: long, updatedAt: long)]
         let year = calendar.component(.year, from: now)
         for (offset, playlist) in catalog.playlists.enumerated() {
             var made = Playlist(id: String(901 + offset), title: playlist.title, smart: false,
-                                items: playlist.pick.compactMap { byTitle[$0] }, summary: playlist.summary, poster: playlist.poster)
+                                entries: makeEntries(playlist.pick.compactMap { byTitle[$0] }), summary: playlist.summary,
+                                poster: playlist.poster, addedAt: long, updatedAt: Self.stamp - offset * 9 * 86_400)
             Self.moveMixTag(of: &made, to: year)
             playlists.append(made)
         }
@@ -146,8 +173,21 @@ struct DemoLibrary: Sendable {
     func trackPosition(_ id: String) -> Int? { trackPositions[id] }
 
     func playlistTracks(_ playlist: Playlist) -> [Track] {
-        guard let ids = playlist.items else { return tracks }
-        return ids.compactMap(track)
+        playlistEntries(playlist).map(\.track)
+    }
+
+    /// (playlistItemID, song) per slot; the smart "All Music" numbers every song in order.
+    func playlistEntries(_ playlist: Playlist) -> [(itemID: Int, track: Track)] {
+        guard let entries = playlist.entries else { return tracks.enumerated().map { ($0.offset + 1, $0.element) } }
+        return entries.compactMap { entry in track(entry.trackID).map { (entry.itemID, $0) } }
+    }
+
+    func playlistIndex(_ id: String) -> Int? { playlists.firstIndex { $0.id == id } }
+
+    /// New slots for songs added to a playlist, numbered on from the last.
+    mutating func makeEntries(_ trackIDs: [String]) -> [Playlist.Entry] {
+        defer { nextItemID += trackIDs.count }
+        return trackIDs.enumerated().map { Playlist.Entry(itemID: nextItemID + $0.offset, trackID: $0.element) }
     }
 
     /// The image file for an artist, album or playlist id, relative to the DemoLibrary folder.

@@ -123,18 +123,25 @@ struct Artist: Identifiable, Hashable, Codable, Sendable {
     var title: String
     var thumb: String?
     var albumCount: Int?
+    /// Plays of the artist's songs and the newest one: PMS keeps both on the artist too.
+    var viewCount: Int?
+    var lastViewedAt: Date?
 
-    init(id: String, title: String, thumb: String? = nil, albumCount: Int? = nil) {
+    init(id: String, title: String, thumb: String? = nil, albumCount: Int? = nil, viewCount: Int? = nil,
+         lastViewedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.thumb = thumb
         self.albumCount = albumCount
+        self.viewCount = viewCount
+        self.lastViewedAt = lastViewedAt
     }
 
     init?(_ metadata: PlexMetadata) {
         guard !metadata.ratingKey.isEmpty, metadata.type == nil || metadata.type == "artist" else { return nil }
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Unknown Artist", thumb: metadata.thumb,
-                  albumCount: metadata.childCount)
+                  albumCount: metadata.childCount, viewCount: metadata.viewCount,
+                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
     }
 }
 
@@ -146,9 +153,11 @@ struct Playlist: Identifiable, Hashable, Codable, Sendable {
     var duration: TimeInterval
     var thumb: String?
     var summary: String?
+    /// When its songs, name or cover last changed.
+    var updatedAt: Date?
 
     init(id: String, title: String, isSmart: Bool, trackCount: Int, duration: TimeInterval = 0, thumb: String? = nil,
-         summary: String? = nil) {
+         summary: String? = nil, updatedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.isSmart = isSmart
@@ -156,6 +165,7 @@ struct Playlist: Identifiable, Hashable, Codable, Sendable {
         self.duration = duration
         self.thumb = thumb
         self.summary = summary
+        self.updatedAt = updatedAt
     }
 
     init?(_ metadata: PlexMetadata) {
@@ -163,7 +173,8 @@ struct Playlist: Identifiable, Hashable, Codable, Sendable {
         // A playlist only has `thumb` once someone gives it a poster; otherwise Plex's collage.
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Playlist", isSmart: metadata.smart ?? false,
                   trackCount: metadata.leafCount ?? 0, duration: TimeInterval(metadata.duration ?? 0) / 1000,
-                  thumb: metadata.thumb ?? metadata.composite, summary: metadata.summary)
+                  thumb: metadata.thumb ?? metadata.composite, summary: metadata.summary,
+                  updatedAt: metadata.updatedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
     }
 
     /// A seasonal mix made by the seasonal-mix skill: its summary ends with `truffle-mix:<theme>:<year>`.
@@ -184,4 +195,23 @@ struct Playlist: Identifiable, Hashable, Codable, Sendable {
     /// Big smart playlists ("All Music") shuffle by walking random positions instead of
     /// downloading every item first.
     var isLarge: Bool { trackCount > 1000 }
+}
+
+/// One slot in a playlist: the song and the id Plex gives the slot (`playlistItemID`), which removing
+/// and moving go by, since the same song can sit in a playlist twice.
+struct PlaylistEntry: Identifiable, Hashable, Sendable {
+    let itemID: Int
+    let track: Track
+
+    var id: Int { itemID }
+
+    init(itemID: Int, track: Track) {
+        self.itemID = itemID
+        self.track = track
+    }
+
+    init?(_ metadata: PlexMetadata) {
+        guard let itemID = metadata.playlistItemID, let track = Track(metadata) else { return nil }
+        self.init(itemID: itemID, track: track)
+    }
 }

@@ -27,9 +27,14 @@ struct RootView: View {
         .animation(.smooth, value: library.phase == .signedOut)
         .tint(season.theme.accentColor)
         .modifier(PlayerPresentation(isPresented: $router.showsPlayer))
-        .sheet(item: Binding(get: { router.addingToPlaylist.map(TrackBatch.init) }, set: { router.addingToPlaylist = $0?.tracks })) { batch in
-            AddToPlaylistSheet(tracks: batch.tracks)
-                .presentationDetents([.medium, .large])
+        .sheet(item: Binding(get: { router.sheet }, set: { if $0 == nil { router.dismissSheet() } })) { sheet in
+            switch sheet {
+            case .addToPlaylist(let tracks):
+                AddToPlaylistSheet(tracks: tracks)
+                    .presentationDetents([.medium, .large])
+            case .editPlaylist(let draft):
+                PlaylistEditorView(draft: draft)
+            }
         }
         .overlay(alignment: .top) { toast }
         .onChange(of: player.errorMessage) { _, message in
@@ -57,6 +62,11 @@ struct RootView: View {
     #if DEBUG
     /// `-TruffleScene mixes|player|albums|icons|stats`: opens straight to a screen, for store screenshots.
     /// With `stats`, `-TruffleScroll months|mostPlayed|habits|dayOne` scrolls down to a card.
+    /// Playlists: `playlists`, `playlistNew` (the empty editor), `playlistFilled` (the editor with a
+    /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
+    /// that draft for real and opens it), `addToNewPlaylist` (Add to Playlist handing its songs to the
+    /// editor), `liked`, `artists`, `playlist` (the first of yours). A sort comes from launch arguments:
+    /// `-sort.liked mostPlayed`.
     private func openDebugScene() async {
         guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
         try? await Task.sleep(for: .seconds(4))
@@ -80,9 +90,54 @@ struct RootView: View {
             guard let target = UserDefaults.standard.string(forKey: "TruffleScroll") else { break }
             try? await Task.sleep(for: .seconds(3))
             router.scrollTarget = target
+        case "playlists", "playlistNew", "playlistFilled", "playlistCreated":
+            tab = .library
+            router.libraryPath = [.playlists]
+            try? await Task.sleep(for: .seconds(1))
+            if scene == "playlistNew" {
+                router.editingPlaylist = .new(opensWhenSaved: true)
+            } else if scene != "playlists" {
+                let draft = await debugDraft()
+                if scene == "playlistFilled" {
+                    router.editingPlaylist = draft
+                } else {
+                    do {
+                        let result = try await library.save(draft)
+                        router.say("Made \(result.playlist.title)")
+                        router.open(result.playlist)
+                    } catch {
+                        Logger.ui.error("[debug] save failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+        case "addToNewPlaylist":
+            let songs = Array(((try? await library.likedTracks()) ?? []).prefix(3))
+            router.addingToPlaylist = songs
+            try? await Task.sleep(for: .seconds(2))
+            router.startNewPlaylist(with: songs)
+        case "liked", "artists":
+            tab = .library
+            router.libraryPath = [scene == "liked" ? .liked : .artists]
+        case "playlist":
+            tab = .library
+            if let mine = library.playlists.first(where: { !$0.isSmart }) { router.libraryPath = [.playlists, .playlist(mine)] }
         default:
             break
         }
+    }
+
+    /// "Night Drive": a name, a description, a cover cut from a bundled demo cover, and five liked songs.
+    private func debugDraft() async -> PlaylistDraft {
+        let songs = Array(((try? await library.likedTracks()) ?? []).prefix(5))
+        var draft = PlaylistDraft.new(with: songs, opensWhenSaved: true)
+        draft.title = "Night Drive"
+        draft.summary = "Windows down, volume up."
+        if let url = Bundle.main.url(forResource: "DemoLibrary", withExtension: nil)?.appending(path: "covers/long-night-radio.jpg"),
+           let data = try? Data(contentsOf: url) {
+            draft.cover = CoverImage.squareJPEG(from: data)
+        }
+        Logger.ui.info("[debug] draft with \(songs.count) song(s), cover \(draft.cover?.count ?? 0)B")
+        return draft
     }
     #endif
 
@@ -144,11 +199,6 @@ private struct PlayerPresentation: ViewModifier {
 #endif
         return false
     }
-}
-
-private struct TrackBatch: Identifiable {
-    let tracks: [Track]
-    var id: String { tracks.map(\.id).joined(separator: ",") }
 }
 
 private struct MiniPlayerAccessory: ViewModifier {

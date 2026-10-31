@@ -112,23 +112,28 @@ actor DemoServer {
             let request = try await Self.read(connection)
             let response = respond(to: request)
             await Self.write(response.encoded(), to: connection)
-            Logger.demo.debug("[demo] \(request.method, privacy: .public) \(request.path, privacy: .public) \(request.query.keys.sorted().joined(separator: ","), privacy: .public) → \(response.status) in \(sw.ms, format: .fixed(precision: 1))ms")
+            Logger.demo.debug("[demo] \(request.method, privacy: .public) \(request.path, privacy: .public) \(request.query.keys.sorted().joined(separator: ","), privacy: .public) +\(request.body.count)B → \(response.status) in \(sw.ms, format: .fixed(precision: 1))ms")
         } catch {
             Logger.demo.debug("[demo] connection dropped: \(error.localizedDescription, privacy: .public)")
         }
         connection.cancel()
     }
 
+    /// A playlist cover is the biggest body Truffle sends (a ~1000 px JPEG); this is far past it.
+    private static let largestBody = 20 * 1024 * 1024
+
     private static func read(_ connection: NWConnection) async throws -> DemoRequest {
         var buffer = Data()
         let blankLine = Data("\r\n\r\n".utf8)
         while true {
             if let end = buffer.range(of: blankLine) {
-                let request = try DemoRequest(head: String(decoding: buffer[..<end.lowerBound], as: UTF8.self))
-                // Truffle sends its parameters in the query; drain any body so the client isn't cut off mid-send.
-                var bodyBytes = buffer.count - end.upperBound
+                var request = try DemoRequest(head: String(decoding: buffer[..<end.lowerBound], as: UTF8.self))
+                // Parameters ride in the query; the only body is a cover upload's JPEG.
                 let expected = Int(request.headers["content-length"] ?? "") ?? 0
-                while bodyBytes < expected, let more = try await receive(connection) { bodyBytes += more.count }
+                guard expected <= largestBody else { throw DemoError.badRequest }
+                var body = Data(buffer[end.upperBound...])
+                while body.count < expected, let more = try await receive(connection) { body.append(more) }
+                request.body = body
                 return request
             }
             guard let chunk = try await receive(connection) else { throw DemoError.closed }
@@ -184,7 +189,24 @@ actor DemoServer {
             return .json(libraryAll(query, in: lib))
         }
         if let match = path.wholeMatch(of: #/\/library\/metadata\/(\d+)\/thumb\/\d+/#) {
-            return file(lib.artwork(for: String(match.1)), type: "image/jpeg", request: request)
+            return art(for: String(match.1), in: lib, request: request)
+        }
+        if let match = path.wholeMatch(of: #/\/library\/metadata\/(\d+)\/posters/#), request.method == "POST" {
+            // A custom cover: the JPEG is the whole body, as Truffle and scripts/plex_mix.py send it.
+            guard let position = lib.playlistIndex(String(match.1)) else { return .empty(404) }
+            guard !request.body.isEmpty else { return .empty(400) }
+            library?.playlists[position].uploadedPoster = request.body
+            library?.playlists[position].posterStamp = max(Self.now, (lib.playlists[position].posterStamp ?? 0) + 1)
+            library?.playlists[position].updatedAt = Self.now
+            return .empty(200)
+        }
+        if let match = path.wholeMatch(of: #/\/library\/metadata\/(\d+)/#), request.method == "PUT" {
+            // The locked summary Truffle and plex_mix.py set on a playlist's metadata item.
+            if let position = lib.playlistIndex(String(match.1)), let summary = query["summary.value"] {
+                library?.playlists[position].summary = summary
+                library?.playlists[position].updatedAt = Self.now
+            }
+            return .empty(200)
         }
         if let match = path.wholeMatch(of: #/\/library\/metadata\/(\d+)\/children/#) {
             let id = String(match.1)
@@ -215,7 +237,7 @@ actor DemoServer {
                 return file(first.flatMap { lib.album($0.albumID)?.cover }, type: "image/jpeg", request: request)
             }
             if let match = thumb.wholeMatch(of: #/\/library\/metadata\/(\d+)\/thumb\/\d+/#) {
-                return file(lib.artwork(for: String(match.1)), type: "image/jpeg", request: request)
+                return art(for: String(match.1), in: lib, request: request)
             }
             return .empty(404)
         }
@@ -226,21 +248,52 @@ actor DemoServer {
             return .json(Self.container(items: lib.playlists.map(lib.json)))
         }
         if path == "/playlists", request.method == "POST" {
+            let entries = library?.makeEntries(Self.metadataIDs(in: query["uri"])) ?? []
             let made = DemoLibrary.Playlist(id: String(950 + lib.playlists.count), title: query["title"] ?? "Playlist", smart: false,
-                                            items: Self.metadataIDs(in: query["uri"]))
+                                            entries: entries, addedAt: Self.now, updatedAt: Self.now)
             library?.playlists.append(made)
             return .json(Self.container(items: [(library ?? lib).json(made)]))
         }
-        if let match = path.wholeMatch(of: #/\/playlists\/(\d+)\/items/#) {
-            guard let position = lib.playlists.firstIndex(where: { $0.id == String(match.1) }) else { return .empty(404) }
+        if let match = path.wholeMatch(of: #/\/playlists\/(\d+)/#) {
+            guard let position = lib.playlistIndex(String(match.1)) else { return .empty(404) }
             if request.method == "PUT" {
-                library?.playlists[position].items = (lib.playlists[position].items ?? []) + Self.metadataIDs(in: query["uri"])
-                let updated = library ?? lib
-                return .json(Self.container(items: [updated.json(updated.playlists[position])]))
+                if let title = query["title"] { library?.playlists[position].title = title }
+                if let summary = query["summary"] { library?.playlists[position].summary = summary }
+                library?.playlists[position].updatedAt = Self.now
             }
-            let items = lib.playlistTracks(lib.playlists[position]).enumerated().map { offset, track -> [String: Any] in
-                var item = lib.json(track)
-                item["playlistItemID"] = offset + 1
+            return playlistAnswer(position)
+        }
+        if let match = path.wholeMatch(of: #/\/playlists\/(\d+)\/items\/(\d+)\/move/#), request.method == "PUT" {
+            let after = query["after"].flatMap(Int.init)
+            guard let position = lib.playlistIndex(String(match.1)), var entries = lib.playlists[position].entries,
+                  let itemID = Int(match.2), let from = entries.firstIndex(where: { $0.itemID == itemID }),
+                  after == nil || entries.contains(where: { $0.itemID == after && $0.itemID != itemID }) else { return .empty(404) }
+            let moving = entries.remove(at: from)
+            // Right after `after`, or first without one.
+            let to = after.flatMap { anchor in entries.firstIndex { $0.itemID == anchor }.map { $0 + 1 } } ?? 0
+            entries.insert(moving, at: to)
+            library?.playlists[position].entries = entries
+            library?.playlists[position].updatedAt = Self.now
+            return playlistAnswer(position)
+        }
+        if let match = path.wholeMatch(of: #/\/playlists\/(\d+)\/items\/(\d+)/#), request.method == "DELETE" {
+            guard let position = lib.playlistIndex(String(match.1)), let entries = lib.playlists[position].entries,
+                  let itemID = Int(match.2), entries.contains(where: { $0.itemID == itemID }) else { return .empty(404) }
+            library?.playlists[position].entries = entries.filter { $0.itemID != itemID }
+            library?.playlists[position].updatedAt = Self.now
+            return playlistAnswer(position)
+        }
+        if let match = path.wholeMatch(of: #/\/playlists\/(\d+)\/items/#) {
+            guard let position = lib.playlistIndex(String(match.1)) else { return .empty(404) }
+            if request.method == "PUT" {
+                let added = library?.makeEntries(Self.metadataIDs(in: query["uri"])) ?? []
+                library?.playlists[position].entries = (lib.playlists[position].entries ?? []) + added
+                library?.playlists[position].updatedAt = Self.now
+                return playlistAnswer(position)
+            }
+            let items = lib.playlistEntries(lib.playlists[position]).map { entry -> [String: Any] in
+                var item = lib.json(entry.track)
+                item["playlistItemID"] = entry.itemID
                 return item
             }
             let (chosen, total) = Self.page(items, query)
@@ -315,22 +368,51 @@ actor DemoServer {
         if let ratingFloor { items = items.filter { $0.userRating >= ratingFloor } }
 
         let sort = query["sort"] ?? ""
-        if sort == "random" {
-            items.shuffle()
-        } else if sort.hasPrefix("addedAt") {
-            items.sort { sort.hasSuffix("desc") ? $0.addedAt > $1.addedAt : $0.addedAt < $1.addedAt }
-        } else if sort.hasPrefix("lastRatedAt") {
-            items.sort { sort.hasSuffix("desc") ? $0.lastRatedAt > $1.lastRatedAt : $0.lastRatedAt < $1.lastRatedAt }
-        } else if sort.hasPrefix("lastViewedAt") {
-            items.sort { sort.hasSuffix("desc") ? $0.lastViewedAt > $1.lastViewedAt : $0.lastViewedAt < $1.lastViewedAt }
-        } else if sort == "titleSort" {
-            items.sort { $0.titleSort.lowercased() < $1.titleSort.lowercased() }
-        } else if sort == "id" {
-            items.sort { (Int($0.id) ?? 0) < (Int($1.id) ?? 0) }
+        let descending = sort.hasSuffix(":desc")
+        // Ties keep catalog order, as Python's stable `sorted` does in scripts/demo_server.py.
+        func order<Key: Comparable>(_ key: (DemoItem) -> Key) {
+            items = items.stableSorted { descending ? key($0) > key($1) : key($0) < key($1) }
+        }
+        switch sort.split(separator: ":").first.map(String.init) ?? "" {
+        case "random": items.shuffle()
+        case "addedAt": order(\.addedAt)
+        case "lastRatedAt": order(\.lastRatedAt)
+        case "lastViewedAt": order(\.lastViewedAt)
+        case "viewCount": order(\.viewCount)
+        case "titleSort": order { $0.titleSort.lowercased() }
+        case "artist.titleSort":
+            // PMS's "Album Artist" order; within an artist, albums then track numbers.
+            items = items.stableSorted { a, b in
+                let (x, y) = descending ? (b, a) : (a, b)
+                return (x.artistSort, x.albumSort, x.index) < (y.artistSort, y.albumSort, y.index)
+            }
+        case "album.titleSort":
+            items = items.stableSorted { a, b in
+                let (x, y) = descending ? (b, a) : (a, b)
+                return (x.albumSort, x.index) < (y.albumSort, y.index)
+            }
+        case "id": items.sort { (Int($0.id) ?? 0) < (Int($1.id) ?? 0) }
+        default: break
         }
         let (chosen, total) = Self.page(items, query)
         return Self.container(items: chosen.map { lib.json($0) }, total: total)
     }
+
+    /// The playlist's answer to an edit, as PMS gives it: the playlist, as it now is.
+    private func playlistAnswer(_ position: Int) -> DemoResponse {
+        guard let lib = library else { return .empty(503) }
+        return .json(Self.container(items: [lib.json(lib.playlists[position])]))
+    }
+
+    /// An uploaded playlist cover, or the bundled poster, cover or portrait for that id.
+    private func art(for id: String, in lib: DemoLibrary, request: DemoRequest) -> DemoResponse {
+        if let uploaded = lib.playlistIndex(id).flatMap({ lib.playlists[$0].uploadedPoster }) {
+            return DemoResponse(status: 200, headers: [("Content-Type", "image/jpeg")], body: uploaded)
+        }
+        return file(lib.artwork(for: id), type: "image/jpeg", request: request)
+    }
+
+    private static var now: Int { Int(Date().timeIntervalSince1970) }
 
     private func file(_ relative: String?, type: String, request: DemoRequest) -> DemoResponse {
         guard let relative, let assets,
@@ -430,6 +512,37 @@ private enum DemoItem {
         if case .track(let track) = self { return track.userRating ?? 0 }
         return 0
     }
+
+    var viewCount: Int {
+        switch self {
+        case .artist(let artist): artist.viewCount ?? 0
+        case .album: 0
+        case .track(let track): track.viewCount ?? 0
+        }
+    }
+
+    /// The artist's name the way titleSort reads it ("The " skipped), lowercased.
+    var artistSort: String {
+        let name = switch self {
+        case .artist(let artist): artist.name
+        case .album(let album): album.artistName
+        case .track(let track): track.artistName
+        }
+        return (name.hasPrefix("The ") ? String(name.dropFirst(4)) : name).lowercased()
+    }
+
+    var albumSort: String {
+        switch self {
+        case .artist: ""
+        case .album(let album): album.title.lowercased()
+        case .track(let track): track.albumTitle.lowercased()
+        }
+    }
+
+    var index: Int {
+        if case .track(let track) = self { return track.index }
+        return 0
+    }
 }
 
 struct DemoRequest: Sendable {
@@ -437,6 +550,7 @@ struct DemoRequest: Sendable {
     let path: String
     let query: [String: String]
     let headers: [String: String]
+    var body = Data()
 
     init(head: String) throws {
         let lines = head.components(separatedBy: "\r\n")
@@ -487,9 +601,14 @@ struct DemoResponse: Sendable {
 
 extension DemoLibrary {
     func json(_ artist: Artist) -> [String: Any] {
-        ["ratingKey": artist.id, "key": "/library/metadata/\(artist.id)/children", "type": "artist", "title": artist.name,
-         "titleSort": artist.name.hasPrefix("The ") ? String(artist.name.dropFirst(4)) : artist.name,
-         "thumb": "/library/metadata/\(artist.id)/thumb/\(Self.stamp)", "childCount": artist.albumCount]
+        var out: [String: Any] = [
+            "ratingKey": artist.id, "key": "/library/metadata/\(artist.id)/children", "type": "artist", "title": artist.name,
+            "titleSort": artist.name.hasPrefix("The ") ? String(artist.name.dropFirst(4)) : artist.name,
+            "thumb": "/library/metadata/\(artist.id)/thumb/\(Self.stamp)", "childCount": artist.albumCount,
+        ]
+        if let count = artist.viewCount { out["viewCount"] = count }
+        if let played = artist.lastViewedAt { out["lastViewedAt"] = played }
+        return out
     }
 
     func json(_ album: Album) -> [String: Any] {
@@ -531,9 +650,13 @@ extension DemoLibrary {
             "ratingKey": playlist.id, "key": "/playlists/\(playlist.id)/items", "type": "playlist", "title": playlist.title,
             "smart": playlist.smart, "playlistType": "audio", "leafCount": items.count,
             "duration": items.reduce(0) { $0 + $1.durationMS }, "composite": "/playlists/\(playlist.id)/composite/\(Self.stamp)",
+            "addedAt": playlist.addedAt, "updatedAt": playlist.updatedAt,
         ]
         if let summary = playlist.summary { out["summary"] = summary }
-        if playlist.poster != nil { out["thumb"] = "/library/metadata/\(playlist.id)/thumb/\(Self.stamp)" }
+        if playlist.poster != nil || playlist.uploadedPoster != nil {
+            // A new upload gets a new stamp, like PMS, so cached art doesn't stick around.
+            out["thumb"] = "/library/metadata/\(playlist.id)/thumb/\(playlist.posterStamp ?? Self.stamp)"
+        }
         return out
     }
 

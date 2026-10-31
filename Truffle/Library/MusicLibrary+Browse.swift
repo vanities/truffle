@@ -32,20 +32,41 @@ extension MusicLibrary {
         }.metadata.compactMap(Track.init)
     }
 
-    func likedTracks(limit: Int = 500) async throws -> [Track] {
+    /// Liked songs come a page at a time from Plex, so Plex sorts them (`LikedSort.plexSort`).
+    func likedTracks(sort: LikedSort = .recentlyLiked, limit: Int = 500) async throws -> [Track] {
         guard let section else { return [] }
-        return try await withClient("liked") {
+        let sw = Stopwatch()
+        let tracks = try await withClient("liked") {
             try await $0.get("/library/sections/\(section.id)/all",
-                             PlexQuery([("type", "10"), ("userRating>", "8"), ("sort", "lastRatedAt:desc")]).page(start: 0, size: limit))
+                             PlexQuery([("type", "10"), ("userRating>", "8"), ("sort", sort.plexSort)]).page(start: 0, size: limit))
         }.metadata.compactMap(Track.init)
+        Logger.library.info("[liked] \(tracks.count) song(s) by \(sort.plexSort, privacy: .public) in \(sw.ms, format: .fixed(precision: 0))ms")
+        return tracks
     }
 
-    func search(_ text: String) async throws -> SearchResults {
+    /// Every slot of a playlist with its `playlistItemID`, which removing and moving go by.
+    func playlistEntries(of playlistID: String) async throws -> [PlaylistEntry] {
+        let sw = Stopwatch()
+        var all: [PlaylistEntry] = []
+        while true {
+            let start = all.count
+            let page = try await withClient("playlist entries") {
+                try await $0.get("/playlists/\(playlistID)/items", PlexQuery().page(start: start, size: 500))
+            }
+            let entries = page.metadata.compactMap(PlaylistEntry.init)
+            all += entries
+            if entries.count < 500 || all.count >= (page.totalSize ?? Int.max) { break }
+        }
+        Logger.library.info("[playlist] \(all.count) entries of \(playlistID, privacy: .public) in \(sw.ms, format: .fixed(precision: 0))ms")
+        return all
+    }
+
+    func search(_ text: String, limit: Int = 12) async throws -> SearchResults {
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard query.count >= 2, let section else { return SearchResults() }
         let sw = Stopwatch()
         let container = try await withClient("search") {
-            try await $0.get("/hubs/search", PlexQuery([("query", query), ("limit", "12"), ("sectionId", section.id)]))
+            try await $0.get("/hubs/search", PlexQuery([("query", query), ("limit", String(limit)), ("sectionId", section.id)]))
         }
         var results = SearchResults()
         for hub in container.hubs {

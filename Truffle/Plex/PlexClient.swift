@@ -51,34 +51,49 @@ struct PlexClient: Sendable {
         return URL(string: string) ?? endpoint.baseURL
     }
 
-    func request(_ method: String, _ path: String, _ query: PlexQuery = PlexQuery()) -> URLRequest {
+    /// `body` goes out as is: a cover upload is the JPEG itself, not a form.
+    func request(_ method: String, _ path: String, _ query: PlexQuery = PlexQuery(), body: Data? = nil,
+                 contentType: String? = nil) -> URLRequest {
         var request = URLRequest(url: url(path, query), timeoutInterval: timeout)
         request.httpMethod = method
         for (name, value) in identity.headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
         request.setValue(endpoint.token, forHTTPHeaderField: "X-Plex-Token")
+        if let body {
+            request.httpBody = body
+            request.setValue(contentType ?? "application/octet-stream", forHTTPHeaderField: "Content-Type")
+        }
         return request
     }
 
     func get(_ path: String, _ query: PlexQuery = PlexQuery()) async throws -> PlexContainer {
-        let data = try await send("GET", path, query)
+        try await container("GET", path, query)
+    }
+
+    /// Any request Plex answers with a MediaContainer (`POST /playlists` answers with the new playlist).
+    func container(_ method: String, _ path: String, _ query: PlexQuery = PlexQuery()) async throws -> PlexContainer {
+        let data = try await send(method, path, query)
         guard !data.isEmpty else { return .empty }
         do {
             return try JSONDecoder().decode(PlexEnvelope<PlexContainer>.self, from: data).container
         } catch {
-            Logger.plex.error("[plex] decode failed for \(path, privacy: .public): \(String(describing: error), privacy: .public)")
+            Logger.plex.error("[plex] decode failed for \(method, privacy: .public) \(path, privacy: .public): \(String(describing: error), privacy: .public)")
             throw PlexError.decoding(path: path)
         }
     }
 
     @discardableResult
-    func send(_ method: String, _ path: String, _ query: PlexQuery = PlexQuery()) async throws -> Data {
+    func send(_ method: String, _ path: String, _ query: PlexQuery = PlexQuery(), body: Data? = nil,
+              contentType: String? = nil) async throws -> Data {
         let sw = Stopwatch()
         let data: Data
         let response: URLResponse
+        if let body {
+            Logger.plex.debug("[plex] \(method, privacy: .public) \(path, privacy: .public) sending \(body.count)B \(contentType ?? "?", privacy: .public)")
+        }
         do {
-            (data, response) = try await session.data(for: request(method, path, query))
+            (data, response) = try await session.data(for: request(method, path, query, body: body, contentType: contentType))
         } catch {
             Logger.plex.error("[plex] \(method, privacy: .public) \(path, privacy: .public) via \(endpoint.kind.rawValue, privacy: .public) failed after \(sw.ms, format: .fixed(precision: 0))ms: \(error.localizedDescription, privacy: .public)")
             throw error

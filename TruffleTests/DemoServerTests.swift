@@ -88,7 +88,93 @@ final class DemoServerTests: XCTestCase {
         XCTAssertEqual(liked["totalSize"] as? Int, 21)
     }
 
+    func testPlaylistEditorCallsWorkLikeOnPlex() async throws {
+        let uri = "server://x/com.plexapp.plugins.library/library/metadata/3005,3001,3009"
+        let made = try await json(request("POST", "/playlists", ["type": "audio", "title": "Night Drive", "smart": "0", "uri": uri]))
+        let playlist = try XCTUnwrap((made["Metadata"] as? [[String: Any]])?.first)
+        let id = try XCTUnwrap(playlist["ratingKey"] as? String)
+        XCTAssertEqual(playlist["leafCount"] as? Int, 3)
+        XCTAssertNotNil(playlist["updatedAt"] as? Int)
+
+        // The description both ways Truffle (and plex_mix.py) sets it, then a new name.
+        let (_, described) = try await session.data(for: request("PUT", "/library/metadata/\(id)", ["summary.value": "Windows down.", "summary.locked": "1"]))
+        XCTAssertEqual((described as? HTTPURLResponse)?.statusCode, 200)
+        _ = try await json(request("PUT", "/playlists/\(id)", ["summary": "Windows down."]))
+        _ = try await json(request("PUT", "/playlists/\(id)", ["title": "Night Drive II"]))
+
+        // The cover is the JPEG itself as the body; the playlist's thumb serves it back.
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0] + (0..<90_000).map { UInt8($0 % 251) })
+        var upload = try request("POST", "/library/metadata/\(id)/posters", [:])
+        upload.httpBody = jpeg
+        upload.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        let (_, posted) = try await session.data(for: upload)
+        XCTAssertEqual((posted as? HTTPURLResponse)?.statusCode, 200)
+        let playlists = try await metadata("/playlists?playlistType=audio")
+        let saved = try XCTUnwrap(playlists.first { $0["ratingKey"] as? String == id })
+        XCTAssertEqual(saved["title"] as? String, "Night Drive II")
+        XCTAssertEqual(saved["summary"] as? String, "Windows down.")
+        let thumb = try XCTUnwrap(saved["thumb"] as? String)
+        let (art, _) = try await session.data(from: url("/photo/:/transcode", ["url": thumb, "width": "300", "height": "300"]))
+        XCTAssertEqual(art, jpeg)
+
+        // Slots keep their ids through a removal and moves.
+        let slots = try await entries(id)
+        XCTAssertEqual(slots.map(\.track), ["3005", "3001", "3009"])
+        _ = try await json(request("DELETE", "/playlists/\(id)/items/\(slots[1].item)", [:]))
+        _ = try await json(request("PUT", "/playlists/\(id)/items/\(slots[2].item)/move", [:]))
+        let moved = try await entries(id)
+        XCTAssertEqual(moved.map(\.track), ["3009", "3005"], "no after: to the top")
+        XCTAssertEqual(moved.map(\.item), [slots[2].item, slots[0].item])
+        _ = try await json(request("PUT", "/playlists/\(id)/items/\(slots[2].item)/move", ["after": String(slots[0].item)]))
+        let after = try await entries(id)
+        XCTAssertEqual(after.map(\.track), ["3005", "3009"])
+        let (_, missing) = try await session.data(for: request("DELETE", "/playlists/\(id)/items/\(slots[1].item)", [:]))
+        XCTAssertEqual((missing as? HTTPURLResponse)?.statusCode, 404, "already gone")
+    }
+
+    func testSortsAndFieldsTheListsUse() async throws {
+        let liked = "/library/sections/1/all?type=10&userRating%3E=8"
+        let mostPlayed = try await metadata(liked + "&sort=viewCount:desc").map { $0["viewCount"] as? Int ?? 0 }
+        XCTAssertEqual(mostPlayed.count, 22)
+        XCTAssertEqual(mostPlayed, mostPlayed.sorted(by: >))
+        XCTAssertGreaterThan(mostPlayed[0], mostPlayed[21])
+
+        let byArtist = try await metadata(liked + "&sort=artist.titleSort").compactMap { $0["grandparentTitle"] as? String }
+        let artistKeys = byArtist.map { ($0.hasPrefix("The ") ? String($0.dropFirst(4)) : $0).lowercased() }
+        XCTAssertEqual(artistKeys, artistKeys.sorted())
+        let byAlbum = try await metadata(liked + "&sort=album.titleSort").compactMap { ($0["parentTitle"] as? String)?.lowercased() }
+        XCTAssertEqual(byAlbum, byAlbum.sorted())
+        let byTitle = try await metadata(liked + "&sort=titleSort").compactMap { ($0["title"] as? String)?.lowercased() }
+        XCTAssertEqual(byTitle, byTitle.sorted())
+        let added = try await metadata(liked + "&sort=addedAt:desc").compactMap { $0["addedAt"] as? Int }
+        XCTAssertEqual(added, added.sorted(by: >))
+
+        // Artists and Playlists sort on the phone, from these fields.
+        let artists = try await metadata("/library/sections/1/all?type=8&sort=titleSort")
+        XCTAssertTrue(artists.contains { ($0["viewCount"] as? Int ?? 0) > 0 && $0["lastViewedAt"] is Int }, "artists carry plays")
+        let playlists = try await metadata("/playlists?playlistType=audio")
+        XCTAssertTrue(playlists.allSatisfy { $0["updatedAt"] is Int }, "playlists carry updatedAt")
+    }
+
     // MARK: - Helpers
+
+    private func request(_ method: String, _ path: String, _ query: [String: String]) throws -> URLRequest {
+        var request = URLRequest(url: try url(path, query))
+        request.httpMethod = method
+        return request
+    }
+
+    private func metadata(_ pathAndQuery: String) async throws -> [[String: Any]] {
+        try await json(pathAndQuery)["Metadata"] as? [[String: Any]] ?? []
+    }
+
+    /// (playlistItemID, song id) per slot.
+    private func entries(_ playlistID: String) async throws -> [(item: Int, track: String)] {
+        try await metadata("/playlists/\(playlistID)/items").compactMap { item in
+            guard let slot = item["playlistItemID"] as? Int, let track = item["ratingKey"] as? String else { return nil }
+            return (slot, track)
+        }
+    }
 
     private func url(_ path: String, _ query: [String: String]) throws -> URL {
         var components = try XCTUnwrap(URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false))

@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 struct LibraryView: View {
     @Environment(MusicLibrary.self) private var library
@@ -82,10 +83,12 @@ private struct CategoryLink: View {
 
 struct ArtistsView: View {
     @Environment(MusicLibrary.self) private var library
+    @AppStorage(ArtistSort.defaultsKey) private var sort: ArtistSort = .standard
     @State private var filter = ""
 
+    /// Every artist is already loaded, so the sort happens here.
     private var artists: [Artist] {
-        filter.isEmpty ? library.artists : library.artists.filter { $0.title.localizedStandardContains(filter) }
+        sort.sorted(filter.isEmpty ? library.artists : library.artists.filter { $0.title.localizedStandardContains(filter) })
     }
 
     var body: some View {
@@ -97,16 +100,21 @@ struct ArtistsView: View {
         .listStyle(.plain)
         .navigationTitle("Artists")
         .searchable(text: $filter, prompt: "Find an artist")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { SortMenu(selection: $sort) }
+        }
     }
 }
 
 struct AlbumsView: View {
     @Environment(MusicLibrary.self) private var library
+    @AppStorage(AlbumSort.defaultsKey) private var sort: AlbumSort = .standard
     @State private var filter = ""
 
+    /// Every album is already loaded, so the sort happens here.
     private var albums: [Album] {
-        filter.isEmpty ? library.albums
-            : library.albums.filter { $0.title.localizedStandardContains(filter) || $0.artist.localizedStandardContains(filter) }
+        sort.sorted(filter.isEmpty ? library.albums
+            : library.albums.filter { $0.title.localizedStandardContains(filter) || $0.artist.localizedStandardContains(filter) })
     }
 
     var body: some View {
@@ -123,24 +131,38 @@ struct AlbumsView: View {
         }
         .navigationTitle("Albums")
         .searchable(text: $filter, prompt: "Find an album")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { SortMenu(selection: $sort) }
+        }
     }
 }
 
 struct PlaylistsView: View {
     @Environment(MusicLibrary.self) private var library
+    @Environment(AppRouter.self) private var router
+    @AppStorage(PlaylistSort.defaultsKey) private var sort: PlaylistSort = .standard
 
     var body: some View {
-        List(library.playlists) { playlist in
+        List(sort.sorted(library.playlists)) { playlist in
             NavigationLink(value: Route.playlist(playlist)) {
                 PlaylistRow(playlist: playlist)
             }
         }
         .listStyle(.plain)
         .navigationTitle("Playlists")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { SortMenu(selection: $sort) }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("New Playlist", systemImage: "plus") {
+                    router.editingPlaylist = .new(opensWhenSaved: true)
+                }
+            }
+        }
         .overlay {
             if library.playlists.isEmpty {
                 ContentUnavailableView("No Playlists", systemImage: "music.note.list",
-                                       description: Text("Long-press a song to start one."))
+                                       description: Text("Tap + and make one."))
             }
         }
         .refreshable { await library.refreshPlaylists() }
@@ -150,6 +172,8 @@ struct PlaylistsView: View {
 struct LikedView: View {
     @Environment(MusicLibrary.self) private var library
     @Environment(PlayerEngine.self) private var player
+    @Environment(AppRouter.self) private var router
+    @AppStorage(LikedSort.defaultsKey) private var sort: LikedSort = .standard
     @State private var tracks: [Track] = []
     @State private var loading = true
 
@@ -182,13 +206,24 @@ struct LikedView: View {
                 ContentUnavailableView("No Likes Yet", systemImage: "heart", description: Text("Tap the heart. Go on."))
             }
         }
-        .task { await load() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { SortMenu(selection: $sort) }
+        }
+        .task(id: sort) { await load() }
         .refreshable { await load() }
     }
 
+    /// Liked songs come a page at a time from Plex, so Plex does the sorting.
     private func load() async {
         loading = true
-        tracks = (try? await library.likedTracks()) ?? tracks
+        do {
+            tracks = try await library.likedTracks(sort: sort)
+        } catch {
+            // A newer sort replaced this load; it brings its own songs.
+            guard !Task.isCancelled else { return }
+            Logger.ui.error("[liked] load by \(sort.plexSort, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            if !tracks.isEmpty { router.say("Couldn't sort that way") }
+        }
         loading = false
     }
 }
