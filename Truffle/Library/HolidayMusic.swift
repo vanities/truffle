@@ -29,7 +29,7 @@ enum HolidayMusic {
         "merry", "deck", "holy", "frosty", "rudolph", "herald", "joy", "feliz",
     ]
 
-    /// The day after Thanksgiving through New Year's Day: the Holidays and New Year themes.
+    /// The day after Thanksgiving through January 2: the Holidays and New Year themes.
     static func isInSeason(_ date: Date, calendar: Calendar = .current) -> Bool {
         switch SeasonCalendar.moment(for: date, calendar: calendar) {
         case .christmas, .newYear: true

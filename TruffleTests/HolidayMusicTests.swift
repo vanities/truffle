@@ -42,15 +42,15 @@ final class HolidayMusicTests: XCTestCase {
         XCTAssertFalse(HolidayMusic.isHoliday(Track(id: "3", title: "Riptide", artist: "Low Tide Club", album: "Riptide")))
     }
 
-    func testTheHolidaysRunFromTheDayAfterThanksgivingThroughNewYearsDay() {
+    func testTheHolidaysRunFromTheDayAfterThanksgivingThroughJanuarySecond() {
         XCTAssertFalse(HolidayMusic.isInSeason(date(2026, 7, 10), calendar: calendar))
         XCTAssertFalse(HolidayMusic.isInSeason(date(2026, 10, 30), calendar: calendar))
         XCTAssertFalse(HolidayMusic.isInSeason(date(2026, 11, 26), calendar: calendar), "Thanksgiving itself")
         XCTAssertTrue(HolidayMusic.isInSeason(date(2026, 11, 27, hour: 0), calendar: calendar))
         XCTAssertTrue(HolidayMusic.isInSeason(date(2026, 12, 10), calendar: calendar))
         XCTAssertTrue(HolidayMusic.isInSeason(date(2026, 12, 31), calendar: calendar))
-        XCTAssertTrue(HolidayMusic.isInSeason(date(2027, 1, 1, hour: 23), calendar: calendar))
-        XCTAssertFalse(HolidayMusic.isInSeason(date(2027, 1, 2, hour: 0), calendar: calendar))
+        XCTAssertTrue(HolidayMusic.isInSeason(date(2027, 1, 2, hour: 23), calendar: calendar))
+        XCTAssertFalse(HolidayMusic.isInSeason(date(2027, 1, 3, hour: 0), calendar: calendar))
     }
 
     func testEveryPhraseIsFoundByOneOfTheSearches() {

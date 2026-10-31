@@ -26,21 +26,29 @@ final class SeasonsTests: XCTestCase {
     }
 
     func testMoments() {
+        // Halloween is all of October, and the day after.
+        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 9, 30), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 10, 1, hour: 0), calendar: calendar), .halloween)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 10, 30), calendar: calendar), .halloween)
-        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 10, 14), calendar: calendar))
-        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 1), calendar: calendar))
-        // Thanksgiving 2026 is November 26: its week is the 20th through the 26th, and the holidays
-        // start the day after.
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 1, hour: 23), calendar: calendar), .halloween)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 2, hour: 0), calendar: calendar))
+        // Thanksgiving 2026 is November 26: its two weeks are the 13th through the 26th, and the
+        // holidays start the day after.
         XCTAssertEqual(SeasonCalendar.thanksgiving(year: 2026, calendar: calendar), date(2026, 11, 26, hour: 0))
-        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 19), calendar: calendar))
-        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 20), calendar: calendar), .thanksgiving)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2026, 11, 12), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 13, hour: 0), calendar: calendar), .thanksgiving)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 26), calendar: calendar), .thanksgiving)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 11, 27), calendar: calendar), .christmas)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 12, 25), calendar: calendar), .christmas)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2026, 12, 31), calendar: calendar), .newYear)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 1, 1), calendar: calendar), .newYear)
-        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 1, 2), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 1, 2, hour: 23), calendar: calendar), .newYear)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 1, 3, hour: 0), calendar: calendar))
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 1, 31, hour: 23), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 2, 1, hour: 0), calendar: calendar), .valentines)
         XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 2, 14), calendar: calendar), .valentines)
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 2, 15, hour: 23), calendar: calendar), .valentines)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 2, 16, hour: 0), calendar: calendar))
     }
 
     func testTodaysThemeIsHalloweenOverFall() {
@@ -59,11 +67,11 @@ final class SeasonsTests: XCTestCase {
         XCTAssertEqual(AppIconChoice.choice(chosen: .headphones, matchSeason: false, theme: halloween), .headphones)
     }
 
-    func testStPatricksDayIsTheFourDaysUpToTheSeventeenth() {
-        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 3, 13), calendar: calendar))
-        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 3, 14, hour: 0), calendar: calendar), .stPatricks)
-        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 3, 17, hour: 23), calendar: calendar), .stPatricks)
-        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 3, 18, hour: 0), calendar: calendar))
+    func testStPatricksRunsFromTheTenthThroughTheEighteenth() {
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 3, 9, hour: 23), calendar: calendar))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 3, 10, hour: 0), calendar: calendar), .stPatricks)
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 3, 18, hour: 23), calendar: calendar), .stPatricks)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 3, 19, hour: 0), calendar: calendar))
         // Everywhere, and on top of whichever season it is there.
         XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 3, 16), calendar: calendar, region: Locale.Region("IE")), .stPatricks)
         let sydney = SeasonCalendar.theme(for: date(2027, 3, 16), southern: true, calendar: calendar, region: Locale.Region("AU"))
@@ -80,10 +88,10 @@ final class SeasonsTests: XCTestCase {
 
     func testTheFourthOfJulyIsOnlyInTheUS() {
         let us = Locale.Region.unitedStates
-        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 6, 30, hour: 23), calendar: calendar, region: us))
-        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 7, 1, hour: 0), calendar: calendar, region: us), .fourthOfJuly)
-        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 7, 4, hour: 23), calendar: calendar, region: us), .fourthOfJuly)
-        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 7, 5, hour: 0), calendar: calendar, region: us))
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 6, 27, hour: 23), calendar: calendar, region: us))
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 6, 28, hour: 0), calendar: calendar, region: us), .fourthOfJuly)
+        XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 7, 5, hour: 23), calendar: calendar, region: us), .fourthOfJuly)
+        XCTAssertNil(SeasonCalendar.moment(for: date(2027, 7, 6, hour: 0), calendar: calendar, region: us))
         XCTAssertEqual(SeasonCalendar.moment(for: date(2027, 7, 4), calendar: calendar, region: Locale.Region("PR")), .fourthOfJuly,
                        "US territories celebrate it too")
 

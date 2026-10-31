@@ -153,22 +153,23 @@ enum SeasonCalendar {
     static func moment(for date: Date, calendar: Calendar = .current, region: Locale.Region? = Locale.current.region) -> Moment? {
         let month = calendar.component(.month, from: date)
         let day = calendar.component(.day, from: date)
+        // Each holiday gets a run-up, and the one-day ones linger a day after, like people's decorations.
         switch (month, day) {
-        case (10, 15...31): return .halloween
-        case (12, 27...31), (1, 1): return .newYear
-        case (2, 7...14): return .valentines
-        case (3, 14...17): return .stPatricks
-        case (7, 1...4): return celebratesTheFourth(region) ? .fourthOfJuly : nil
+        case (10, _), (11, 1): return .halloween
+        case (12, 27...31), (1, 1...2): return .newYear
+        case (2, 1...15): return .valentines
+        case (3, 10...18): return .stPatricks
+        case (6, 28...30), (7, 1...5): return celebratesTheFourth(region) ? .fourthOfJuly : nil
         case (12, 1...26): return .christmas
         case (11, _):
-            // Thanksgiving week is the seven days ending on the day (US: the fourth Thursday); Christmas
+            // Thanksgiving gets the two weeks ending on the day (US: the fourth Thursday); Christmas
             // music starts the day after.
             let year = calendar.component(.year, from: date)
             guard let thanksgiving = thanksgiving(year: year, calendar: calendar),
-                  let weekBefore = calendar.date(byAdding: .day, value: -6, to: thanksgiving) else { return nil }
+                  let runUp = calendar.date(byAdding: .day, value: -13, to: thanksgiving) else { return nil }
             let day = calendar.startOfDay(for: date)
             if day > thanksgiving { return .christmas }
-            return day >= weekBefore ? .thanksgiving : nil
+            return day >= runUp ? .thanksgiving : nil
         default: return nil
         }
     }
