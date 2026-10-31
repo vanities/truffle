@@ -56,6 +56,15 @@ struct SettingsView: View {
                 .id("shuffle")
 
                 Section {
+                    Toggle("Play in the Car", isOn: $settings.playInTheCar)
+                } header: {
+                    Text("CarPlay")
+                } footer: {
+                    Text("Hop in and it picks up where you left off.")
+                }
+                .id("car")
+
+                Section {
                     Toggle("Keep Holidays in Season", isOn: $settings.holidaysInSeason)
                 } header: {
                     Text("Holiday Music")

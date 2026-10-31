@@ -285,7 +285,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         CPNowPlayingTemplate.shared.updateNowPlayingButtons([back, heart, again])
     }
 
-    private func showNowPlaying() {
+    func showNowPlaying() {
         guard interfaceController.topTemplate !== CPNowPlayingTemplate.shared else { return }
         interfaceController.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
     }

@@ -5,6 +5,8 @@ import os
 /// Instantiated by the system from Info.plist when the phone connects to a car.
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private var interface: CarPlayInterface?
+    /// Lives with the scene, not the interface, so a connection decides once even if it's announced twice.
+    private var autoplay = CarAutoplay()
 
     func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didConnect interfaceController: CPInterfaceController) {
         Logger.carplay.info("[carplay] connected")
@@ -12,6 +14,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             let interface = CarPlayInterface(interfaceController: interfaceController, environment: .shared)
             self.interface = interface
             interface.start()
+            autoplay.carConnected(environment: .shared, showNowPlaying: interface.showNowPlaying)
         }
     }
 
@@ -20,6 +23,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         MainActor.assumeIsolated {
             interface?.stop()
             interface = nil
+            autoplay.carDisconnected()
         }
     }
 }

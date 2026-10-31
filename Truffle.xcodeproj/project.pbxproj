@@ -11,6 +11,7 @@
 		0400F10A4D7129A9A3698B05 /* PlexServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081B6BB7ACFCA56E9C3C2D9E /* PlexServerInfo.swift */; };
 		048417D4082666EAF7FA2373 /* PlexQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F540EBBB6880DBB068427C /* PlexQueryTests.swift */; };
 		0828B0E3FA6D62EA21681B1F /* StatsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4684A534BAB73B9064FDC259 /* StatsModel.swift */; };
+		0B099CE0D1CE2444F544DF4C /* CarAutoplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */; };
 		0B6B314B42474B155BB58E5D /* SongPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A141A2FF5A54EA9C2BD8042A /* SongPickerView.swift */; };
 		0BB4CC8F98C951FF0E25F178 /* ShuffleWalk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326989A024936F462CAEA158 /* ShuffleWalk.swift */; };
 		0C0A80E4CCEE7FC560D5B63D /* PlaylistBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DD09D62F8071E0E7E42DC30 /* PlaylistBuilderTests.swift */; };
@@ -59,6 +60,7 @@
 		B0D85A4A4455A06E57D48899 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */; };
 		B104108546201139C607DDD6 /* PlayQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4467DDE075AF53657BE39 /* PlayQueue.swift */; };
 		BF7103FB604F1010779A7148 /* SeasonalBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000B70099900B70D770C49B8 /* SeasonalBackdrop.swift */; };
+		C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */; };
 		C272AFCEC144D3CF4C661774 /* PlaylistEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2130FE78D269139D86F56E5 /* PlaylistEditorView.swift */; };
 		C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B74BA7300D9A4E9E265725 /* AudioSessionManager.swift */; };
 		C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EEB37F68CD342683163396 /* DemoServerTests.swift */; };
@@ -152,6 +154,7 @@
 		882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayMusicTests.swift; sourceTree = "<group>"; };
 		895E791B8CFA0C32C15A50DC /* DetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailViews.swift; sourceTree = "<group>"; };
 		8A88F6A0728040BCA6C797FC /* CarPlayInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayInterface.swift; sourceTree = "<group>"; };
+		8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarAutoplay.swift; sourceTree = "<group>"; };
 		941D765F06A3A146405A71E3 /* MusicModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicModels.swift; sourceTree = "<group>"; };
 		946860EFD0A5B2F192107B56 /* SortOrders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortOrders.swift; sourceTree = "<group>"; };
 		94DEAF7F6DD300594607504C /* PlaylistDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistDraft.swift; sourceTree = "<group>"; };
@@ -166,6 +169,7 @@
 		A852A0FD04D35C5C5BBAFC3E /* MusicLibrary+Mixes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MusicLibrary+Mixes.swift"; sourceTree = "<group>"; };
 		AB2948D6D81719189C99CA61 /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		AEE1D853E8D7A907E6B84272 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarAutoplayTests.swift; sourceTree = "<group>"; };
 		B8313876A2644C87F5AF9782 /* PlexQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexQuery.swift; sourceTree = "<group>"; };
 		BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayShuffleTests.swift; sourceTree = "<group>"; };
 		C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPickerTests.swift; sourceTree = "<group>"; };
@@ -306,6 +310,7 @@
 		487437E67AFEA70CFA3E2023 /* CarPlay */ = {
 			isa = PBXGroup;
 			children = (
+				8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */,
 				8A88F6A0728040BCA6C797FC /* CarPlayInterface.swift */,
 				7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */,
 			);
@@ -454,6 +459,7 @@
 			isa = PBXGroup;
 			children = (
 				FB2B98316C425CB828799899 /* AppSettingsTests.swift */,
+				AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */,
 				C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */,
 				76EEB37F68CD342683163396 /* DemoServerTests.swift */,
 				882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */,
@@ -576,6 +582,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				572BD78C5A21D4D6194593BF /* AppSettingsTests.swift in Sources */,
+				0B099CE0D1CE2444F544DF4C /* CarAutoplayTests.swift in Sources */,
 				E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */,
 				C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */,
 				382A3DDD7AD499CE73BD3A7D /* HolidayMusicTests.swift in Sources */,
@@ -601,6 +608,7 @@
 				2E07C69B63F28E8D1017D17C /* ArtworkCache.swift in Sources */,
 				F9C7B6980FF3C9E4F7119977 /* ArtworkView.swift in Sources */,
 				C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */,
+				C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */,
 				2D8DAEC6FDC331AE6F5146F4 /* CarPlayInterface.swift in Sources */,
 				B0D85A4A4455A06E57D48899 /* CarPlaySceneDelegate.swift in Sources */,
 				8CB3F4593A7C3E2347E7161F /* ConnectionPicker.swift in Sources */,

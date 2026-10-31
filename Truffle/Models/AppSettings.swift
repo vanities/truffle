@@ -11,6 +11,8 @@ final class AppSettings {
     var hemisphere: Hemisphere { didSet { defaults.set(hemisphere.rawValue, forKey: Keys.hemisphere) } }
     /// Falling leaves, snow and the rest. Reduce Motion turns them off regardless.
     var seasonalEffects: Bool { didSet { defaults.set(seasonalEffects, forKey: Keys.seasonalEffects) } }
+    /// Starts the music when CarPlay connects and nothing's playing (`CarAutoplay`).
+    var playInTheCar: Bool { didSet { defaults.set(playInTheCar, forKey: Keys.playInTheCar) } }
     /// Shuffle All and Album Roulette leave holiday music for the holidays (`HolidayMusic`).
     var holidaysInSeason: Bool { didSet { defaults.set(holidaysInSeason, forKey: Keys.holidaysInSeason) } }
     /// The music library chosen on the server (picked automatically the first time).
@@ -23,6 +25,7 @@ final class AppSettings {
         static let evenOutVolume = "settings.evenOutVolume"
         static let hemisphere = "settings.hemisphere"
         static let seasonalEffects = "settings.seasonalEffects"
+        static let playInTheCar = "settings.playInTheCar"
         static let holidaysInSeason = "settings.holidaysInSeason"
         static let sectionID = "settings.sectionID"
         static let appIcon = "settings.appIcon"
@@ -34,6 +37,7 @@ final class AppSettings {
         evenOutVolume = defaults.object(forKey: Keys.evenOutVolume) as? Bool ?? true
         hemisphere = defaults.string(forKey: Keys.hemisphere).flatMap(Hemisphere.init(rawValue:)) ?? .automatic
         seasonalEffects = defaults.object(forKey: Keys.seasonalEffects) as? Bool ?? true
+        playInTheCar = Self.flag(Keys.playInTheCar, in: defaults, default: true)
         holidaysInSeason = Self.flag(Keys.holidaysInSeason, in: defaults, default: true)
         sectionID = defaults.string(forKey: Keys.sectionID)
         appIcon = defaults.string(forKey: Keys.appIcon).flatMap(AppIconChoice.init(rawValue:)) ?? .record

@@ -61,7 +61,7 @@ struct RootView: View {
 
     #if DEBUG
     /// `-TruffleScene mixes|player|albums|icons|stats|settings|album`: opens straight to a screen, for
-    /// store screenshots; `shuffle` runs a check that can't be tapped through in the simulator.
+    /// store screenshots; `car` and `shuffle` run checks that can't be tapped through in the simulator.
     /// With `stats`, `-TruffleScroll months|mostPlayed|habits|dayOne` scrolls down to a card.
     /// Playlists: `playlists`, `playlistNew` (the empty editor), `playlistFilled` (the editor with a
     /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
@@ -123,7 +123,7 @@ struct RootView: View {
             tab = .library
             if let mine = library.playlists.first(where: { !$0.isSmart }) { router.libraryPath = [.playlists, .playlist(mine)] }
         case "settings":
-            // `-TruffleScroll shuffle|holidays|appIcon`
+            // `-TruffleScroll shuffle|car|holidays|appIcon`
             tab = .settings
             try? await Task.sleep(for: .seconds(1))
             router.scrollTarget = UserDefaults.standard.string(forKey: "TruffleScroll")
@@ -133,6 +133,8 @@ struct RootView: View {
             guard let album = library.albums.first(where: { $0.title == title }) else { break }
             tab = .library
             router.libraryPath = [.albums, .album(album)]
+        case "car":
+            await connectCarTwice()
         case "shuffle":
             await skipThroughShuffleAll()
         default:
@@ -157,6 +159,18 @@ struct RootView: View {
         }
         Logger.ui.info("[debug] draft with \(draft.songs.count) song(s), cover \(draft.cover?.count ?? 0)B")
         return draft
+    }
+
+    /// `-TruffleScene car`: what CarPlaySceneDelegate does when the car connects, without the CarPlay
+    /// window (it can't be scripted): a connection, the same connection announced again, then a new one.
+    private func connectCarTwice() async {
+        var autoplay = CarAutoplay()
+        let showNowPlaying = { Logger.ui.info("[debug] the car shows Now Playing") }
+        autoplay.carConnected(environment: .shared, showNowPlaying: showNowPlaying)
+        try? await Task.sleep(for: .seconds(5))
+        autoplay.carConnected(environment: .shared, showNowPlaying: showNowPlaying)
+        autoplay.carDisconnected()
+        autoplay.carConnected(environment: .shared, showNowPlaying: showNowPlaying)
     }
 
     /// `-TruffleScene shuffle [-TruffleSteps n]`: Shuffle All, then Next every 300 ms for a round's worth
