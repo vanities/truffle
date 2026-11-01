@@ -202,7 +202,9 @@ and a saved song plays with no server at all. `makeItem` plays from disk when th
 that fails is deleted and the song streams. Least recently used goes first past 1 GB; signing out clears it;
 the demo never saves (its server lives in the app). A download that fails reconnects and tries once more
 (the queued URL may be the public address from the drive home). Playback waits only for an address
-(`waitForAddress`), not for the lists to reload.
+(`waitForAddress`), not for the lists to reload. While playing, saving waits 3 s after the last skip, so a run of skips downloads
+only where it lands; paused, it saves at once. A skip while waiting for an address moves the one pending load
+(to the new song, from 0), rather than queueing another.
 
 Debug: `-TruffleScene car` runs the car's connect path; with `-TruffleServerURL` (the demo server, whose
 machine id isn't the in-app demo's) songs save from the simulator too. Watch `[cache]` and `[carlog]`.

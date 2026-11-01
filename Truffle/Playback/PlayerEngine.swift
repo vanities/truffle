@@ -60,6 +60,9 @@ final class PlayerEngine {
     @ObservationIgnored private var pendingSeek: TimeInterval?
     /// A restored queue waits for Play before it builds an item (the server may not be reachable yet).
     @ObservationIgnored private var needsLoad = false
+    /// Where the song should start once an address is found; a skip while waiting moves it (to 0).
+    @ObservationIgnored private var addressWait: (task: Task<Void, Never>, startTime: TimeInterval)?
+    @ObservationIgnored private var cacheAheadDelay: Task<Void, Never>?
     @ObservationIgnored private var playWhenReady = false
     @ObservationIgnored private var wasPlayingBeforeInterruption = false
     @ObservationIgnored private var recoveryAttempts = 0
@@ -472,20 +475,28 @@ final class PlayerEngine {
         nextItem = nil
         retireLeftovers()
         guard let item = makeItem(for: track) else {
-            // Not connected yet: connect, then try again.
+            // Not connected yet: connect, then load whatever is current by then. Skips while waiting only move
+            // the queue (and the start time); one wait serves them all.
             needsLoad = true
             isLoading = autoplay
             playWhenReady = autoplay
             notify()
-            Task {
+            if let addressWait {
+                self.addressWait = (addressWait.task, startTime)
+                return
+            }
+            let task = Task {
                 await library.waitForAddress(reason: "play")
-                if library.client != nil, needsLoad { load(autoplay: playWhenReady, startTime: startTime) }
+                let start = addressWait?.startTime ?? startTime
+                addressWait = nil
+                if library.client != nil, needsLoad { load(autoplay: playWhenReady, startTime: start) }
                 else if needsLoad {
                     isLoading = false
                     errorMessage = "\(library.serverName) isn't answering."
                     notify()
                 }
             }
+            addressWait = (task, startTime)
             return
         }
         currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint?.baseURL
@@ -1201,6 +1212,23 @@ final class PlayerEngine {
     /// The song playing (or paused) and the next few, saved to the phone on Wi-Fi. Saving runs on every
     /// queue change and every few seconds of play; SongCache skips what's saved or on its way.
     private func cacheAhead() {
+        cacheAheadDelay?.cancel()
+        cacheAheadDelay = nil
+        // Paused, it goes now: the app may be suspended any second, and the car needs that song tomorrow.
+        guard playWhenReady else {
+            cacheWindow()
+            return
+        }
+        // Playing, a run of skips settles first, so only where it lands downloads (full FLACs, each skip
+        // would otherwise start one and cancel another, all competing with the song that's playing).
+        cacheAheadDelay = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.cacheWindow()
+        }
+    }
+
+    private func cacheWindow() {
         guard !library.isDemo, let client = library.client, let current = queue.current else { return }
         SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client)
     }
