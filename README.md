@@ -2,7 +2,7 @@
 
 A music player for your Plex server, made for the car. Plex music, but sweeter.
 
-**[Join the TestFlight beta →](https://testflight.apple.com/join/ZXeFFhZM)** Free, no in-app purchases.
+**[Get it on the App Store →](https://apps.apple.com/us/app/id6829085593)** Free, no in-app purchases. New builds land in the [TestFlight beta](https://testflight.apple.com/join/ZXeFFhZM) first.
 No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it all on a made-up library.
 
 > Bundle ID `com.vanities.truffle`. GPL-3.0. Website: https://am2.biz/truffle · [Support](https://am2.biz/truffle/support) · [Privacy](https://am2.biz/truffle/privacy)
