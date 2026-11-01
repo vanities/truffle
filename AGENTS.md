@@ -262,7 +262,8 @@ prints each screen's accessibility tree.
   because the API can't create an Xcode Cloud product.
 - The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
   `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `release` (an approved version held for a
-  manual release), `status`. App Privacy ("Data Not Collected")
+  manual release), `accessibility [--publish]` (the store page's Accessibility labels, from `ACCESSIBILITY`;
+  VoiceOver and Voice Control stay off until they're checked on a phone), `status`. App Privacy ("Data Not Collected")
   can only be set on the web.
 - App Review's messages are only in App Store Connect (the app's App Review page, or the App Store Connect
   iPhone app); the API has no Resolution Center. Answers go in `REVIEW_NOTES` (`appstore.py review`), files

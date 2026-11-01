@@ -17,6 +17,7 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review, or resubmit a rejected one
   uv run --script scripts/appstore.py cancel                # pull it back out ("Remove from Review"), to change it
   uv run --script scripts/appstore.py release               # put an approved version (manual release) on the App Store
+  uv run --script scripts/appstore.py accessibility [--publish]  # the store's Accessibility labels, per device (ACCESSIBILITY)
 """
 from __future__ import annotations
 
@@ -477,6 +478,50 @@ def cmd_release(asc: Store) -> None:
     report(f"released version {version['attributes']['versionString']}", result)
 
 
+# What `make a11y` checks on every screen, light and dark, at the largest text. VoiceOver and Voice Control
+# stay off until someone has used Truffle with them on a phone: the audit can't vouch for a whole task.
+ACCESSIBILITY = {
+    "supportsDarkInterface": True,
+    "supportsDifferentiateWithoutColorAlone": True,
+    "supportsLargerText": True,
+    "supportsReducedMotion": True,
+    "supportsSufficientContrast": True,
+    "supportsVoiceover": False,
+    "supportsVoiceControl": False,
+    # Truffle has no video.
+    "supportsCaptions": False,
+    "supportsAudioDescriptions": False,
+}
+ACCESSIBILITY_DEVICES = ("IPHONE", "IPAD")
+
+
+def cmd_accessibility(asc: Store, publish: bool) -> None:
+    """Fill a draft declaration per device with ACCESSIBILITY; `--publish` puts them on the store page."""
+    app = asc.app() or sys.exit("no app record")
+    existing = asc.get(f"/v1/apps/{app['id']}/accessibilityDeclarations", {"limit": 20})["data"]
+    drafted = False
+    for device in ACCESSIBILITY_DEVICES:
+        mine = [d for d in existing if d["attributes"].get("deviceFamily") == device]
+        draft = next((d for d in mine if d["attributes"].get("state") == "DRAFT"), None)
+        current = next((d for d in mine if d["attributes"].get("state") == "PUBLISHED"), None)
+        if current and all(current["attributes"].get(k) == v for k, v in ACCESSIBILITY.items()) and not draft:
+            print(f"  ✓ {device}: published and current")
+            continue
+        if draft:
+            result = asc.patch_ok(f"/v1/accessibilityDeclarations/{draft['id']}", {"data": {"type": "accessibilityDeclarations", "id": draft["id"], "attributes": ACCESSIBILITY}})
+        else:
+            result = asc.post_ok("/v1/accessibilityDeclarations", {"data": {"type": "accessibilityDeclarations", "attributes": {"deviceFamily": device, **ACCESSIBILITY},
+                                                                            "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}}}})
+            draft = result.get("data")
+        report(f"{device}: draft filled in", result)
+        drafted = True
+        if not publish or not draft:
+            continue
+        report(f"{device}: published", asc.patch_ok(f"/v1/accessibilityDeclarations/{draft['id']}", {"data": {"type": "accessibilityDeclarations", "id": draft["id"], "attributes": {"publish": True}}}))
+    if drafted and not publish:
+        print("drafts only; --publish puts them on the App Store page")
+
+
 def cmd_submission_status(asc: Store) -> None:
     app = asc.app() or sys.exit("no app record")
     for submission in asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "fields[reviewSubmissions]": "state,submittedDate", "limit": 5})["data"]:
@@ -502,6 +547,7 @@ def main() -> None:
     sub.add_parser("submission-status")
     sub.add_parser("cancel")
     sub.add_parser("release")
+    access = sub.add_parser("accessibility"); access.add_argument("--publish", action="store_true")
     args = parser.parse_args()
     asc = Store(tf.load_env())
     match args.command:
@@ -519,6 +565,7 @@ def main() -> None:
         case "submission-status": cmd_submission_status(asc)
         case "cancel": cmd_cancel(asc)
         case "release": cmd_release(asc)
+        case "accessibility": cmd_accessibility(asc, args.publish)
 
 
 if __name__ == "__main__":
