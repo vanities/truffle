@@ -9,7 +9,8 @@ Auth: OPENAI_API_KEY (Adam's, per his instruction 2026-10-30), from the environm
 in this repo, then ../game/.env where the art pipeline keeps it. Nothing secret is printed.
 
     uv run --script scripts/generate-art.py icons            # icon concepts → build/art/icon-*.png
-    uv run --script scripts/generate-art.py icon-set CONCEPT [--name AppIcon-Note]  # light/dark/tinted icon set
+    uv run --script scripts/generate-art.py icon-set record          # the everyday light/dark/tinted icon set
+    uv run --script scripts/generate-art.py record-moments [MOMENT ...] [--install]  # the record dressed for a holiday
     uv run --script scripts/generate-art.py mixes [KEY ...]  # mix artwork into Mixes.xcassets/Mix-*.imageset
     uv run --script scripts/generate-art.py props [KEY ...]  # transparent seasonal props into Prop-*.imageset
     uv run --script scripts/generate-art.py glow             # the jack-o'-lantern's candle masks, from its drawing
@@ -36,6 +37,7 @@ ASSETS = REPO / "Truffle/Resources/Assets.xcassets"
 MIX_ASSETS = REPO / "Truffle/Resources/Mixes.xcassets"
 OUT = REPO / "build/art"
 API_URL = "https://api.openai.com/v1/images/generations"
+EDIT_URL = "https://api.openai.com/v1/images/edits"
 MODEL = "gpt-image-2"
 
 # The family look Earmark and Mango set: one bold flat charcoal glyph on a vivid two-colour gradient.
@@ -49,17 +51,6 @@ ICON_BASE = (
 )
 
 ICON_CONCEPTS = {
-    # Earmark wears headphones; so does its sibling. Cute at 60 px if the shapes stay bold.
-    "headphones": (
-        "The glyph is a round chocolate truffle candy, a plump ball with a little swirl of "
-        "chocolate on top, wearing a pair of big over-ear headphones across its top. One "
-        "bold solid silhouette, the headphones clearly readable."
-    ),
-    "note": (
-        "The glyph is a round chocolate truffle candy seen from the side, a plump ball sitting "
-        "in a fluted paper cup, with its swirl of chocolate on top curling up into a musical "
-        "eighth note. One bold solid silhouette."
-    ),
     "record": (
         "The glyph is a round chocolate truffle candy drawn as a vinyl record seen from above: "
         "a solid disc with a few concentric groove rings cut out of it and a small center "
@@ -94,6 +85,42 @@ MIXES = {
     "lastYear": "A smiling flip calendar flipping its pages backwards with a nostalgic little sparkle, a faded polaroid photo tucked into it. Warm sepia, dusty rose and plum.",
     "favorites": "A proud gold star wearing headphones standing on a small trophy pedestal, sparkles all around. Gold, warm orange and deep purple.",
 }
+
+# The record icon, dressed for each `Moment`. Edited from the shipped icon so the record itself stays
+# put and only the touches change; each set is `AppIcon-<Moment>`, which `AppIconChoice` switches to.
+RECORD_DRESSING = (
+    "Keep this app icon's composition exactly: the same chocolate truffle vinyl record glyph, the same size, "
+    "position, groove rings, drizzle swirl and soft drop shadow, and the same flat modern style. Change only "
+    "what follows, and keep every change bold and simple enough to read at 60 pixels. No text, letters, "
+    "numbers or words anywhere."
+)
+RECORD_MOMENTS = {
+    "halloween": ("A pointy purple witch hat with a bright orange band and a crooked tip sits tilted on the top "
+                  "edge of the record, big and bold. The drizzle swirl is vivid violet purple. The small center label "
+                  "is glowing pumpkin orange.",
+                  "deep midnight purple in the top-left to vivid violet in the bottom-right, with only a faint warm "
+                  "orange glow low in the corner"),
+    "thanksgiving": ("A turkey's tail fans out behind the top half of the record like a peacock's: big bold "
+                     "feathers in rust, harvest orange, golden yellow and brown, clearly a cartoon turkey tail. The "
+                     "drizzle swirl is golden caramel.",
+                     "warm chestnut brown in the top-left to harvest orange in the bottom-right"),
+    "christmas": ("A small red Santa hat with a white pom-pom sits tilted on the top edge of the record. The "
+                  "drizzle swirl is white frosting.", "deep pine green in the top-left to cozy cranberry red in the bottom-right"),
+    "newYear": ("The drizzle swirl is shiny gold, and a few small gold and silver confetti pieces float around "
+                "the record.", "midnight navy in the top-left to warm champagne gold in the bottom-right"),
+    "valentines": ("The small center label is a red heart. The drizzle swirl is soft strawberry pink.",
+                   "raspberry red in the top-left to soft bubblegum pink in the bottom-right"),
+    "stPatricks": ("The small center label is a bright green shamrock. The drizzle swirl is shiny gold.",
+                   "deep forest emerald in the top-left to a rich, muted kelly green in the bottom-right, never neon"),
+    "fourthOfJuly": ("The small center label is a white five-pointed star. The drizzle swirl is red and white "
+                     "stripes, and two small firework bursts pop in the background corners.",
+                     "deep navy blue in the top-left to bright flag red in the bottom-right"),
+}
+RECORD_DARK = "The record glyph is the warm glowing sunset pink-orange of a dark-mode icon, not charcoal."
+
+
+def moment_icon_name(moment: str) -> str:
+    return "AppIcon-" + moment[0].upper() + moment[1:]
 
 
 # Small figures the seasonal backdrop draws on top of the cards and across the sky. Each is
@@ -164,6 +191,66 @@ def generate(prompt: str, key: str, quality: str, label: str, size: str = "1024x
     return Image.open(io.BytesIO(raw)).convert("RGB")
 
 
+def edit(source: Path, prompt: str, key: str, label: str) -> Image.Image:
+    started = time.monotonic()
+    with source.open("rb") as handle:
+        response = requests.post(EDIT_URL, timeout=300, headers={"Authorization": f"Bearer {key}"},
+                                 data={"model": MODEL, "prompt": prompt, "n": "1", "size": "1024x1024", "quality": "high"},
+                                 files=[("image[]", (source.name, handle, "image/png"))])
+    if not response.ok:
+        sys.exit(f"[art] {label}: HTTP {response.status_code} {response.text[:400]}")
+    data = response.json()["data"][0]
+    raw = base64.b64decode(data["b64_json"]) if data.get("b64_json") else requests.get(data["url"], timeout=120).content
+    print(f"[art] {label}: {len(raw) // 1024} KB in {time.monotonic() - started:.1f}s", flush=True)
+    return Image.open(io.BytesIO(raw)).convert("RGB")
+
+
+def cmd_record_moments(key: str, moments: list[str], install: bool) -> None:
+    """Without --install, light drafts into build/art/record-*.png for a look. With it, the light draft
+    (made if missing) plus a dark render become `AppIcon-<Moment>.appiconset`."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    base = ASSETS / "AppIcon.appiconset"
+
+    def make(moment: str) -> str:
+        touches, background = RECORD_MOMENTS[moment]
+        light_path = OUT / f"record-{moment}.png"
+        if not (install and light_path.exists()):
+            light = edit(base / "AppIcon.png", f"{RECORD_DRESSING} {touches} The background gradient runs from {background}.",
+                         key, f"record {moment}")
+            light.save(light_path)
+        if not install:
+            return moment
+        light = Image.open(light_path).convert("RGB")
+        dark = edit(base / "AppIcon-Dark.png", f"{RECORD_DRESSING} {touches} {RECORD_DARK} The background is a dark, "
+                    f"deep version of {background}, almost black.", key, f"record {moment} dark")
+        write_icon_set(moment_icon_name(moment), light, dark)
+        return moment
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        done = list(pool.map(make, moments))
+    print(f"[art] {len(done)} record moments {'installed' if install else f'drafted in {OUT}'}")
+
+
+def write_icon_set(name: str, light: Image.Image, dark: Image.Image) -> None:
+    folder = ASSETS / f"{name}.appiconset"
+    folder.mkdir(parents=True, exist_ok=True)
+    light.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon.png")
+    dark.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon-Dark.png")
+    # Tinted: iOS colors a grayscale icon itself; the dark render, desaturated and lifted, reads best.
+    tinted = ImageEnhance.Contrast(ImageOps.grayscale(dark)).enhance(1.35).convert("RGB")
+    tinted.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon-Tinted.png")
+    (folder / "Contents.json").write_text(json.dumps({
+        "images": [
+            {"filename": "AppIcon.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"},
+            {"appearances": [{"appearance": "luminosity", "value": "dark"}], "filename": "AppIcon-Dark.png",
+             "idiom": "universal", "platform": "ios", "size": "1024x1024"},
+            {"appearances": [{"appearance": "luminosity", "value": "tinted"}], "filename": "AppIcon-Tinted.png",
+             "idiom": "universal", "platform": "ios", "size": "1024x1024"},
+        ],
+        "info": {"author": "xcode", "version": 1},
+    }, indent=2))
+
+
 def icon_prompt(concept: str, glyph: str, background: str) -> str:
     return f"{ICON_BASE} {ICON_CONCEPTS[concept]} The glyph is {glyph}. The background gradient runs from {background}."
 
@@ -178,34 +265,12 @@ def cmd_icons(key: str, concepts: list[str]) -> None:
 
 
 def cmd_icon_set(key: str, concept: str, name: str = "AppIcon") -> None:
-    folder = ASSETS / f"{name}.appiconset"
-    folder.mkdir(parents=True, exist_ok=True)
     light = OUT / f"icon-{concept}.png"
     light_image = Image.open(light).convert("RGB") if light.exists() else generate(icon_prompt(concept, *LIGHT), key, "high", "icon light")
     dark_image = generate(icon_prompt(concept, *DARK), key, "high", "icon dark")
-    light_image.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon.png")
-    dark_image.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon-Dark.png")
-    # Tinted: iOS colors a grayscale icon itself; the dark render, desaturated and lifted, reads best.
-    tinted = ImageEnhance.Contrast(ImageOps.grayscale(dark_image)).enhance(1.35).convert("RGB")
-    tinted.resize((1024, 1024), Image.LANCZOS).save(folder / "AppIcon-Tinted.png")
-    (folder / "Contents.json").write_text(json.dumps({
-        "images": [
-            {"filename": "AppIcon.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"},
-            {"appearances": [{"appearance": "luminosity", "value": "dark"}], "filename": "AppIcon-Dark.png",
-             "idiom": "universal", "platform": "ios", "size": "1024x1024"},
-            {"appearances": [{"appearance": "luminosity", "value": "tinted"}], "filename": "AppIcon-Tinted.png",
-             "idiom": "universal", "platform": "ios", "size": "1024x1024"},
-        ],
-        "info": {"author": "xcode", "version": 1},
-    }, indent=2))
+    write_icon_set(name, light_image, dark_image)
     if name == "AppIcon":
         light_image.resize((512, 512), Image.LANCZOS).save(ASSETS / "Mark.imageset" / "Mark.png")
-    # Settings shows each icon; an app icon set can't be loaded as an image, so keep a small copy.
-    preview = ASSETS / f"IconPreview-{concept}.imageset"
-    preview.mkdir(parents=True, exist_ok=True)
-    light_image.resize((180, 180), Image.LANCZOS).save(preview / "icon.png")
-    (preview / "Contents.json").write_text(json.dumps(
-        {"images": [{"filename": "icon.png", "idiom": "universal"}], "info": {"author": "xcode", "version": 1}}, indent=2))
     print(f"[art] {name} written from concept {concept}")
 
 
@@ -354,8 +419,13 @@ def main() -> None:
     mixes.add_argument("keys", nargs="*", default=list(MIXES))
     props = sub.add_parser("props")
     props.add_argument("keys", nargs="*", default=list(PROPS), help=", ".join(PROPS))
+    record = sub.add_parser("record-moments")
+    record.add_argument("moments", nargs="*", default=list(RECORD_MOMENTS), help=", ".join(RECORD_MOMENTS))
+    record.add_argument("--install", action="store_true", help="write the icon sets (adds the dark renders)")
     sub.add_parser("glow", help="the jack-o'-lantern's candle masks, cut from its drawing (no API call)")
     args = parser.parse_args()
+    if args.command == "record-moments" and (unknown := set(args.moments) - set(RECORD_MOMENTS)):
+        parser.error(f"unknown moment(s) {', '.join(sorted(unknown))}; one of: {', '.join(RECORD_MOMENTS)}")
     if args.command == "props" and (unknown := set(args.keys) - set(PROPS)):
         parser.error(f"unknown prop(s) {', '.join(sorted(unknown))}; one of: {', '.join(PROPS)}")
     if args.command == "glow":
@@ -369,6 +439,8 @@ def main() -> None:
         cmd_icon_set(key, args.concept, args.name)
     elif args.command == "props":
         cmd_props(key, args.keys)
+    elif args.command == "record-moments":
+        cmd_record_moments(key, args.moments, args.install)
     else:
         cmd_mixes(key, args.keys)
 

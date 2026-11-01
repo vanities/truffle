@@ -28,7 +28,7 @@ No Plex server handy? Tap **Take it for a spin** on the sign-in screen to try it
 - **Stats that prove you have great taste:** plays, listening time, streaks, your most-played artists,
   albums and songs, and the ones you haven't heard in a while, all from your Plex history.
 - Playlists, likes, artists, albums, search, Recently Added and Recently Played, all kept in Plex.
-  Seasonal app icons, too.
+  The app icon dresses up for the holidays, too.
 
 ## Building
 

@@ -59,12 +59,24 @@ final class SeasonsTests: XCTestCase {
         XCTAssertEqual(theme.particles, .embers)
     }
 
-    func testTheNoteIconComesOutForFall() {
+    func testTheRecordDressesUpForHolidays() {
         let halloween = SeasonCalendar.theme(for: date(2026, 10, 30), southern: false, calendar: calendar)
         let winter = SeasonCalendar.theme(for: date(2027, 1, 15), southern: false, calendar: calendar)
-        XCTAssertEqual(AppIconChoice.choice(chosen: .headphones, matchSeason: true, theme: halloween), .note)
-        XCTAssertEqual(AppIconChoice.choice(chosen: .record, matchSeason: true, theme: winter), .record)
-        XCTAssertEqual(AppIconChoice.choice(chosen: .headphones, matchSeason: false, theme: halloween), .headphones)
+        XCTAssertEqual(AppIconChoice.choice(holidays: true, theme: halloween), .dressed(.halloween))
+        XCTAssertEqual(AppIconChoice.choice(holidays: true, theme: winter), .record)
+        XCTAssertEqual(AppIconChoice.choice(holidays: false, theme: halloween), .record)
+        XCTAssertEqual(AppIconChoice.dressed(.fourthOfJuly).assetName, "AppIcon-FourthOfJuly")
+        XCTAssertNil(AppIconChoice.record.assetName)
+    }
+
+    /// iOS refuses a switch to an icon the built app doesn't list (project.yml's alternate names).
+    func testEveryHolidayHasAnIconInTheApp() throws {
+        let icons = Bundle.main.object(forInfoDictionaryKey: "CFBundleIcons") as? [String: Any]
+        let alternates = (icons?["CFBundleAlternateIcons"] as? [String: Any]).map { Set($0.keys) } ?? []
+        for moment in Moment.allCases {
+            let name = try XCTUnwrap(AppIconChoice.dressed(moment).assetName)
+            XCTAssertTrue(alternates.contains(name), "\(name) isn't an alternate icon in the built app")
+        }
     }
 
     func testStPatricksRunsFromTheTenthThroughTheEighteenth() {

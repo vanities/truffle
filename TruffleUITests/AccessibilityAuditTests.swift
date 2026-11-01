@@ -64,7 +64,7 @@ final class AccessibilityAuditTests: XCTestCase {
     }
 
     @MainActor func testAppIcons() throws {
-        try audit("app icons", scene: "icons") { $0.buttons["Record"] }
+        try audit("app icons", scene: "icons") { $0.switches["Holiday Icons"] }
     }
 
     @MainActor func testSearch() throws {
