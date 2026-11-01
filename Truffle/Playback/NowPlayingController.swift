@@ -31,7 +31,10 @@ final class NowPlayingController {
     private func registerCommands() {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.addTarget { [weak self] _ in
-            MainActor.assumeIsolated { self?.player.play() }
+            MainActor.assumeIsolated {
+                self?.notePlayCommand("Play")
+                self?.player.play()
+            }
             return .success
         }
         center.pauseCommand.addTarget { [weak self] _ in
@@ -39,7 +42,11 @@ final class NowPlayingController {
             return .success
         }
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            MainActor.assumeIsolated { self?.player.togglePlayPause() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if !self.player.isPlaying { self.notePlayCommand("Play/Pause") }
+                self.player.togglePlayPause()
+            }
             return .success
         }
         center.nextTrackCommand.addTarget { [weak self] _ in
@@ -70,6 +77,14 @@ final class NowPlayingController {
                         center.changePlaybackRateCommand] {
             command.isEnabled = false
         }
+    }
+
+    /// The car (or iOS for it) asking the last app that played to play: the path that needs no car screen.
+    private func notePlayCommand(_ command: String) {
+        let state = UIApplication.shared.applicationState.carLogName
+        let queue = player.hasTrack ? "\(player.queue.tracks.count) songs queued" : "nothing queued"
+        CarLog.shared.note("\(command) command (app \(state), \(queue))")
+        CarLog.shared.expectSound(after: "\(command) command") { [player] in player.startState }
     }
 
     func update() {

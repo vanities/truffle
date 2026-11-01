@@ -29,9 +29,9 @@ Truffle/
   Library/    MusicLibrary (+Browse, +Mixes, +Edits), ShuffleWalk, Seasons, Mixes, LibraryStore
   Playback/   PlayerEngine (two AVQueuePlayer decks: gapless preload, crossfades in shuffles), PlayQueue and
               Crossfade (pure rules), DataSaver (+ NetworkCost), Loudness, PlexReporter (timeline),
-              NowPlayingController, ArtworkCache, AudioSessionManager
+              NowPlayingController, ArtworkCache, SongCache (songs saved for the car), AudioSessionManager
   CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing: back 15,
-              heart, repeat, and the album name opens the album)
+              heart, repeat, and the album name opens the album), CarAutoplay, CarLog
   Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
               from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components, Seasonal (the backdrop,
@@ -179,6 +179,33 @@ Debug: `-TruffleSiri "Road Trip"` asks the handler the way Siri would, and `-Tru
 categories. The simulator can't take Siri requests or add widgets from a script. `WidgetTests` draws both
 widget sizes for a few seasons; run the tests with `TEST_RUNNER_TRUFFLE_RENDER_DIR=<folder>` to keep the
 PNGs.
+
+## The car: starting, saved songs, the car log
+
+Music can start in the car three ways, and none is guaranteed:
+- **The car screen opens Truffle.** CarPlay connects the template scene only when Truffle comes up on the
+  car's screen (Apple: "when it launches your app"), not when the car connects, so a car that opens to Maps
+  or Home never runs `CarAutoplay`.
+- **iOS or the car sends Play** to the last app that played (`NowPlayingController`), often to a cold
+  background launch with no scene. Apple doesn't document it; on iOS 27 it rarely happens.
+- **The Resume shortcut** (`ResumeIntent`): picks up the queue, or Shuffle All. Adam's reliable path is a
+  Shortcuts automation, When CarPlay Connects → Resume, set to run immediately.
+
+`CarLog` (Settings → CarPlay → Car Log) writes down each of these plus background launches, the audio
+going to the car, and how long until sound ("Sound 0.4 s after Play command, from the phone") or that none
+came within 45 s and what the player was stuck on. It survives relaunches, unlike the unified log, so ask
+Adam to share it when a drive didn't play.
+
+`SongCache` saves the song playing (or paused) and the next three to Caches, through a background
+URLSession that only uses Wi-Fi: pausing in the car and walking into the house still saves tomorrow's song,
+and a saved song plays with no server at all. `makeItem` plays from disk when the file's there; a saved file
+that fails is deleted and the song streams. Least recently used goes first past 1 GB; signing out clears it;
+the demo never saves (its server lives in the app). A download that fails reconnects and tries once more
+(the queued URL may be the public address from the drive home). Playback waits only for an address
+(`waitForAddress`), not for the lists to reload.
+
+Debug: `-TruffleScene car` runs the car's connect path; with `-TruffleServerURL` (the demo server, whose
+machine id isn't the in-app demo's) songs save from the simulator too. Watch `[cache]` and `[carlog]`.
 
 ## Conventions
 

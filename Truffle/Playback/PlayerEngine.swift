@@ -87,11 +87,13 @@ final class PlayerEngine {
     private struct ItemInfo {
         let track: Track
         let mode: StreamMode
-        let endpoint: PlexEndpoint
+        /// Where it streams from; nil for a song saved on the phone (`SongCache`).
+        let endpoint: PlexEndpoint?
         /// The transcode session, for Data Saver.
         let session: String?
         /// A transcode's status, watched while it waits its turn.
         let watch: NSKeyValueObservation?
+        var onPhone: Bool { endpoint == nil }
     }
 
     /// The next song, waiting on the spare deck to fade in over the end of `after`.
@@ -136,7 +138,18 @@ final class PlayerEngine {
         installObservers()
         restore()
         library.onEndpointChanged = { [weak self] endpoint in self?.endpointChanged(endpoint) }
-        library.onSignedOut = { [weak self] in self?.stop(clearing: true) }
+        // A save that failed was likely aimed at an address that's gone (it left home on the public one).
+        SongCache.shared.onFailure = { [weak self] in
+            guard let self else { return }
+            Task {
+                await self.library.reconnect(reason: "song download failed")
+                self.cacheAhead()
+            }
+        }
+        library.onSignedOut = { [weak self] in
+            self?.stop(clearing: true)
+            SongCache.shared.removeAll()
+        }
         library.onTrackUpdated = { [weak self] track in
             guard let self else { return }
             self.queue.update(track)
@@ -465,7 +478,7 @@ final class PlayerEngine {
             playWhenReady = autoplay
             notify()
             Task {
-                await library.reconnect(reason: "play")
+                await library.waitForAddress(reason: "play")
                 if library.client != nil, needsLoad { load(autoplay: playWhenReady, startTime: startTime) }
                 else if needsLoad {
                     isLoading = false
@@ -475,7 +488,7 @@ final class PlayerEngine {
             }
             return
         }
-        currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL
+        currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint?.baseURL
         player.insert(item, after: nil)
         failedItem = nil
         playingItem = item
@@ -499,6 +512,13 @@ final class PlayerEngine {
 
     /// The original file, or with Data Saver on a metered connection, Plex's transcode (a session per song).
     private func makeItem(for track: Track) -> AVPlayerItem? {
+        if let file = SongCache.shared.file(for: track) {
+            // From disk: no server needed, so a cold start in the garage plays at once.
+            let item = AVPlayerItem(asset: AVURLAsset(url: file))
+            itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: .original, endpoint: nil, session: nil, watch: nil)
+            Logger.player.info("[cache] \"\(track.title, privacy: .public)\" plays from the phone")
+            return item
+        }
         guard let client = library.client, let partKey = track.partKey else { return nil }
         let mode = newSongMode(for: track)
         var session: String?
@@ -591,6 +611,7 @@ final class PlayerEngine {
 
     private func isFresh(_ item: AVPlayerItem, for track: Track) -> Bool {
         guard item.status != .failed, let info = itemInfo[ObjectIdentifier(item)] else { return false }
+        if info.onPhone { return info.track.id == track.id }
         return info.track.id == track.id && info.endpoint == library.endpoint && info.mode == newSongMode(for: track)
     }
 
@@ -618,7 +639,8 @@ final class PlayerEngine {
     private func settle(on item: AVPlayerItem, how: String) {
         failedItem = nil
         playingItem = item
-        currentItemBase = itemInfo[ObjectIdentifier(item)]?.endpoint.baseURL ?? library.endpoint?.baseURL
+        let info = itemInfo[ObjectIdentifier(item)]
+        currentItemBase = info?.onPhone == true ? nil : (info?.endpoint?.baseURL ?? library.endpoint?.baseURL)
         observe(item)
         currentTime = 0
         stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
@@ -715,8 +737,8 @@ final class PlayerEngine {
     }
 
     private func retire(_ key: ObjectIdentifier) {
-        guard let info = itemInfo.removeValue(forKey: key), let session = info.session else { return }
-        let client = PlexClient(endpoint: info.endpoint, identity: library.identity)
+        guard let info = itemInfo.removeValue(forKey: key), let session = info.session, let endpoint = info.endpoint else { return }
+        let client = PlexClient(endpoint: endpoint, identity: library.identity)
         Task {
             do {
                 try await client.stopTranscode(session: session)
@@ -968,9 +990,10 @@ final class PlayerEngine {
     /// playing from its buffer and moves over if it stalls or fails.
     private func endpointChanged(_ endpoint: PlexEndpoint) {
         Logger.player.info("[player] server address now \(endpoint.kind.rawValue, privacy: .public)")
+        cacheAhead()
         guard player.currentItem != nil else { return }
         preloadNext()
-        if player.timeControlStatus == .waitingToPlayAtSpecifiedRate, currentItemBase != endpoint.baseURL {
+        if player.timeControlStatus == .waitingToPlayAtSpecifiedRate, let base = currentItemBase, base != endpoint.baseURL {
             rebuildCurrent(reason: "stalled on the old address")
         }
     }
@@ -997,6 +1020,13 @@ final class PlayerEngine {
         }
         guard item === playingItem, failedItem != ObjectIdentifier(item) else { return }
         failedItem = ObjectIdentifier(item)
+        if let info = itemInfo[ObjectIdentifier(item)], info.onPhone {
+            // A saved file that won't play goes, and the song streams from the same spot.
+            Logger.player.error("[cache] saved \"\(info.track.title, privacy: .public)\" failed: \(error?.localizedDescription ?? "unknown error", privacy: .public); streaming it")
+            SongCache.shared.remove(info.track)
+            load(autoplay: playWhenReady, startTime: currentTime)
+            return
+        }
         if let info = itemInfo[ObjectIdentifier(item)], DataSaver.onFailure(of: info.mode) == .playOriginal {
             // Data Saver never costs a song: the original takes over from the same spot.
             transcodeFailed(info.track, error: error ?? item.error)
@@ -1058,7 +1088,7 @@ final class PlayerEngine {
                 // A fading song that stalls just stops moving its fade; the watchdog ends it.
                 guard let self, item == nil || item === self.player.currentItem else { return }
                 Logger.player.info("[player] stalled")
-                if let endpoint = self.library.endpoint, endpoint.baseURL != self.currentItemBase {
+                if let endpoint = self.library.endpoint, let base = self.currentItemBase, endpoint.baseURL != base {
                     self.rebuildCurrent(reason: "stalled, server address changed")
                 }
             }
@@ -1071,6 +1101,10 @@ final class PlayerEngine {
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: AVAudioSession.sharedInstance(), queue: .main) { [weak self] note in
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
             MainActor.assumeIsolated {
+                if reason == .newDeviceAvailable,
+                   AVAudioSession.sharedInstance().currentRoute.outputs.contains(where: { $0.portType == .carAudio }) {
+                    CarLog.shared.note("Audio went to the car")
+                }
                 // Headphones out, or the car disconnected: stop, like every music app.
                 guard reason == .oldDeviceUnavailable, let self, self.playWhenReady else { return }
                 Logger.player.info("[player] audio route lost, pausing")
@@ -1125,6 +1159,7 @@ final class PlayerEngine {
         isLoading = loading && playWhenReady
         if playing {
             recoveryAttempts = 0
+            CarLog.shared.soundStarted(fromPhone: playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }?.onPhone ?? false)
             if stream == .dataSaver { transcodes.played() }
             if fading == nil, let track = current { reporter.report(.playing, track: track, time: currentTime) }
         }
@@ -1160,6 +1195,21 @@ final class PlayerEngine {
         saved.trimPlayed(keeping: 50)
         library.store.save(PlayerState(queue: saved, time: currentTime, source: source, feed: feed, savedAt: .now),
                            to: Self.stateFile)
+        cacheAhead()
+    }
+
+    /// The song playing (or paused) and the next few, saved to the phone on Wi-Fi. Saving runs on every
+    /// queue change and every few seconds of play; SongCache skips what's saved or on its way.
+    private func cacheAhead() {
+        guard !library.isDemo, let client = library.client, let current = queue.current else { return }
+        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client)
+    }
+
+    /// For the car log: what a start that never made a sound was stuck on.
+    var startState: String {
+        let song = current.map { SongCache.shared.contains($0) ? "song saved on the phone" : "song not saved" } ?? "no queue"
+        let connection = library.client == nil ? "no server address" : "server address found"
+        return "\(isLoading ? "loading" : isPlaying ? "playing" : "stopped"), \(song), \(connection)\(errorMessage.map { ", error: \($0)" } ?? "")"
     }
 
     private func restore() {

@@ -11,6 +11,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didConnect interfaceController: CPInterfaceController) {
         Logger.carplay.info("[carplay] connected")
         MainActor.assumeIsolated {
+            CarLog.shared.note("Car screen opened Truffle (app \(UIApplication.shared.applicationState.carLogName))")
             let interface = CarPlayInterface(interfaceController: interfaceController, environment: .shared)
             self.interface = interface
             interface.start()
@@ -21,6 +22,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didDisconnectInterfaceController interfaceController: CPInterfaceController) {
         Logger.carplay.info("[carplay] disconnected")
         MainActor.assumeIsolated {
+            CarLog.shared.note("Car screen closed Truffle")
             interface?.stop()
             interface = nil
             autoplay.carDisconnected()

@@ -6,6 +6,25 @@ import os
 /// Siri hands "Play … on Truffle" to the app (iOS asks the app delegate, and only does so for apps with
 /// multiple scenes, which CarPlay already makes Truffle).
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // A launch nobody tapped: CarPlay, a remote Play, an intent or a finished download woke it. Every launch
+        // starts in the background until a scene connects, so look again once a tapped one would be open.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            if UIApplication.shared.applicationState == .background { CarLog.shared.note("Launched in the background") }
+        }
+        return true
+    }
+
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        guard identifier == SongCache.sessionIdentifier else {
+            completionHandler()
+            return
+        }
+        SongCache.shared.handleBackgroundEvents(completionHandler)
+    }
+
     func application(_ application: UIApplication, handlerFor intent: INIntent) -> Any? {
         guard intent is INPlayMediaIntent else {
             Logger.siri.info("[siri] no handler for \(String(describing: type(of: intent)), privacy: .public)")

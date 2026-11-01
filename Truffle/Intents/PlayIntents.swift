@@ -17,6 +17,18 @@ struct ShuffleAllIntent: AudioPlaybackIntent {
     }
 }
 
+/// For a "When CarPlay connects" automation: CarPlay only starts Truffle when its screen comes up, and iOS
+/// no longer reliably resumes the last app, so this is the start that doesn't depend on either.
+struct ResumeIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Resume"
+    static let description: IntentDescription? = IntentDescription("Picks up where you left off, or shuffles everything if there's nothing to pick up. Already playing? It leaves it be.")
+
+    func perform() async throws -> some IntentResult {
+        try await IntentRunner.resume()
+        return .result()
+    }
+}
+
 struct PlayLikedIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Liked Songs"
     static let description: IntentDescription? = IntentDescription("The songs you've hearted, shuffled.")

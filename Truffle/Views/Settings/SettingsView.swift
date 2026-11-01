@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(PlayerEngine.self) private var player
     @State private var confirmingSignOut = false
     @State private var confirmingNewRound = false
+    @State private var savedSongs = ""
 
     var body: some View {
         @Bindable var settings = settings
@@ -74,12 +75,15 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Play in the Car", isOn: $settings.playInTheCar)
+                    LabeledContent("Saved on This Phone", value: savedSongs)
+                    NavigationLink("Car Log") { CarLogView() }
                 } header: {
                     Text("CarPlay")
                 } footer: {
-                    Text("Hop in and it picks up where you left off.")
+                    Text("Hop in and it picks up where you left off. On Wi-Fi, the next few songs save to your phone, so it starts even in the garage.")
                 }
                 .id("car")
+                .onAppear { savedSongs = Self.savedSongsText() }
 
                 Section {
                     Toggle("Keep Holidays in Season", isOn: $settings.holidaysInSeason)
@@ -161,6 +165,14 @@ struct SettingsView: View {
                 Text("Everything goes back in the hat.")
             }
         }
+    }
+
+    /// Read from disk when the section shows; it changes as downloads finish, not as the view redraws.
+    private static func savedSongsText() -> String {
+        let summary = SongCache.shared.summary
+        guard summary.count > 0 else { return "None yet" }
+        let size = ByteCountFormatter.string(fromByteCount: summary.bytes, countStyle: .file)
+        return "\(summary.count) song\(summary.count == 1 ? "" : "s"), \(size)"
     }
 
     private var holidayFooter: String {

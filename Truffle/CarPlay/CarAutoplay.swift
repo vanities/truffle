@@ -22,6 +22,19 @@ struct CarAutoplay: Sendable {
         case otherAudio
 
         var plays: Bool { self == .resume || self == .shuffleAll }
+
+        /// For the car log, which Adam reads.
+        var plainText: String {
+            switch self {
+            case .resume: "picking up where you left off"
+            case .shuffleAll: "nothing to pick up, starting Shuffle All"
+            case .alreadyDecided: "already handled this drive"
+            case .off: "off in Settings"
+            case .signedOut: "signed out"
+            case .busy: "already playing"
+            case .otherAudio: "another app is playing"
+            }
+        }
     }
 
     struct Situation: Equatable, Sendable {
@@ -81,7 +94,12 @@ extension CarAutoplay {
             truffleBusy: player.isPlaying || player.isLoading,
             otherAudio: AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint,
             canResume: Self.canResume(player.queue, at: player.currentTime, endless: player.isEndless))
-        switch carConnected(situation) {
+        let decision = carConnected(situation)
+        CarLog.shared.note("Play in the Car: \(decision.plainText)")
+        if decision.plays {
+            CarLog.shared.expectSound(after: "the car screen opened") { environment.player.startState }
+        }
+        switch decision {
         case .resume:
             Logger.carplay.info("[autoplay] picking up \"\(player.current?.title ?? "?", privacy: .public)\" (\(player.queue.index + 1)/\(player.queue.tracks.count)) at \(Int(player.currentTime))s")
             showNowPlaying()

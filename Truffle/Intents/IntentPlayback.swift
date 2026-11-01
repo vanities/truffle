@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UIKit
 import os
 
 /// What Siri, Shortcuts or the widget asked to hear, as the calls Home and the car make.
@@ -57,6 +58,10 @@ enum IntentRunner {
     @MainActor static func playMix(id: String) async throws {
         try await IntentPlayback.shared.playMix(id: id)
     }
+
+    @MainActor static func resume() async throws {
+        try await IntentPlayback.shared.resume()
+    }
 }
 
 /// Starts what an intent asked for through the same PlayerEngine calls Home and the car use.
@@ -78,6 +83,30 @@ final class IntentPlayback {
             throw IntentFailure.notFound
         }
         try await play(.mix(entry.mix, theme: entry.theme), from: "mix \(id)")
+    }
+
+    /// The queue picks up where it was (from the phone if it's saved there, so no wait on the server), or
+    /// Shuffle All when there's nothing to pick up. Same rule as Play in the Car (`CarAutoplay`).
+    func resume() async throws {
+        let state = UIApplication.shared.applicationState.carLogName
+        guard library.isSignedIn else {
+            CarLog.shared.note("Resume shortcut (app \(state)): signed out")
+            throw IntentFailure.signedOut
+        }
+        if player.isPlaying || player.isLoading {
+            CarLog.shared.note("Resume shortcut (app \(state)): already playing")
+            return
+        }
+        let resumes = CarAutoplay.canResume(player.queue, at: player.currentTime, endless: player.isEndless)
+        CarLog.shared.note("Resume shortcut (app \(state)): \(resumes ? "picking up the queue" : "Shuffle All")")
+        CarLog.shared.expectSound(after: "the Resume shortcut") { [player] in player.startState }
+        CarPlayInterface.current?.showNowPlaying()
+        if resumes {
+            player.play()
+        } else {
+            try await play(.mix(.shuffleAll, theme: SeasonCalendar.theme(for: SeasonCalendar.now, southern: environment.settings.isSouthern)),
+                           from: "resume")
+        }
     }
 
     func play(_ plan: PlaybackPlan, from origin: String) async throws {

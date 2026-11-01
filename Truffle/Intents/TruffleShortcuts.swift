@@ -10,6 +10,11 @@ struct TruffleShortcuts: AppShortcutsProvider {
             "Shuffle my music in \(.applicationName)",
             "Play everything in \(.applicationName)",
         ], shortTitle: "Shuffle All", systemImageName: "shuffle")
+        AppShortcut(intent: ResumeIntent(), phrases: [
+            "Resume \(.applicationName)",
+            "Pick up where I left off in \(.applicationName)",
+            "Keep playing \(.applicationName)",
+        ], shortTitle: "Resume", systemImageName: "play.fill")
         AppShortcut(intent: PlayLikedIntent(), phrases: [
             "Play my liked songs in \(.applicationName)",
             "Play the good stuff in \(.applicationName)",

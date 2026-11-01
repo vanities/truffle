@@ -62,6 +62,8 @@ final class MusicLibrary {
     @ObservationIgnored var moodKeys: MoodKeys?
     @ObservationIgnored var earliestPlay: Date?
     @ObservationIgnored private var connecting: Task<Void, Never>?
+    /// Playback waiting for an address (`waitForAddress`), released before the lists reload.
+    @ObservationIgnored private var addressWaiters: [CheckedContinuation<Void, Never>] = []
     @ObservationIgnored private var pathMonitor: NWPathMonitor?
     @ObservationIgnored private var lastPathSignature: String?
     @ObservationIgnored private var pathDebounce: Task<Void, Never>?
@@ -249,7 +251,25 @@ final class MusicLibrary {
         connecting = Task { [weak self] in
             await self?.runConnect(reason: reason, full: full)
             self?.connecting = nil
+            self?.releaseAddressWaiters()
         }
+    }
+
+    /// Returns once an address answers (or the attempt gives up), without waiting for the lists to reload.
+    /// A cold start in the car needs only somewhere to stream from; the lists can catch up while it plays.
+    func waitForAddress(reason: String) async {
+        if client != nil { return }
+        let sw = Stopwatch()
+        if connecting == nil { connect(reason: reason, full: section == nil) }
+        guard connecting != nil else { return }
+        await withCheckedContinuation { addressWaiters.append($0) }
+        Logger.library.info("[library] \(reason, privacy: .public): \(self.client == nil ? "no address" : "address found", privacy: .public) after \(sw.ms, format: .fixed(precision: 0))ms")
+    }
+
+    private func releaseAddressWaiters() {
+        let waiters = addressWaiters
+        addressWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     /// Waits for an in-flight connect, or starts a light one. Used when a request finds the address dead.
@@ -344,6 +364,7 @@ final class MusicLibrary {
         let changed = endpoint != newEndpoint
         endpoint = newEndpoint
         if changed { onEndpointChanged?(newEndpoint) }
+        releaseAddressWaiters()
     }
 
     /// Runs a request, and once more on a fresh connection if the address went dead (the phone left

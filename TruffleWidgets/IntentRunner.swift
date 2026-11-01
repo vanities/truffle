@@ -6,4 +6,8 @@ enum IntentRunner {
     static func playMix(id: String) async throws {
         Logger.widget.error("[widget] \(id, privacy: .public) ran in the widget extension, not the app")
     }
+
+    static func resume() async throws {
+        Logger.widget.error("[widget] resume ran in the widget extension, not the app")
+    }
 }
