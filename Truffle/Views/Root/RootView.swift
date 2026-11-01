@@ -48,11 +48,10 @@ struct RootView: View {
             season.refresh()
             AppIconSwitcher.apply(settings: settings, theme: season.theme)
         }
-        .onChange(of: settings.appIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
         #if DEBUG
         .task { await openDebugScene() }
         #endif
-        .onChange(of: settings.seasonalIcon) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
+        .onChange(of: settings.holidayIcons) { AppIconSwitcher.apply(settings: settings, theme: season.theme) }
         .onChange(of: library.phase == .signedOut) { _, signedOut in
             // Signing in again (after signing out from Settings) starts at Home.
             if signedOut { tab = .home }

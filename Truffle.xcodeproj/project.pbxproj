@@ -1034,7 +1034,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 11EA87032C651B14D36D02A0 /* Release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Note AppIcon-Headphones";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Halloween AppIcon-Thanksgiving AppIcon-Christmas AppIcon-NewYear AppIcon-Valentines AppIcon-StPatricks AppIcon-FourthOfJuly";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Truffle/Resources/Truffle-Device.entitlements";
@@ -1065,7 +1065,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3575C763BE3DBCEC7F36E937 /* Debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Note AppIcon-Headphones";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Halloween AppIcon-Thanksgiving AppIcon-Christmas AppIcon-NewYear AppIcon-Valentines AppIcon-StPatricks AppIcon-FourthOfJuly";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Truffle/Resources/Truffle-Device.entitlements";

@@ -62,7 +62,7 @@ YOUR FLACS, AS THEY ARE
 Truffle plays your files straight from your server, at even volume. Leave home Wi-Fi and it hops to your server's public address without missing a beat. Low on data? Data Saver streams a lighter copy on cellular.
 
 DRESSED UP FOR THE SEASON
-Twinkling Christmas lights, a flickering jack-o'-lantern, leaves on the wind, northern lights, Santa now and then, and an app icon that changes with the seasons.
+Twinkling Christmas lights, a flickering jack-o'-lantern, leaves on the wind, northern lights, Santa now and then, and an app icon that dresses up for the holidays.
 
 PROOF YOU HAVE GREAT TASTE
 Stats from your Plex history: plays, listening time, streaks, your most-played artists, albums and songs, and the ones you haven't heard in a while.

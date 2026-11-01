@@ -2,33 +2,29 @@ import SwiftUI
 import UIKit
 import os
 
-/// The three icons. The record is the default (the one Adam and Angela liked); the note is the fall
-/// one (Adam's); the headphones stay as an option.
-enum AppIconChoice: String, CaseIterable, Codable, Sendable {
-    case record, note, headphones
+/// The record, every day; for each holiday the record dresses up (a witch hat, a turkey tail…).
+enum AppIconChoice: Equatable, Sendable {
+    case record
+    case dressed(Moment)
 
-    /// The alternate icon set, or nil for the primary.
+    /// The alternate icon set, or nil for the primary. project.yml lists every one of these.
     var assetName: String? {
         switch self {
         case .record: nil
-        case .note: "AppIcon-Note"
-        case .headphones: "AppIcon-Headphones"
+        case .dressed(let moment): "AppIcon-" + moment.rawValue.prefix(1).uppercased() + moment.rawValue.dropFirst()
         }
     }
 
-    var title: String {
+    var name: String {
         switch self {
-        case .headphones: "Headphones"
-        case .note: "Note"
-        case .record: "Record"
+        case .record: "record"
+        case .dressed(let moment): moment.rawValue
         }
     }
 
-    var preview: String { "IconPreview-\(rawValue)" }
-
-    /// Matching the season puts the note on in the fall (Halloween and Thanksgiving included).
-    static func choice(chosen: AppIconChoice, matchSeason: Bool, theme: SeasonTheme) -> AppIconChoice {
-        matchSeason && theme.season == .fall ? .note : chosen
+    static func choice(holidays: Bool, theme: SeasonTheme) -> AppIconChoice {
+        guard holidays, let moment = theme.moment else { return .record }
+        return .dressed(moment)
     }
 }
 
@@ -36,9 +32,9 @@ enum AppIconChoice: String, CaseIterable, Codable, Sendable {
 enum AppIconSwitcher {
     /// iOS shows its own "icon changed" note each time, so only switch when the answer changed.
     static func apply(settings: AppSettings, theme: SeasonTheme) {
-        let wanted = AppIconChoice.choice(chosen: settings.appIcon, matchSeason: settings.seasonalIcon, theme: theme)
+        let wanted = AppIconChoice.choice(holidays: settings.holidayIcons, theme: theme)
         guard UIApplication.shared.supportsAlternateIcons, UIApplication.shared.alternateIconName != wanted.assetName else { return }
-        Logger.ui.info("[icon] → \(wanted.rawValue, privacy: .public)")
+        Logger.ui.info("[icon] → \(wanted.name, privacy: .public)")
         UIApplication.shared.setAlternateIconName(wanted.assetName) { error in
             if let error { Logger.ui.error("[icon] switch failed: \(error.localizedDescription, privacy: .public)") }
         }

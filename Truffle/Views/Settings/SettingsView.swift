@@ -95,34 +95,11 @@ struct SettingsView: View {
                 .id("holidays")
 
                 Section {
-                    HStack(spacing: 18) {
-                        ForEach(AppIconChoice.allCases, id: \.self) { choice in
-                            Button {
-                                settings.appIcon = choice
-                            } label: {
-                                VStack(spacing: 6) {
-                                    Image(decorative: choice.preview)
-                                        .resizable()
-                                        .frame(width: 64, height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                                        .overlay {
-                                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                                .strokeBorder(.tint, lineWidth: settings.appIcon == choice ? 3 : 0)
-                                        }
-                                    Text(choice.title).font(.caption)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(settings.appIcon == choice ? .isSelected : [])
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                    Toggle("Match the Season", isOn: $settings.seasonalIcon)
+                    Toggle("Holiday Icons", isOn: $settings.holidayIcons)
                 } header: {
                     Text("App Icon")
                 } footer: {
-                    Text("The note shows up in the fall.")
+                    Text("The record dresses up for the holidays.")
                 }
                 .id("appIcon")
 

@@ -17,9 +17,8 @@ final class AppSettings {
     var holidaysInSeason: Bool { didSet { defaults.set(holidaysInSeason, forKey: Keys.holidaysInSeason) } }
     /// The music library chosen on the server (picked automatically the first time).
     var sectionID: String? { didSet { defaults.set(sectionID, forKey: Keys.sectionID) } }
-    var appIcon: AppIconChoice { didSet { defaults.set(appIcon.rawValue, forKey: Keys.appIcon) } }
-    /// The note icon in the fall, whatever `appIcon` says.
-    var seasonalIcon: Bool { didSet { defaults.set(seasonalIcon, forKey: Keys.seasonalIcon) } }
+    /// The record icon dresses up for each holiday (`AppIconChoice`).
+    var holidayIcons: Bool { didSet { defaults.set(holidayIcons, forKey: Keys.holidayIcons) } }
     /// Seconds two shuffled songs overlap; 0 is off. Albums, and anything else played in order, stay
     /// gapless (see `Crossfade`).
     var crossfadeSeconds: Int { didSet { defaults.set(crossfadeSeconds, forKey: Keys.crossfade) } }
@@ -33,8 +32,8 @@ final class AppSettings {
         static let playInTheCar = "settings.playInTheCar"
         static let holidaysInSeason = "settings.holidaysInSeason"
         static let sectionID = "settings.sectionID"
-        static let appIcon = "settings.appIcon"
-        static let seasonalIcon = "settings.seasonalIcon"
+        // The old "Match the Season" key, so someone who turned that off stays off.
+        static let holidayIcons = "settings.seasonalIcon"
         static let crossfade = "settings.crossfade"
         static let dataSaver = "settings.dataSaver"
     }
@@ -47,8 +46,8 @@ final class AppSettings {
         playInTheCar = Self.flag(Keys.playInTheCar, in: defaults, default: true)
         holidaysInSeason = Self.flag(Keys.holidaysInSeason, in: defaults, default: true)
         sectionID = defaults.string(forKey: Keys.sectionID)
-        appIcon = defaults.string(forKey: Keys.appIcon).flatMap(AppIconChoice.init(rawValue:)) ?? .record
-        seasonalIcon = defaults.object(forKey: Keys.seasonalIcon) as? Bool ?? true
+        holidayIcons = Self.flag(Keys.holidayIcons, in: defaults, default: true)
+        defaults.removeObject(forKey: "settings.appIcon")
         let fade = defaults.integer(forKey: Keys.crossfade)
         crossfadeSeconds = Crossfade.choices.contains(fade) ? fade : 0
         dataSaver = defaults.bool(forKey: Keys.dataSaver)

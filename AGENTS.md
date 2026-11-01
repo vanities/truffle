@@ -144,7 +144,7 @@ Debug launch arguments: `-TruffleDate 2026-12-15T19:00` fakes the date; `-Truffl
 `-TruffleShootingStar YES` start that event two seconds in and repeat it every 14 seconds, for captures.
 A date whose theme uses another app icon raises iOS's "You have changed the icon" alert, and the
 animations pause behind it: launch twice before recording. Art: `scripts/generate-art.py mixes <key>` (covers, in `Mixes.xcassets` for the widget's sake), `props <key>` (pumpkins,
-the sleigh) and `glow` (the candle's masks). gpt-image-2 has no transparent output, so props are drawn
+the sleigh), `glow` (the candle's masks) and `record-moments` (the app icon's holiday outfits: drafts in build/art, then `--install` adds the dark renders and writes `AppIcon-<Moment>`; list new ones in project.yml). gpt-image-2 has no transparent output, so props are drawn
 on a flat color and keyed out.
 
 ## Siri, Shortcuts and widgets
