@@ -23,7 +23,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     # Project-wide so the widget extension's version always matches the app's (App Store validation
     # rejects a mismatch). Xcode Cloud sets the build number for both.
-    MARKETING_VERSION: 1.2.0
+    MARKETING_VERSION: 1.3.0
     CURRENT_PROJECT_VERSION: 1
   configs:
     Debug:

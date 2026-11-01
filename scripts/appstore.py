@@ -16,6 +16,7 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
   uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review, or resubmit a rejected one
   uv run --script scripts/appstore.py cancel                # pull it back out ("Remove from Review"), to change it
+  uv run --script scripts/appstore.py release               # put an approved version (manual release) on the App Store
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ spec = importlib.util.spec_from_file_location("tf", ROOT / "testflight.py")
 tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 LOCALE = "en-US"
 SITE = "https://am2.biz/truffle"
 
@@ -464,6 +465,18 @@ def cmd_cancel(asc: Store) -> None:
         report(f"pulled submission {submission['id'][:8]}… ({a['state']}, submitted {a.get('submittedDate')})", result)
 
 
+def cmd_release(asc: Store) -> None:
+    """Release the version App Review approved and is holding for us (release=MANUAL)."""
+    app = asc.app() or sys.exit("no app record")
+    versions = asc.get(f"/v1/apps/{app['id']}/appStoreVersions", {"filter[platform]": "IOS", "filter[appVersionState]": "PENDING_DEVELOPER_RELEASE", "fields[appStoreVersions]": "versionString,appVersionState"})["data"]
+    if not versions:
+        sys.exit("no version is waiting for release")
+    version = versions[0]
+    result = asc.post_ok("/v1/appStoreVersionReleaseRequests", {"data": {"type": "appStoreVersionReleaseRequests", "relationships": {
+        "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}}}}})
+    report(f"released version {version['attributes']['versionString']}", result)
+
+
 def cmd_submission_status(asc: Store) -> None:
     app = asc.app() or sys.exit("no app record")
     for submission in asc.get(f"/v1/apps/{app['id']}/reviewSubmissions", {"filter[platform]": "IOS", "fields[reviewSubmissions]": "state,submittedDate", "limit": 5})["data"]:
@@ -488,6 +501,7 @@ def main() -> None:
     submit = sub.add_parser("submit"); submit.add_argument("--dry-run", action="store_true")
     sub.add_parser("submission-status")
     sub.add_parser("cancel")
+    sub.add_parser("release")
     args = parser.parse_args()
     asc = Store(tf.load_env())
     match args.command:
@@ -504,6 +518,7 @@ def main() -> None:
         case "submit": cmd_submit(asc, args.dry_run)
         case "submission-status": cmd_submission_status(asc)
         case "cancel": cmd_cancel(asc)
+        case "release": cmd_release(asc)
 
 
 if __name__ == "__main__":

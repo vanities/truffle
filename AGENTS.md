@@ -249,19 +249,20 @@ prints each screen's accessibility tree.
 ## Releasing
 
 - `MARKETING_VERSION` lives in project.yml's project-wide settings (then `make gen`), so the widget
-  extension always matches the app. 1.2.0 (build 13) is the first App Store submission still standing:
-  1.0.0 was pulled from review before it started, and 1.1.0 (build 12) came back on 2026-10-31 with
-  "Guideline 2.1 - Information Needed - New App Submission", so the same version was renamed 1.2.0 and
-  resubmitted with build 13 (Siri, widgets, accessibility). Once a version is approved, App Store Connect
-  refuses new builds that carry its number: bump `MARKETING_VERSION` after 1.2.0 is approved, not before
-  (a fix for another rejection can still ship as 1.2.0). `appstore.py`'s `VERSION` names the version
-  `setup` edits, and renames it to.
+  extension always matches the app. 1.2.0 (build 13) was the first release, approved and released on
+  2026-11-01: 1.0.0 was pulled from review before it started, and 1.1.0 (build 12) came back on 2026-10-31
+  with "Guideline 2.1 - Information Needed - New App Submission", so the same version was renamed 1.2.0 and
+  resubmitted. Once a version is approved, App Store Connect refuses new builds that carry its number, so
+  bump `MARKETING_VERSION` right after an approval, not before (a fix for a rejection ships under the same
+  number). `appstore.py`'s `VERSION` names the version `setup` edits (creating it if there's none open),
+  and renames it to.
 - Xcode Cloud workflow "Default", like Earmark's: every push to `main` archives an App Store build that
   lands in TestFlight. Xcode Cloud numbers builds itself, from 1. The workflow lives in App Store
   Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
   because the API can't create an Xcode Cloud product.
 - The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
-  `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `status`. App Privacy ("Data Not Collected")
+  `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `release` (an approved version held for a
+  manual release), `status`. App Privacy ("Data Not Collected")
   can only be set on the web.
 - App Review's messages are only in App Store Connect (the app's App Review page, or the App Store Connect
   iPhone app); the API has no Resolution Center. Answers go in `REVIEW_NOTES` (`appstore.py review`), files
