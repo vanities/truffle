@@ -95,11 +95,14 @@ struct Album: Identifiable, Hashable, Codable, Sendable {
     var trackCount: Int?
     var addedAt: Date?
     var lastViewedAt: Date?
+    /// Plex's `titleSort`, when it differs from the title: what the A to Z index files it under.
+    var sortTitle: String?
 
     init(id: String, title: String, artist: String, artistID: String? = nil, year: Int? = nil, thumb: String? = nil,
-         trackCount: Int? = nil, addedAt: Date? = nil, lastViewedAt: Date? = nil) {
+         trackCount: Int? = nil, addedAt: Date? = nil, lastViewedAt: Date? = nil, sortTitle: String? = nil) {
         self.id = id
         self.title = title
+        self.sortTitle = sortTitle
         self.artist = artist
         self.artistID = artistID
         self.year = year
@@ -114,7 +117,8 @@ struct Album: Identifiable, Hashable, Codable, Sendable {
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Untitled", artist: metadata.parentTitle ?? "Unknown Artist",
                   artistID: metadata.parentRatingKey, year: metadata.year, thumb: metadata.thumb,
                   trackCount: metadata.leafCount, addedAt: metadata.addedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
-                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
+                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+                  sortTitle: metadata.titleSort)
     }
 }
 
@@ -126,11 +130,14 @@ struct Artist: Identifiable, Hashable, Codable, Sendable {
     /// Plays of the artist's songs and the newest one: PMS keeps both on the artist too.
     var viewCount: Int?
     var lastViewedAt: Date?
+    /// Plex's `titleSort`, when it differs from the title ("Lumineers" for "The Lumineers").
+    var sortTitle: String?
 
     init(id: String, title: String, thumb: String? = nil, albumCount: Int? = nil, viewCount: Int? = nil,
-         lastViewedAt: Date? = nil) {
+         lastViewedAt: Date? = nil, sortTitle: String? = nil) {
         self.id = id
         self.title = title
+        self.sortTitle = sortTitle
         self.thumb = thumb
         self.albumCount = albumCount
         self.viewCount = viewCount
@@ -141,7 +148,8 @@ struct Artist: Identifiable, Hashable, Codable, Sendable {
         guard !metadata.ratingKey.isEmpty, metadata.type == nil || metadata.type == "artist" else { return nil }
         self.init(id: metadata.ratingKey, title: metadata.title ?? "Unknown Artist", thumb: metadata.thumb,
                   albumCount: metadata.childCount, viewCount: metadata.viewCount,
-                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) })
+                  lastViewedAt: metadata.lastViewedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+                  sortTitle: metadata.titleSort)
     }
 }
 

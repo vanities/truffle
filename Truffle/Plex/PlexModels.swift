@@ -51,6 +51,8 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
     var key: String?
     var type: String?
     var title: String?
+    /// Only sent when it differs from the title ("Lumineers" for "The Lumineers").
+    var titleSort: String?
     var originalTitle: String?
     var parentTitle: String?
     var grandparentTitle: String?
@@ -88,7 +90,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case ratingKey, key, type, title, originalTitle, parentTitle, grandparentTitle, parentRatingKey,
+        case ratingKey, key, type, title, titleSort, originalTitle, parentTitle, grandparentTitle, parentRatingKey,
              grandparentRatingKey, index, parentIndex, year, parentYear, duration, thumb, parentThumb,
              grandparentThumb, composite, leafCount, childCount, viewCount, userRating, addedAt,
              lastViewedAt, viewedAt, updatedAt, smart, playlistItemID, librarySectionID, summary
@@ -101,6 +103,7 @@ struct PlexMetadata: Decodable, Sendable, Hashable {
         key = c.flexibleString(.key)
         type = c.flexibleString(.type)
         title = c.flexibleString(.title)
+        titleSort = c.flexibleString(.titleSort)
         originalTitle = c.flexibleString(.originalTitle)
         parentTitle = c.flexibleString(.parentTitle)
         grandparentTitle = c.flexibleString(.grandparentTitle)

@@ -95,13 +95,28 @@ struct ArtistsView: View {
         sort.sorted(filter.isEmpty ? library.artists : library.artists.filter { $0.title.localizedStandardContains(filter) })
     }
 
+    /// A to Z down the right edge, when the list is in name order and long enough to want it.
+    private func marks(for artists: [Artist]) -> [IndexMark] {
+        guard sort == .name, filter.isEmpty else { return [] }
+        return IndexLetters.marks(for: artists, id: \.id) { $0.sortTitle ?? $0.title }
+    }
+
     var body: some View {
-        List(artists) { artist in
-            NavigationLink(value: Route.artist(artist)) {
-                ArtistRow(artist: artist)
+        let artists = artists
+        let marks = marks(for: artists)
+        ScrollViewReader { proxy in
+            List(artists) { artist in
+                NavigationLink(value: Route.artist(artist)) {
+                    ArtistRow(artist: artist)
+                }
+            }
+            .listStyle(.plain)
+            // Keeps the rows' chevrons out from under the letters.
+            .contentMargins(.trailing, marks.isEmpty ? 0 : IndexBar.width - 4, for: .scrollContent)
+            .overlay(alignment: .trailing) {
+                if !marks.isEmpty { IndexBar(marks: marks) { proxy.scrollTo($0.id, anchor: .top) } }
             }
         }
-        .listStyle(.plain)
         .navigationTitle("Artists")
         .searchable(text: $filter, prompt: "Find an artist")
         .toolbar {
@@ -122,17 +137,34 @@ struct AlbumsView: View {
             : library.albums.filter { $0.title.localizedStandardContains(filter) || $0.artist.localizedStandardContains(filter) })
     }
 
+    /// A to Z down the right edge: by title or by artist, whichever the grid is sorted on.
+    private func marks(for albums: [Album]) -> [IndexMark] {
+        guard filter.isEmpty else { return [] }
+        switch sort {
+        case .title: return IndexLetters.marks(for: albums, id: \.id) { $0.sortTitle ?? $0.title }
+        case .artist: return IndexLetters.marks(for: albums, id: \.id) { SortText.key($0.artist) }
+        case .year, .recentlyAdded, .recentlyPlayed: return []
+        }
+    }
+
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
-                ForEach(albums) { album in
-                    NavigationLink(value: Route.album(album)) {
-                        AlbumTile(album: album, width: 160)
+        let albums = albums
+        let marks = marks(for: albums)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
+                    ForEach(albums) { album in
+                        NavigationLink(value: Route.album(album)) {
+                            AlbumTile(album: album, width: 160)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(16)
             }
-            .padding(16)
+            .overlay(alignment: .trailing) {
+                if !marks.isEmpty { IndexBar(marks: marks) { proxy.scrollTo($0.id, anchor: .top) } }
+            }
         }
         .navigationTitle("Albums")
         .searchable(text: $filter, prompt: "Find an album")
