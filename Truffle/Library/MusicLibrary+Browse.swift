@@ -10,9 +10,22 @@ struct SearchResults: Sendable {
 }
 
 extension MusicLibrary {
+    /// Everything the artist released, newest first.
     func albums(of artist: Artist) async throws -> [Album] {
-        try await withClient("artist albums") { try await $0.get("/library/metadata/\(artist.id)/children") }
-            .metadata.compactMap(Album.init)
+        guard let section else { return [] }
+        let sw = Stopwatch()
+        let albums = try await withClient("artist albums") {
+            try await $0.get("/library/sections/\(section.id)/all", Self.albumsQuery(artistID: artist.id))
+        }.metadata.compactMap(Album.init)
+        Logger.library.info("[artist] \(artist.id, privacy: .public) has \(albums.count) album(s) in \(sw.ms, format: .fixed(precision: 0))ms")
+        return albums
+    }
+
+    /// DO NOT go back to `/library/metadata/{artist}/children`: PMS 1.43.5 answers it with studio albums
+    /// only, so EPs, singles, live albums, compilations and soundtracks vanished from the artist's page
+    /// while the Albums list had them (a 1.2.0 bug report). `DemoServerTests` holds the demo to the same.
+    nonisolated static func albumsQuery(artistID: String) -> PlexQuery {
+        PlexQuery([("type", "9"), ("artist.id", artistID), ("sort", "year:desc")])
     }
 
     func tracks(of album: Album) async throws -> [Track] {

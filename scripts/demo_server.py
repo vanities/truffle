@@ -5,7 +5,7 @@
 """A stand-in Plex Media Server for the simulator and screenshots.
 
 Serves the invented library in scripts/demo-catalog.json the way PMS 1.43 answers the requests
-Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `userRating>=`, `viewedAt>=`, `title=`),
+Truffle makes: the MediaContainer shapes, the filters (`album.mood=`, `artist.id=`, `userRating>=`, `viewedAt>=`, `title=`),
 paging, the sorts Truffle asks for, the photo resizer, history, ratings, playlists (made, renamed,
 described, given a cover, songs added, removed and moved), audio with byte ranges, and Data Saver's
 HLS transcode (start, the session's playlist and segment, stop).
@@ -112,7 +112,8 @@ class Library:
                           "title": album["title"], "parentTitle": artist["name"], "parentRatingKey": artist_id,
                           "year": album["year"], "thumb": f"/library/metadata/{album_id}/thumb/{STAMP}",
                           "leafCount": len(album["tracks"]), "addedAt": added, "Mood": [{"tag": m} for m in album["moods"]],
-                          "_cover": f"covers/{slug(album['title'])}.jpg", "_moods": album["moods"]}
+                          "_cover": f"covers/{slug(album['title'])}.jpg", "_moods": album["moods"],
+                          "_format": album.get("format")}
                 self.albums.append(record)
                 album_loudness = rng.uniform(-15.5, -8.5)
                 for number, title in enumerate(album["tracks"], start=1):
@@ -447,7 +448,9 @@ class Handler(BaseHTTPRequestHandler):
         if (match := re.fullmatch(r"/library/metadata/(\d+)/children", path)):
             item = lib.by_id.get(match.group(1))
             if item and item["type"] == "artist":
-                kids = [lib.public(a) for a in lib.albums if a["parentRatingKey"] == item["ratingKey"]]
+                # As PMS 1.43.5 does: an artist's children are the studio albums only. EPs, live albums and
+                # compilations come from the section list with `artist.id=`, which is what Truffle asks.
+                kids = [lib.public(a) for a in lib.albums if a["parentRatingKey"] == item["ratingKey"] and not a["_format"]]
             else:
                 kids = [lib.public(t) for t in lib.tracks if t["parentRatingKey"] == match.group(1)]
             return self.send_json(container(kids, total=len(kids)))
@@ -613,6 +616,9 @@ class Handler(BaseHTTPRequestHandler):
         if "userRating>" in query:
             floor = float(query["userRating>"])
             items = [i for i in items if i.get("userRating", 0) >= floor]
+        if "artist.id" in query:
+            parent = {"9": "parentRatingKey", "10": "grandparentRatingKey"}.get(kind, "ratingKey")
+            items = [i for i in items if i[parent] == query["artist.id"]]
         if "title" in query:
             # PMS reads a plain string filter as "contains", without case.
             needle = query["title"].lower()
@@ -624,6 +630,8 @@ class Handler(BaseHTTPRequestHandler):
             items = random.sample(items, len(items))
         elif field in ("addedAt", "lastRatedAt", "lastViewedAt", "viewCount"):
             items = sorted(items, key=lambda i: i.get(field, 0), reverse=descending)
+        elif field == "year":
+            items = sorted(items, key=lambda i: i.get("year", i.get("parentYear", 0)), reverse=descending)
         elif field == "titleSort":
             items = sorted(items, key=lambda i: i.get("titleSort", i["title"]).lower(), reverse=descending)
         elif field == "artist.titleSort":

@@ -62,7 +62,7 @@ struct RootView: View {
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|library|albums|icons|stats|settings|search|album`: opens straight to a
+    /// `-TruffleScene mixes|player|library|albums|icons|stats|settings|search|album|artist`: opens straight to a
     /// screen, for store screenshots and the accessibility audit; `car` and `shuffle` run checks that
     /// can't be tapped through in the simulator.
     /// With `stats` or `settings`, `-TruffleScroll <id>` scrolls down to a card or section.
@@ -116,6 +116,12 @@ struct RootView: View {
             guard let album = library.albums.first(where: { $0.title == title }) else { break }
             tab = .library
             router.libraryPath = [.albums, .album(album)]
+        case "artist":
+            // `-TruffleArtist "Low Tide Club"`
+            let name = UserDefaults.standard.string(forKey: "TruffleArtist")
+            guard let artist = library.artists.first(where: { $0.title == name }) else { break }
+            tab = .library
+            router.libraryPath = [.artists, .artist(artist)]
         default:
             break
         }

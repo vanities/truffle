@@ -77,6 +77,22 @@ final class DemoServerTests: XCTestCase {
         XCTAssertEqual(none["totalSize"] as? Int, 0)
     }
 
+    func testAnArtistsAlbumsIncludeTheOnesTheChildrenListLeavesOut() async throws {
+        // Low Tide Club: two studio albums and "A Low Tide Christmas", an EP.
+        let artists = try await metadata("/library/sections/1/all?type=8&title=Low%20Tide%20Club")
+        let id = try XCTUnwrap(artists.first?["ratingKey"] as? String)
+
+        // PMS 1.43.5 answers an artist's children with the studio albums only, which is how EPs, live albums
+        // and compilations went missing from the artist's page in 1.2.0.
+        let children = try await metadata("/library/metadata/\(id)/children").compactMap { $0["title"] as? String }
+        XCTAssertEqual(children.sorted(), ["Boardwalk Ghosts", "Riptide"])
+
+        let asked = try await metadata("/library/sections/1/all?" + MusicLibrary.albumsQuery(artistID: id).encoded)
+        XCTAssertEqual(asked.compactMap { $0["title"] as? String }, ["A Low Tide Christmas", "Boardwalk Ghosts", "Riptide"],
+                       "every release, newest first")
+        XCTAssertTrue(asked.allSatisfy { $0["parentRatingKey"] as? String == id }, "only this artist's")
+    }
+
     func testStreamsAudioInByteRanges() async throws {
         var request = URLRequest(url: base.appending(path: "/library/parts/3000/\(DemoLibrary.stamp)/file.m4a"))
         request.setValue("bytes=0-99", forHTTPHeaderField: "Range")

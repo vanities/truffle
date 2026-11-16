@@ -21,6 +21,8 @@ struct DemoLibrary: Sendable {
         let year: Int
         let cover: String
         let moods: [String]
+        /// "EP", "Live", "Compilation"… from the catalog; nil for a plain studio album.
+        let format: String?
         let trackCount: Int
         let addedAt: Int
         /// The newest play of any of its songs, like Plex's album `lastViewedAt`.
@@ -116,7 +118,7 @@ struct DemoLibrary: Sendable {
                 }
                 let added = Self.stamp + album.year * 1000 + Int.random(in: 0...900, using: &rng)
                 albums.append(Album(id: albumID, title: album.title, artistID: artistID, artistName: artist.name, year: album.year,
-                                    cover: "covers/\(Self.slug(album.title)).jpg", moods: album.moods,
+                                    cover: "covers/\(Self.slug(album.title)).jpg", moods: album.moods, format: album.format,
                                     trackCount: album.tracks.count, addedAt: added))
                 let albumLoudness = Double.random(in: -15.5 ... -8.5, using: &rng)
                 for (offset, title) in album.tracks.enumerated() {
@@ -286,6 +288,7 @@ struct DemoLibrary: Sendable {
             let title: String
             let year: Int
             let moods: [String]
+            let format: String?
             let tracks: [String]
         }
 

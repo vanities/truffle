@@ -220,8 +220,10 @@ actor DemoServer {
         }
         if let match = path.wholeMatch(of: #/\/library\/metadata\/(\d+)\/children/#) {
             let id = String(match.1)
+            // As PMS 1.43.5 does: an artist's children are the studio albums only. EPs, live albums and
+            // compilations come from the section list with `artist.id=`, which is what Truffle asks.
             let kids: [[String: Any]] = lib.artist(id) != nil
-                ? lib.albums.filter { $0.artistID == id }.map(lib.json)
+                ? lib.albums.filter { $0.artistID == id && $0.format == nil }.map(lib.json)
                 : lib.tracks.filter { $0.albumID == id }.map { lib.json($0) }
             return .json(Self.container(items: kids, total: kids.count))
         }
@@ -407,6 +409,7 @@ actor DemoServer {
             }
         }
         if let ratingFloor { items = items.filter { $0.userRating >= ratingFloor } }
+        if let artistID = query["artist.id"] { items = items.filter { $0.artistID == artistID } }
         // PMS reads a plain string filter as "contains", without case.
         if let needle = query["title"]?.lowercased() { items = items.filter { $0.title.lowercased().contains(needle) } }
 
@@ -422,6 +425,7 @@ actor DemoServer {
         case "lastRatedAt": order(\.lastRatedAt)
         case "lastViewedAt": order(\.lastViewedAt)
         case "viewCount": order(\.viewCount)
+        case "year": order(\.year)
         case "titleSort": order { $0.titleSort.lowercased() }
         case "artist.titleSort":
             // PMS's "Album Artist" order; within an artist, albums then track numbers.
@@ -619,6 +623,22 @@ private enum DemoItem {
     var index: Int {
         if case .track(let track) = self { return track.index }
         return 0
+    }
+
+    var artistID: String {
+        switch self {
+        case .artist(let artist): artist.id
+        case .album(let album): album.artistID
+        case .track(let track): track.artistID
+        }
+    }
+
+    var year: Int {
+        switch self {
+        case .artist: 0
+        case .album(let album): album.year
+        case .track(let track): track.albumYear
+        }
     }
 }
 

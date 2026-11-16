@@ -102,6 +102,12 @@ Adam approved testing with the Plex sign-in stored on the NAS (2026-10-30). Do i
 - `sort=id` gives a stable order where new songs append, which is what makes `ShuffleWalk`'s
   positions survive library growth. `sort=random` is fine for sampling mood pools.
 - Moods live mostly on albums (`album.mood=`); `,` is OR. Plex's photo resizer is `/photo/:/transcode`.
+- An artist's albums: `/library/sections/{id}/all?type=9&artist.id={artist}`. `/library/metadata/{artist}/children`
+  answers the studio albums only: no EPs, singles, live albums, compilations or soundtracks (Four Tet, with one
+  live album and one compilation, came back empty; checked 2026-11-16). `/allLeaves` does have every song. List
+  answers carry no `Format`/`Subformat`; to tell the kinds apart, filter with `album.format=` / `album.subformat=`
+  and the tag ids from `/library/sections/{id}/format?type=9` and `/subformat?type=9`. Both demo servers leave
+  the EP ("A Low Tide Christmas", `"format": "EP"` in the catalog) out of `/children` the same way.
 - Data Saver's transcode: `GET /music/:/transcode/universal/start.m3u8?path=%2Flibrary%2Fmetadata%2F<id>&…&protocol=hls&musicBitrate=192&session=<per song>`
   answers an HLS multivariant playlist with one 182 kbps variant at `session/<session>/base/index.m3u8`;
   `GET /video/:/transcode/universal/stop?session=` ends it (`PlexClient.transcodeURL`). `start.mp3` ignores

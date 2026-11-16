@@ -18,6 +18,11 @@ final class PlexQueryTests: XCTestCase {
         XCTAssertEqual(query.encoded, "query=AC%2FDC%20%26%20friends&url=%2Flibrary%2Fmetadata%2F1%2Fthumb%2F2%3Fx%3D1")
     }
 
+    func testAnArtistsAlbumsComeFromTheSectionNotTheArtistsChildren() {
+        // `/library/metadata/{artist}/children` leaves out EPs, live albums and compilations (PMS 1.43.5).
+        XCTAssertEqual(MusicLibrary.albumsQuery(artistID: "42143").encoded, "type=9&artist.id=42143&sort=year:desc")
+    }
+
     func testPaging() {
         XCTAssertEqual(PlexQuery().page(start: 40, size: 1).encoded, "X-Plex-Container-Start=40&X-Plex-Container-Size=1")
     }
