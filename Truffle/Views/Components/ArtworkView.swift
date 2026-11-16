@@ -41,20 +41,44 @@ struct ArtworkView: View {
     }
 }
 
+/// The cover on top of an album or playlist: most of a phone's width, up to 340 pt. A phone on its side
+/// keeps it to 250 pt, or the cover takes the screen and the songs start below it.
+enum HeaderCover {
+    static func side(pageWidth: CGFloat, compactHeight: Bool) -> CGFloat {
+        guard pageWidth > 0 else { return 250 }
+        return min((pageWidth * 0.72).rounded(), compactHeight ? 250 : 340)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var headerCoverSide: CGFloat = HeaderCover.side(pageWidth: 0, compactHeight: false)
+}
+
 extension View {
-    /// The cover at the top of an album or playlist: most of a phone's width, up to 340 pt. A phone on its
-    /// side keeps it to 250 pt, or the cover takes the screen and the songs start below it.
+    /// On the page: measures its width, so the cover inside knows its size.
+    func measuresHeaderCover() -> some View { modifier(HeaderCoverMeasure()) }
+
+    /// On the cover. A fixed frame on purpose: sized with `containerRelativeFrame` inside a List row, the
+    /// accessibility audit reported the text under the cover as clipped.
     func headerCoverSize() -> some View { modifier(HeaderCoverSize()) }
 }
 
-private struct HeaderCoverSize: ViewModifier {
+private struct HeaderCoverMeasure: ViewModifier {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @State private var width: CGFloat = 0
 
     func body(content: Content) -> some View {
-        let limit: CGFloat = verticalSizeClass == .compact ? 250 : 340
         content
-            .aspectRatio(1, contentMode: .fit)
-            .containerRelativeFrame(.horizontal) { width, _ in min(width * 0.72, limit) }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .environment(\.headerCoverSide, HeaderCover.side(pageWidth: width, compactHeight: verticalSizeClass == .compact))
+    }
+}
+
+private struct HeaderCoverSize: ViewModifier {
+    @Environment(\.headerCoverSide) private var side
+
+    func body(content: Content) -> some View {
+        content.frame(width: side, height: side)
     }
 }
 

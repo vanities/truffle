@@ -39,6 +39,10 @@ final class AccessibilityAuditTests: XCTestCase {
         try audit("album", scene: "album", extra: ["-TruffleAlbum", "Harvest Moon Parade"]) { $0.buttons["Shuffle"] }
     }
 
+    @MainActor func testArtist() throws {
+        try audit("artist", scene: "artist", extra: ["-TruffleArtist", "Low Tide Club"]) { $0.buttons["Shuffle"] }
+    }
+
     @MainActor func testArtists() throws {
         try audit("artists", scene: "artists") { $0.navigationBars["Artists"] }
     }

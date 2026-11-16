@@ -71,7 +71,10 @@ The app carries the same library inside it: "Take it for a spin" on the sign-in 
 `DemoServer` on 127.0.0.1, and that's how App Review gets in (they have no Plex server). Its history runs
 up to today, where the Python server's ends on 2026-10-29. **When Truffle starts asking the server for
 something new, teach both demo servers to answer it**, or the demo, and App Review with it, breaks.
-`-demo.active YES` launches straight into it; Sign Out leaves it.
+`-demo.active YES` launches straight into it; Sign Out leaves it. The demo saves that flag itself, so don't
+launch it on the "Truffle" simulator (signed in to the real server): the next plain launch resumes the demo.
+To undo, delete `demo.active` from the app container's `Library/Preferences/com.vanities.truffle.plist`;
+never Sign Out there, which clears the real sign-in.
 
 Debug switches for playback: `-settings.crossfade 6`, `-settings.dataSaver YES`, `-TruffleCellular YES` (acts
 as if on cellular), and `-TruffleScene crossfade|crossfade-cut|album`, which jump near the end of a song so the
@@ -222,6 +225,12 @@ machine id isn't the in-app demo's) songs save from the simulator too. Watch `[c
 - Logging: `os.Logger` categories in `Logger+Truffle.swift`, `[scope]`-prefixed, timed with `Stopwatch`.
 - UI is native iOS 26+ Liquid Glass. Colors come from the season (`SeasonTheme`); keep hit targets
   ≥ 44 pt, this is used in cars.
+- Artists and Albums carry an A to Z index down the right edge (`IndexBar`, `IndexLetters`): only in name,
+  title or artist order, with 40 or more rows and no filter typed, so the demo's short lists never show it
+  (look at it on a real library). It files by Plex's `titleSort`.
+- Covers: `AlbumTile` with no width fills its grid column; only Home's shelves pass one. The cover on top of
+  an album or playlist is `headerCoverSize()`, measured by `measuresHeaderCover()` on the page (a fixed frame:
+  `containerRelativeFrame` in a List row made the audit call the text under it clipped). Rows and the mini player keep their small covers.
 - iPhone Duo: the player is an `ArrangementView` split under `IPHONE_DUO_LAYOUTS` (27.1+ SDK), Home
   goes two-column at regular width. See docs/iphone-duo.md.
 

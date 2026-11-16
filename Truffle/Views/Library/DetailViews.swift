@@ -77,6 +77,7 @@ struct AlbumView: View {
             }
         }
         .listStyle(.plain)
+        .measuresHeaderCover()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -234,6 +235,7 @@ struct PlaylistView: View {
             }
         }
         .listStyle(.plain)
+        .measuresHeaderCover()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { SortMenu(selection: $sort) }

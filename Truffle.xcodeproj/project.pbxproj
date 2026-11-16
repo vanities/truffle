@@ -113,6 +113,7 @@
 		D4F47839DED7E874CB2300FC /* TruffleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D7BB33E028A89E9CD5F4D3 /* TruffleApp.swift */; };
 		D6A1633CC8E50727237B16CA /* SeasonalShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C309F7BA164AAAE9555E0F /* SeasonalShapes.swift */; };
 		D753F61EBEE80A8763D3E7E1 /* SortOrders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946860EFD0A5B2F192107B56 /* SortOrders.swift */; };
+		D86A240D99950A933B372591 /* HeaderCoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7970D81C898CD58F471BF0B /* HeaderCoverTests.swift */; };
 		D90AD28B723508C981C6112E /* SeasonColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97AEE170D0E78795C407AFC7 /* SeasonColors.swift */; };
 		DC3C70D784623E6DCF0F8820 /* Crossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97246DE9F1386157C9A7CD9 /* Crossfade.swift */; };
 		DE5090CA74EAC6D319492A84 /* MusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941D765F06A3A146405A71E3 /* MusicModels.swift */; };
@@ -305,6 +306,7 @@
 		E24681489EA21B1463E20EA2 /* SeasonScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonScene.swift; sourceTree = "<group>"; };
 		E3FDC367BFC1EC81C7689470 /* GlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlowTests.swift; sourceTree = "<group>"; };
 		E60AC874ABCB60220F9D48D8 /* DataSaverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSaverTests.swift; sourceTree = "<group>"; };
+		E7970D81C898CD58F471BF0B /* HeaderCoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderCoverTests.swift; sourceTree = "<group>"; };
 		E97246DE9F1386157C9A7CD9 /* Crossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crossfade.swift; sourceTree = "<group>"; };
 		EA1D8BF6A386578F6FDC495C /* SongCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongCache.swift; sourceTree = "<group>"; };
 		EBCE51CF197F2E974E6D89D9 /* PlaybackLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLogicTests.swift; sourceTree = "<group>"; };
@@ -682,6 +684,7 @@
 				76EEB37F68CD342683163396 /* DemoServerTests.swift */,
 				7F289979192B8135FF0A59A8 /* EventScheduleTests.swift */,
 				E3FDC367BFC1EC81C7689470 /* GlowTests.swift */,
+				E7970D81C898CD58F471BF0B /* HeaderCoverTests.swift */,
 				882DFAC47B84D2B1E17CA005 /* HolidayMusicTests.swift */,
 				BD3826DC410AD04DF25B9FE1 /* HolidayShuffleTests.swift */,
 				94D8A369F913CFCE6EB73296 /* IndexLettersTests.swift */,
@@ -883,6 +886,7 @@
 				C8B1D227D38E58A7EC792B53 /* DemoServerTests.swift in Sources */,
 				F8F5F820BF3019D3D1D53CB3 /* EventScheduleTests.swift in Sources */,
 				C4264555D2C82C0E15EF76D2 /* GlowTests.swift in Sources */,
+				D86A240D99950A933B372591 /* HeaderCoverTests.swift in Sources */,
 				382A3DDD7AD499CE73BD3A7D /* HolidayMusicTests.swift in Sources */,
 				22CF064F722C1326A5EC46EF /* HolidayShuffleTests.swift in Sources */,
 				6805E603144231AE457ECA76 /* IndexLettersTests.swift in Sources */,
