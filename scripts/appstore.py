@@ -75,7 +75,18 @@ Likes, artists, albums, search, sorting, Recently Added and Recently Played, a q
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",
     "keywords": "carplay,shuffle,random,flac,lossless,playlist,mixes,seasonal,halloween,christmas,server,nas",
-    "whatsNew": "",
+    "whatsNew": """Thanks for the bug reports. Keep them coming: Settings > About > Report a Bug.
+
+NEW
+• Artists and Albums get A to Z letters down the right edge. Tap or slide to jump.
+• Bigger covers in the album grids and on album and playlist pages.
+• The song you're on and the next three save to your phone over Wi-Fi, so the car has music before it has signal.
+• A Resume shortcut, made for a When CarPlay Connects automation.
+• The app icon is the record now, and it dresses up for the holidays.
+
+FIXED
+• An artist's page shows every release. EPs, live albums, compilations and soundtracks were missing.
+• Skipping while Truffle is still connecting no longer starts the next song partway in.""",
     "copyright": "2026 AM2 LLC",
     "supportUrl": f"{SITE}/support",
     "marketingUrl": SITE,
