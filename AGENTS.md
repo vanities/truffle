@@ -286,7 +286,9 @@ prints each screen's accessibility tree.
   resubmits a rejected submission (marks its rejected items resolved, then submits it again). For a new
   app, Apple asked for a screen recording from a physical device that starts by launching the app from the
   Home Screen and shows the sign-in, plus purpose, audience, setup, external services, regional
-  differences and third-party material; `REVIEW_NOTES` answers those in Apple's numbering.
+  differences and third-party material; `REVIEW_NOTES` answers those in Apple's numbering. For an update,
+  `REVIEW_NOTES` leads with what changed and where to see it in the sample library, and keeps those
+  answers after it (1.3.0, submitted 2026-11-16, with no recording attached).
 - Store screenshots come from the demo server. Launch a debug build with
   `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
   (2064x2752) simulator, save captures to `marketing/raw/{iphone,ipad}/`, then

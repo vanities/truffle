@@ -136,13 +136,18 @@ BETA_REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing 
 
 Audio keeps playing in the background, on the lock screen and in CarPlay, which is why audio is declared in UIBackgroundModes. The app has no developer-operated backend and collects no data."""
 
-# App Review's "Guideline 2.1 - Information Needed - New App Submission" (1.1.0, 2026-10-31) asked for six
-# things in the Notes field; the numbers match its list. The recording goes up with `review-attachment`.
-RECORDED_ON = "an iPhone 17 Pro"
-REVIEW_NOTES = f"""Thank you for the review. Here is what you asked for, numbered to match your message.
+# 1.3.0 is an update, so the notes lead with what changed and where to see it. Sections 2 to 6 are the answers
+# App Review asked a new app for ("Guideline 2.1 - Information Needed - New App Submission", 1.1.0,
+# 2026-10-31); they stay because they are still true and a new reviewer may want them. That request's screen
+# recording was attached to 1.2.0 with `review-attachment`; an update that leaves sign-in alone doesn't need one.
+REVIEW_NOTES = """Truffle 1.3.0 is an update to 1.2.0, which App Review approved on 2026-11-01. Sign-in, accounts, data and external services are unchanged.
 
-1. SCREEN RECORDING
-Attached in this App Review Information section (Attachment), recorded on {RECORDED_ON} with the build under review, 1.2.0 (13). It starts by launching the app from the Home Screen, already signed in to a real Plex server, and plays music (Shuffle All, a seasonal mix, an album from Search), then signs out in Settings. Next it opens the built-in sample library ("Take it for a spin") and signs out of that, then signs in with Plex: Plex's page, then the person's library. The email address and IP address on Plex's sign-in page are blurred. Truffle has no accounts of its own, so there is no registration or account deletion flow. It has no user-generated content that other people see, and nothing to buy.
+1. WHAT CHANGED IN 1.3.0
+- An artist's page lists every release. It used to leave out EPs, live albums and compilations. In the sample library: Library > Artists > Low Tide Club now shows the EP "A Low Tide Christmas".
+- Larger covers in the album grids and at the top of album and playlist pages.
+- Library > Artists and Library > Albums show A to Z letters down the right edge to jump through a long list. They appear on lists of 40 or more, so the sample library (12 artists, 23 albums) is too short to show them.
+- With a Plex server, the song playing and the next three are saved on the phone over Wi-Fi so playback can start in the car before the server is reachable (not in the sample library). A Resume shortcut picks up where the person left off.
+- The app icon is a record that dresses up for holidays (Settings > Holiday Icons).
 
 2. PURPOSE AND AUDIENCE
 Truffle is for people who keep their own music collection on a Plex Media Server, Plex's free server software for a home computer or NAS. It plays their own songs from their own server on iPhone, iPad and CarPlay. The problem it solves: playing a big home music collection simply, especially while driving. The value: a CarPlay screen with a few big buttons, a Shuffle All that's truly random (every song once before any song twice), seasonal mixes made from the person's own library, likes, playlists they build themselves, and listening stats. Their music stays on their own server, at full quality.
