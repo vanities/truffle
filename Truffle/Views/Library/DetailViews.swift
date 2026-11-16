@@ -16,8 +16,8 @@ struct AlbumView: View {
     var body: some View {
         List {
             VStack(spacing: 14) {
-                ArtworkView(thumb: album.thumb, pixels: 700, cornerRadius: 16)
-                    .frame(width: 250, height: 250)
+                ArtworkView(thumb: album.thumb, pixels: 900, cornerRadius: 16)
+                    .headerCoverSize()
                     .shadow(color: .black.opacity(0.25), radius: 18, y: 10)
                 VStack(spacing: 4) {
                     Text(album.title)
@@ -37,8 +37,12 @@ struct AlbumView: View {
                             }
                             .font(.title3)
                             .foregroundStyle(.tint)
+                            .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.plain)
+                        // A link in a List row gets the row's chevron and leading alignment; this one sits
+                        // centered under the title like the rest of the header.
+                        .navigationLinkIndicatorVisibility(.hidden)
                     } else {
                         Text(album.artist).font(.title3).foregroundStyle(.secondary)
                     }
@@ -55,7 +59,7 @@ struct AlbumView: View {
             .listRowBackground(Color.clear)
 
             ForEach(discs.count > 1 ? discs : [discs.first ?? 0], id: \.self) { disc in
-                Section(discs.count > 1 ? "Disc \(disc)" : "") {
+                Section {
                     ForEach(tracks.filter { discs.count < 2 || $0.discNumber == disc }) { track in
                         Button {
                             let index = tracks.firstIndex(of: track) ?? 0
@@ -66,6 +70,9 @@ struct AlbumView: View {
                         .buttonStyle(.plain)
                         .contextMenu { TrackMenu(track: track) }
                     }
+                } header: {
+                    // An empty title still takes a header's height: one disc gets no header at all.
+                    if discs.count > 1 { Text("Disc \(disc)") }
                 }
             }
         }
@@ -130,7 +137,7 @@ struct ArtistView: View {
                 LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                     ForEach(albums) { album in
                         NavigationLink(value: Route.album(album)) {
-                            AlbumTile(album: album, width: 160)
+                            AlbumTile(album: album)
                         }
                         .buttonStyle(.plain)
                     }
@@ -181,8 +188,8 @@ struct PlaylistView: View {
     var body: some View {
         List {
             VStack(spacing: 14) {
-                ArtworkView(thumb: current.thumb, pixels: 700, cornerRadius: 16, placeholderSymbol: "music.note.list")
-                    .frame(width: 220, height: 220)
+                ArtworkView(thumb: current.thumb, pixels: 900, cornerRadius: 16, placeholderSymbol: "music.note.list")
+                    .headerCoverSize()
                     .shadow(color: .black.opacity(0.25), radius: 18, y: 10)
                 VStack(spacing: 4) {
                     Text(current.title)

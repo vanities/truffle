@@ -82,15 +82,19 @@ struct TrackRow: View {
 
 struct AlbumTile: View {
     let album: Album
-    var width: CGFloat = 156
+    /// A shelf's tile has a width. A grid's has none: it fills its column, so the covers are as big as
+    /// the screen allows (196 pt across on the widest phone, where a fixed 160 left gaps).
+    var width: CGFloat?
     @Environment(\.dynamicTypeSize) private var typeSize
 
     /// Wider at the accessibility text sizes, so a title's longest word still fits on a line.
-    private var tileWidth: CGFloat { typeSize.isAccessibilitySize ? max(width, 300) : width }
+    private var tileWidth: CGFloat? { width.map { typeSize.isAccessibilitySize ? max($0, 300) : $0 } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ArtworkView(thumb: album.thumb, pixels: 400, cornerRadius: 12)
+            // 600 px covers a 196 pt tile at 3x.
+            ArtworkView(thumb: album.thumb, pixels: 600, cornerRadius: 12)
+                .aspectRatio(1, contentMode: .fit)
                 .frame(width: tileWidth, height: tileWidth)
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
             Text(album.title)
@@ -102,6 +106,7 @@ struct AlbumTile: View {
                 .lineLimit(1, atAccessibilitySizes: nil)
         }
         .frame(width: tileWidth, alignment: .leading)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .contentShape(Rectangle())
     }
 }

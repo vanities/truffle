@@ -31,7 +31,7 @@ struct LibraryView: View {
                         LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                             ForEach(library.recentlyAdded) { album in
                                 NavigationLink(value: Route.album(album)) {
-                                    AlbumTile(album: album, width: 160)
+                                    AlbumTile(album: album)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -155,7 +155,7 @@ struct AlbumsView: View {
                 LazyVGrid(columns: albumColumns(typeSize), spacing: 20) {
                     ForEach(albums) { album in
                         NavigationLink(value: Route.album(album)) {
-                            AlbumTile(album: album, width: 160)
+                            AlbumTile(album: album)
                         }
                         .buttonStyle(.plain)
                     }

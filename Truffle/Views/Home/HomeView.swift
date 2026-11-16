@@ -212,7 +212,7 @@ struct HomeView: View {
                 LazyHStack(alignment: .top, spacing: 14) {
                     ForEach(albums) { album in
                         NavigationLink(value: Route.album(album)) {
-                            AlbumTile(album: album)
+                            AlbumTile(album: album, width: 156)
                         }
                         .buttonStyle(.plain)
                     }

@@ -11,18 +11,22 @@ struct ArtworkView: View {
     @State private var image: UIImage?
 
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(.secondarySystemFill), Color(.tertiarySystemFill)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            Image(systemName: placeholderSymbol)
-                .font(.title2)
-                .foregroundStyle(.tertiary)
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .transition(.opacity)
+        // The art is an overlay so it never sizes the view: a cover that isn't square fills the frame it's
+        // given and is clipped to it, whether that frame is fixed or a grid column's width.
+        LinearGradient(colors: [Color(.secondarySystemFill), Color(.tertiarySystemFill)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            .overlay {
+                Image(systemName: placeholderSymbol)
+                    .font(.title2)
+                    .foregroundStyle(.tertiary)
             }
-        }
+            .overlay {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .transition(.opacity)
+                }
+            }
         .clipShape(circle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)))
         // Keyed on the connection too: art asked for before the server answered loads once it does.
         .task(id: ArtworkRequest(thumb: thumb, endpoint: library.endpoint?.baseURL)) {
@@ -34,6 +38,23 @@ struct ArtworkView: View {
             withAnimation(.easeOut(duration: 0.25)) { image = loaded }
         }
         .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// The cover at the top of an album or playlist: most of a phone's width, up to 340 pt. A phone on its
+    /// side keeps it to 250 pt, or the cover takes the screen and the songs start below it.
+    func headerCoverSize() -> some View { modifier(HeaderCoverSize()) }
+}
+
+private struct HeaderCoverSize: ViewModifier {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    func body(content: Content) -> some View {
+        let limit: CGFloat = verticalSizeClass == .compact ? 250 : 340
+        content
+            .aspectRatio(1, contentMode: .fit)
+            .containerRelativeFrame(.horizontal) { width, _ in min(width * 0.72, limit) }
     }
 }
 
