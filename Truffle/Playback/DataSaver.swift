@@ -14,6 +14,9 @@ enum StreamMode: String, Sendable {
 /// Data Saver: on cellular (or a hotspot, which iOS marks expensive) new songs stream as Plex's 192 kbps
 /// transcode instead of the original file. Wi-Fi keeps the originals. A transcode that fails never costs
 /// the song: it plays the original instead.
+///
+/// The same stream is what a song falls back to when its original can't keep up (`Buffering`, `WeakSignal`),
+/// whether or not Data Saver is on.
 enum DataSaver {
     static let kbps = 192
 
@@ -24,14 +27,15 @@ enum DataSaver {
         case recover
     }
 
-    static func mode(enabled: Bool, metered: Bool) -> StreamMode {
-        enabled && metered ? .dataSaver : .original
+    static func mode(enabled: Bool, metered: Bool, weakSignal: Bool = false) -> StreamMode {
+        (enabled && metered) || weakSignal ? .dataSaver : .original
     }
 
     /// The mode for one song: originals while transcodes rest, and for a song whose transcode failed.
-    static func mode(enabled: Bool, metered: Bool, song: String, health: TranscodeHealth, now: Date) -> StreamMode {
+    static func mode(enabled: Bool, metered: Bool, weakSignal: Bool = false, song: String, health: TranscodeHealth,
+                     now: Date) -> StreamMode {
         guard !health.isResting(at: now), !health.failedSongs.contains(song) else { return .original }
-        return mode(enabled: enabled, metered: metered)
+        return mode(enabled: enabled, metered: metered, weakSignal: weakSignal)
     }
 
     static func onFailure(of mode: StreamMode) -> FailureResponse {

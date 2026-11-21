@@ -9,18 +9,44 @@ final class PlaybackLogicTests: XCTestCase {
     func testNextAndPreviousRespectRepeat() {
         var queue = PlayQueue()
         queue.replace(with: tracks(3), startAt: 2)
-        XCTAssertNil(queue.indexForNext(), "end of the queue")
-        XCTAssertNil(queue.indexAfterEnd())
+        XCTAssertNil(queue.indexForNext(endless: false), "end of the queue")
+        XCTAssertNil(queue.indexAfterEnd(endless: false))
         queue.repeatMode = .all
-        XCTAssertEqual(queue.indexForNext(), 0)
+        XCTAssertEqual(queue.indexForNext(endless: false), 0)
         queue.repeatMode = .one
-        XCTAssertEqual(queue.indexAfterEnd(), 2, "repeat one replays the song when it ends")
-        XCTAssertEqual(queue.indexForNext(), 0, "but Next still moves on")
+        XCTAssertEqual(queue.indexAfterEnd(endless: false), 2, "repeat one replays the song when it ends")
+        XCTAssertEqual(queue.indexForNext(endless: false), 0, "but Next still moves on")
         queue.replace(with: tracks(3), startAt: 0)
         queue.repeatMode = .off
-        XCTAssertNil(queue.indexForPrevious())
+        XCTAssertNil(queue.indexForPrevious(endless: false))
         queue.repeatMode = .all
-        XCTAssertEqual(queue.indexForPrevious(), 2)
+        XCTAssertEqual(queue.indexForPrevious(endless: false), 2)
+    }
+
+    /// Adam's truck, 2026-11-21: Repeat All was on, and Shuffle All went back to the first song queued
+    /// whenever Next outran the top-up.
+    func testAnEndlessShuffleNeverGoesRound() {
+        var queue = PlayQueue()
+        queue.replace(with: tracks(5), startAt: 4)
+        queue.repeatMode = .all
+        XCTAssertNil(queue.indexForNext(endless: true), "the last song queued waits for the top-up")
+        XCTAssertNil(queue.indexAfterEnd(endless: true))
+        XCTAssertEqual(queue.indexForNext(endless: false), 0, "a list that ends still repeats")
+        queue.repeatMode = .one
+        XCTAssertEqual(queue.indexAfterEnd(endless: true), 4, "repeat one still replays the song")
+        XCTAssertNil(queue.indexForNext(endless: true))
+        queue.replace(with: tracks(5), startAt: 0)
+        queue.repeatMode = .all
+        XCTAssertNil(queue.indexForPrevious(endless: true), "and Previous doesn't jump to the newest song")
+        queue.move(to: 2)
+        XCTAssertEqual(queue.indexForNext(endless: true), 3)
+    }
+
+    func testTheRepeatButtonSkipsRepeatAllInAnEndlessShuffle() {
+        XCTAssertEqual(RepeatMode.off.next(endless: true), .one)
+        XCTAssertEqual(RepeatMode.one.next(endless: true), .off)
+        XCTAssertEqual(RepeatMode.all.next(endless: true), .one)
+        XCTAssertEqual([RepeatMode.off, .all, .one].map { $0.next(endless: false) }, [.all, .one, .off])
     }
 
     func testPlayNextGoesRightAfterTheCurrentSong() {

@@ -19,6 +19,8 @@ final class PlayerEngine {
     private(set) var errorMessage: String?
     /// What the current song streams as; the player shows when it's Data Saver.
     private(set) var stream: StreamMode = .original
+    /// The lighter stream is on because the original couldn't keep up, not because Data Saver asked.
+    private(set) var lighterForSignal = false
     /// Shuffle All (or a big playlist's shuffle): the queue tops itself up as it runs low.
     private(set) var feed: ShuffleFeed?
     var isEndless: Bool { feed != nil }
@@ -66,7 +68,17 @@ final class PlayerEngine {
     @ObservationIgnored private var playWhenReady = false
     @ObservationIgnored private var wasPlayingBeforeInterruption = false
     @ObservationIgnored private var recoveryAttempts = 0
+    /// Runs while the current song waits to play: starts it early or reconnects (`Buffering`).
+    @ObservationIgnored private var bufferWatch: (item: ObjectIdentifier, task: Task<Void, Never>)?
+    /// How often the current song was started early (each start asks for more in hand), and how often it
+    /// was reconnected for going quiet.
+    @ObservationIgnored private var bufferTries: (song: String, starts: Int, reconnects: Int)?
+    /// Set when an original couldn't keep up: new songs stream the lighter copy for a while.
+    @ObservationIgnored private var weakSignal = WeakSignal()
     @ObservationIgnored private var toppingUp = false
+    /// Next, or the end of a song, reached the last song queued in an endless shuffle: the top-up moves on
+    /// to its first song when it lands. Any other load (a jump, a new queue) takes that over.
+    @ObservationIgnored private var advanceAfterTopUp = false
     @ObservationIgnored private var ticks = 0
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
     @ObservationIgnored private var itemObservers: [NSKeyValueObservation] = []
@@ -86,6 +98,10 @@ final class PlayerEngine {
     @ObservationIgnored private var playingItem: AVPlayerItem?
 
     private static let stateFile = "player.json"
+    /// An endless shuffle keeps at least this many songs coming, and asks for `topUpCount` more below it:
+    /// room for a run of skips while the top-up is on its way, and for `SongCache.ahead`.
+    static let runway = 5
+    static let topUpCount = 5
 
     private struct ItemInfo {
         let track: Track
@@ -96,6 +112,8 @@ final class PlayerEngine {
         let session: String?
         /// A transcode's status, watched while it waits its turn.
         let watch: NSKeyValueObservation?
+        /// The lighter stream, chosen for a weak signal rather than by Data Saver.
+        var forSignal = false
         var onPhone: Bool { endpoint == nil }
     }
 
@@ -214,7 +232,7 @@ final class PlayerEngine {
         isLoading = true
         notify()
         do {
-            let tracks = try await library.nextShuffled(5, from: newFeed)
+            let tracks = try await library.nextShuffled(Self.topUpCount, from: newFeed)
             guard !tracks.isEmpty else {
                 isLoading = false
                 errorMessage = "Your library's empty. Huh."
@@ -224,6 +242,7 @@ final class PlayerEngine {
             feed = newFeed
             source = newSource
             queue.replace(with: tracks, startAt: 0)
+            dropRepeatAllIfEndless()
             load(autoplay: true)
         } catch {
             isLoading = false
@@ -358,10 +377,10 @@ final class PlayerEngine {
     }
 
     func next() {
-        guard let index = queue.indexForNext() else {
+        guard let index = queue.indexForNext(endless: isEndless) else {
             if isEndless {
-                Logger.player.info("[player] next: topping up the shuffle first")
-                Task { await topUp(thenAdvance: true) }
+                playWhenReady = true
+                advanceWhenToppedUp(reason: "next")
             }
             return
         }
@@ -384,7 +403,7 @@ final class PlayerEngine {
             seek(to: 0)
             return
         }
-        guard let index = queue.indexForPrevious() else {
+        guard let index = queue.indexForPrevious(endless: isEndless) else {
             seek(to: 0)
             return
         }
@@ -407,7 +426,15 @@ final class PlayerEngine {
         notify()
     }
 
-    func cycleRepeat() { repeatMode = repeatMode.next }
+    func cycleRepeat() { repeatMode = repeatMode.next(endless: isEndless) }
+
+    /// Repeat All left on from an album can't carry into an endless shuffle: there's nothing to go round, and
+    /// the button would be lit for nothing.
+    private func dropRepeatAllIfEndless() {
+        guard isEndless, queue.repeatMode == .all else { return }
+        queue.repeatMode = .off
+        Logger.player.info("[player] repeat all → off: an endless shuffle has no end to repeat from")
+    }
 
     /// Puts what's coming up in a new random order (what's playing keeps playing).
     func shuffleUpcoming() {
@@ -448,6 +475,7 @@ final class PlayerEngine {
         isPlaying = false
         isLoading = false
         stream = .original
+        lighterForSignal = false
         if clearing {
             queue = PlayQueue()
             source = nil
@@ -468,6 +496,7 @@ final class PlayerEngine {
             return
         }
         needsLoad = false
+        advanceAfterTopUp = false
         errorMessage = nil
         endFade(.cut, thenPrepare: false)
         dropStaged()
@@ -507,6 +536,7 @@ final class PlayerEngine {
         currentTime = startTime
         pendingSeek = startTime > 1 ? startTime : nil
         stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
+        lighterForSignal = itemInfo[ObjectIdentifier(item)]?.forSignal ?? false
         applyVolume()
         preloadNext()
         recoveryAttempts = 0
@@ -518,6 +548,7 @@ final class PlayerEngine {
         enrichSoon()
         topUpIfNeeded()
         save()
+        watchBuffer()
         notify()
     }
 
@@ -547,12 +578,14 @@ final class PlayerEngine {
         let watch = mode == .dataSaver ? item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor [weak self] in self?.readiedItemChanged(item) }
         } : nil
-        itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session, watch: watch)
+        itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session, watch: watch,
+                                                    forSignal: mode == .dataSaver && !(settings.dataSaver && network.isMetered))
         return item
     }
 
     private func newSongMode(for track: Track) -> StreamMode {
-        DataSaver.mode(enabled: settings.dataSaver, metered: network.isMetered, song: track.id, health: transcodes, now: .now)
+        DataSaver.mode(enabled: settings.dataSaver, metered: network.isMetered, weakSignal: weakSignal.isWeak(at: .now),
+                       song: track.id, health: transcodes, now: .now)
     }
 
     /// A transcode readied ahead (preloaded or staged) failed before its turn: its song is readied again
@@ -583,7 +616,7 @@ final class PlayerEngine {
     private func preloadNext() {
         // The queue player just moved on to the preloaded song; currentItemChanged readies the one after.
         if let preloaded = nextItem, preloaded.item === player.currentItem { return }
-        guard queue.repeatMode != .one, let index = queue.indexAfterEnd(), let track = queue.tracks[safe: index],
+        guard queue.repeatMode != .one, let index = queue.indexAfterEnd(endless: isEndless), let track = queue.tracks[safe: index],
               let current = player.currentItem, let playing = queue.current else {
             dropPreloaded()
             dropStaged()
@@ -654,7 +687,11 @@ final class PlayerEngine {
         currentItemBase = info?.onPhone == true ? nil : (info?.endpoint?.baseURL ?? library.endpoint?.baseURL)
         observe(item)
         currentTime = 0
+        // A resume position still waiting on the last song (skipped before it was ready) isn't this song's:
+        // left set, it stopped the clock here, or started this song partway in.
+        pendingSeek = nil
         stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
+        lighterForSignal = itemInfo[ObjectIdentifier(item)]?.forSignal ?? false
         applyVolume()
         // Before preloading: trimming shifts the queue's positions, and the preload remembers one.
         trimHistory()
@@ -662,6 +699,7 @@ final class PlayerEngine {
         enrichSoon()
         topUpIfNeeded()
         save()
+        watchBuffer()
         Logger.player.info("[player] \(how, privacy: .public) to \(self.queue.index + 1)/\(self.queue.tracks.count) \"\(self.current?.title ?? "", privacy: .public)\"\(self.stream == .dataSaver ? " (data saver)" : "", privacy: .public)")
         notify()
     }
@@ -694,7 +732,7 @@ final class PlayerEngine {
             cutToStaged()
             return
         }
-        if let index = queue.indexAfterEnd() {
+        if let index = queue.indexAfterEnd(endless: isEndless) {
             // Nothing was readied: the next song couldn't be made, or its crossfade fell through.
             Logger.player.info("[player] nothing preloaded; loading \(index + 1)")
             queue.move(to: index)
@@ -702,7 +740,7 @@ final class PlayerEngine {
             return
         }
         if isEndless {
-            Task { await topUp(thenAdvance: true) }
+            advanceWhenToppedUp(reason: "the last song queued ended")
             return
         }
         Logger.player.info("[player] end of queue")
@@ -942,30 +980,65 @@ final class PlayerEngine {
     // MARK: - Shuffle top-up, details
 
     private func topUpIfNeeded() {
-        guard isEndless, queue.upcoming.count < 3, !toppingUp else { return }
-        Task { await topUp(thenAdvance: false) }
+        guard isEndless, queue.upcoming.count < Self.runway, !toppingUp else { return }
+        Task { await topUp() }
     }
 
-    private func topUp(thenAdvance: Bool) async {
-        guard !toppingUp else { return }
+    /// The shuffle has nothing queued past this song yet. The top-up (one already on its way, or a new one)
+    /// plays its first song when it lands; until then the song playing keeps playing.
+    private func advanceWhenToppedUp(reason: String) {
+        Logger.player.info("[player] \(reason, privacy: .public): nothing queued past this song, moving on when the shuffle tops up")
+        advanceAfterTopUp = true
+        isLoading = playWhenReady
+        notify()
+        Task { await topUp() }
+    }
+
+    /// More songs for an endless shuffle. A fetch that fails is asked again while something waits on it
+    /// (`advanceAfterTopUp`); otherwise the next song's turn asks. Songs that arrive after another queue took
+    /// over are dropped, so a shuffle's songs never land in an album.
+    private func topUp() async {
+        guard !toppingUp, let feed else { return }
         toppingUp = true
         defer { toppingUp = false }
-        guard let feed else { return }
-        do {
-            let more = try await library.nextShuffled(5, from: feed)
-            queue.append(more)
-            Logger.player.info("[player] shuffle topped up +\(more.count), \(self.queue.upcoming.count) upcoming")
-            if thenAdvance, let index = queue.indexForNext() {
-                queue.move(to: index)
-                load(autoplay: true)
-            } else {
-                preloadNext()
-                save()
-                notify()
+        let sw = Stopwatch()
+        var wait: Duration = .seconds(2)
+        for attempt in 1...6 {
+            do {
+                let more = try await library.nextShuffled(Self.topUpCount, from: feed)
+                guard self.feed == feed else {
+                    Logger.player.info("[player] shuffle top-up arrived after another queue started; dropped")
+                    return
+                }
+                queue.append(more)
+                Logger.player.info("[player] shuffle topped up +\(more.count), \(self.queue.upcoming.count) upcoming in \(sw.ms, format: .fixed(precision: 0))ms")
+                if advanceAfterTopUp, let index = queue.indexForNext(endless: true) {
+                    leaveCurrent()
+                    queue.move(to: index)
+                    load(autoplay: playWhenReady)
+                    return
+                }
+                if !more.isEmpty || !advanceAfterTopUp {
+                    preloadNext()
+                    save()
+                    notify()
+                    return
+                }
+            } catch {
+                Logger.player.error("[player] shuffle top-up failed (attempt \(attempt)): \(error.localizedDescription, privacy: .public)")
             }
-        } catch {
-            Logger.player.error("[player] shuffle top-up failed: \(error.localizedDescription, privacy: .public)")
+            guard advanceAfterTopUp, self.feed == feed else { return }
+            try? await Task.sleep(for: wait)
+            wait = min(wait * 2, .seconds(20))
+            guard advanceAfterTopUp, self.feed == feed else { return }
         }
+        guard advanceAfterTopUp else { return }
+        Logger.player.error("[player] shuffle top-up gave up after \(sw.seconds, format: .fixed(precision: 0))s; Play asks again")
+        advanceAfterTopUp = false
+        playWhenReady = isPlaying
+        isLoading = false
+        errorMessage = "The shuffle couldn't reach \(library.serverName) for more songs."
+        notify()
     }
 
     private func trimHistory() {
@@ -1001,7 +1074,11 @@ final class PlayerEngine {
     /// playing from its buffer and moves over if it stalls or fails.
     private func endpointChanged(_ endpoint: PlexEndpoint) {
         Logger.player.info("[player] server address now \(endpoint.kind.rawValue, privacy: .public)")
+        // A different way to the server: whatever was slow may not be.
+        weakSignal.clear()
         cacheAhead()
+        // A top-up that failed while there was no address gets its turn now, not at the next song.
+        topUpIfNeeded()
         guard player.currentItem != nil else { return }
         preloadNext()
         if player.timeControlStatus == .waitingToPlayAtSpecifiedRate, let base = currentItemBase, base != endpoint.baseURL {
@@ -1050,7 +1127,7 @@ final class PlayerEngine {
         guard recoveryAttempts <= 2 else {
             errorMessage = "\(current?.title ?? "That song") wouldn't play. Skipped it."
             recoveryAttempts = 0
-            if queue.indexForNext() != nil { next() } else { stop(clearing: false) }
+            if queue.indexForNext(endless: isEndless) != nil || isEndless { next() } else { stop(clearing: false) }
             return
         }
         let resumeAt = currentTime
@@ -1165,17 +1242,138 @@ final class PlayerEngine {
         let status = player.timeControlStatus
         let playing = status == .playing
         let loading = status == .waitingToPlayAtSpecifiedRate
-        guard playing != isPlaying || loading != isLoading else { return }
+        watchBuffer()
+        guard playing != isPlaying || ((loading || advanceAfterTopUp) && playWhenReady) != isLoading else { return }
         isPlaying = playing
-        isLoading = loading && playWhenReady
+        isLoading = (loading || advanceAfterTopUp) && playWhenReady
         if playing {
             recoveryAttempts = 0
             CarLog.shared.soundStarted(fromPhone: playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }?.onPhone ?? false)
             if stream == .dataSaver { transcodes.played() }
             if fading == nil, let track = current { reporter.report(.playing, track: track, time: currentTime) }
         }
-        Logger.player.debug("[player] status playing=\(playing) loading=\(loading)")
+        Logger.player.debug("[player] status playing=\(playing) loading=\(loading)\(loading ? " (\(self.player.reasonForWaitingToPlay?.rawValue ?? "no reason"))" : "", privacy: .public)")
         notify()
+    }
+
+    // MARK: - Buffering
+
+    /// While the current song waits to play, twice a second: start it once it's keeping up, move it to the
+    /// lighter stream when its original never will, or reconnect when nothing arrives (`Buffering` has the
+    /// rules). Songs on the phone never wait long enough to matter.
+    private func watchBuffer() {
+        guard playWhenReady, player.timeControlStatus == .waitingToPlayAtSpecifiedRate, let item = playingItem,
+              let info = itemInfo[ObjectIdentifier(item)], !info.onPhone else {
+            bufferWatch?.task.cancel()
+            bufferWatch = nil
+            return
+        }
+        let id = ObjectIdentifier(item)
+        guard bufferWatch?.item != id else { return }
+        bufferWatch?.task.cancel()
+        if bufferTries?.song != info.track.id { bufferTries = (info.track.id, 0, 0) }
+        let track = info.track
+        let mode = info.mode
+        let task = Task { [weak self] in
+            let sw = Stopwatch()
+            var ends: [(at: TimeInterval, end: TimeInterval)] = []
+            var lastGain = 0.0
+            var lastBytes: Int64 = 0
+            var lastLogged = -5.0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled, let self, self.playingItem === item, self.playWhenReady,
+                      self.player.timeControlStatus == .waitingToPlayAtSpecifiedRate else { break }
+                let now = sw.seconds
+                // Not where it will play from yet (a resume waiting on its seek): what's buffered is elsewhere.
+                guard self.pendingSeek == nil else {
+                    ends = []
+                    lastGain = now
+                    continue
+                }
+                let buffered = Self.buffered(item)
+                // Bytes count as arriving too: an MP4 with its index at the end reports nothing buffered
+                // until AVPlayer decides to start, while the file comes in.
+                let bytes = item.accessLog()?.events.last?.numberOfBytesTransferred ?? 0
+                if let last = ends.last, buffered.end > last.end + 0.01 { lastGain = now }
+                if bytes > lastBytes { lastGain = now }
+                lastBytes = bytes
+                ends.append((now, buffered.end))
+                ends.removeAll { now - $0.at > 4 }
+                let length = Self.length(of: item, track: track)
+                let sample = Buffering.Sample(waited: now, ahead: buffered.ahead, fill: Buffering.fill(ends), idle: now - lastGain,
+                                              complete: length > 0 && buffered.end >= length - 1)
+                let tries = self.bufferTries ?? (track.id, 0, 0)
+                let canLighten = mode == .original && buffered.end > 0
+                    && DataSaver.mode(enabled: true, metered: true, song: track.id, health: self.transcodes, now: .now) == .dataSaver
+                var verdict = Buffering.verdict(for: sample, earlyStarts: tries.starts, canLighten: canLighten)
+                if verdict == .reconnect, tries.reconnects >= Buffering.reconnects { verdict = .wait }
+                #if DEBUG
+                // `-TruffleBufferHands off`: watch and log, but leave every wait to AVPlayer, to measure against.
+                if UserDefaults.standard.string(forKey: "TruffleBufferHands") == "off" { verdict = .wait }
+                #endif
+                if verdict != .wait || now - lastLogged >= 5 {
+                    lastLogged = now
+                    let fill = sample.fill.map { String(format: "%.1fx", $0) } ?? "no rate yet"
+                    Logger.player.info("[buffer] \(String(describing: verdict), privacy: .public) after \(now, format: .fixed(precision: 1))s: \(sample.ahead, format: .fixed(precision: 1))s buffered, filling at \(fill, privacy: .public), \(bytes / 1000) KB in, \(sample.idle, format: .fixed(precision: 0))s since any arrived, started early \(tries.starts)x, \(mode.rawValue, privacy: .public), AVPlayer: \(self.player.reasonForWaitingToPlay?.rawValue ?? "no reason", privacy: .public)")
+                }
+                switch verdict {
+                case .wait:
+                    continue
+                case .start:
+                    self.bufferTries = (track.id, tries.starts + 1, tries.reconnects)
+                    self.player.playImmediately(atRate: 1)
+                case .lighter:
+                    self.playLighterStream(of: track)
+                case .reconnect:
+                    self.bufferTries = (track.id, tries.starts, tries.reconnects + 1)
+                    self.reconnectStuckSong(item)
+                }
+                break
+            }
+            if let self, self.bufferWatch?.item == id { self.bufferWatch = nil }
+        }
+        bufferWatch = (id, task)
+    }
+
+    /// The original is arriving slower than it plays. The song carries on from where it is as Plex's 192 kbps
+    /// stream, and so do the next ones, until the connection has had time to change (`WeakSignal`).
+    private func playLighterStream(of track: Track) {
+        let rest = weakSignal.fellBehind(at: .now)
+        Logger.player.info("[buffer] \"\(track.title, privacy: .public)\" can't keep up as \(track.codec ?? "the original", privacy: .public); lighter stream from \(Int(self.currentTime))s, and for the next \(Int(rest / 60)) min")
+        load(autoplay: true, startTime: currentTime)
+    }
+
+    /// How far the song is buffered: seconds past where it will play from, and the time it's buffered up to.
+    private static func buffered(_ item: AVPlayerItem) -> (ahead: TimeInterval, end: TimeInterval) {
+        let now = item.currentTime().seconds
+        guard now.isFinite else { return (0, 0) }
+        for value in item.loadedTimeRanges {
+            let range = value.timeRangeValue
+            let start = range.start.seconds
+            let end = range.end.seconds
+            if start.isFinite, end.isFinite, now >= start - 0.5, now <= end + 0.5 { return (max(0, end - now), end) }
+        }
+        return (0, now)
+    }
+
+    /// Nothing arrived for a while: the connection is dead (the phone changed networks, or sat suspended).
+    /// Find the server again and load the song from where it was. It never skips the song: with no signal at
+    /// all, every song would go the same way.
+    private func reconnectStuckSong(_ item: AVPlayerItem) {
+        let resumeAt = currentTime
+        Logger.player.error("[buffer] nothing arriving for \"\(self.current?.title ?? "?", privacy: .public)\" at \(Int(resumeAt))s; finding the server again")
+        Task {
+            let sw = Stopwatch()
+            await library.reconnect(reason: "playback stuck")
+            guard playingItem === item, playWhenReady else { return }
+            guard library.client != nil else {
+                Logger.player.error("[buffer] no address answered in \(sw.ms, format: .fixed(precision: 0))ms; the song keeps waiting")
+                return
+            }
+            Logger.player.info("[buffer] reconnected in \(sw.ms, format: .fixed(precision: 0))ms; loading the song again from \(Int(resumeAt))s")
+            load(autoplay: true, startTime: resumeAt)
+        }
     }
 
     private func handleInterruption(type: AVAudioSession.InterruptionType?, options: AVAudioSession.InterruptionOptions) {
@@ -1230,7 +1428,18 @@ final class PlayerEngine {
 
     private func cacheWindow() {
         guard !library.isDemo, let client = library.client, let current = queue.current else { return }
-        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client)
+        // A song that's playing as a stream is already coming down once; saving it too would halve what the
+        // stream gets. Paused, it's saved: it's what the car starts on tomorrow.
+        let streaming = playWhenReady && playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }?.onPhone == false
+        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client, notStarting: streaming ? current : nil)
+    }
+
+    /// For the car log: where a resume picks up, without naming the song.
+    var resumePlace: String {
+        let minutes = Int(currentTime) / 60
+        let seconds = Int(currentTime) % 60
+        let kind = isEndless ? "endless shuffle" : (source?.kind.rawValue ?? "queue")
+        return "song \(queue.index + 1) of \(queue.tracks.count), \(minutes):\(String(format: "%02d", seconds)) in, \(kind), repeat \(queue.repeatMode.rawValue)"
     }
 
     /// For the car log: what a start that never made a sound was stuck on.
@@ -1245,6 +1454,7 @@ final class PlayerEngine {
         queue = state.queue
         source = state.source
         feed = state.feed
+        dropRepeatAllIfEndless()
         currentTime = state.time
         pendingSeek = state.time > 1 ? state.time : nil
         needsLoad = true

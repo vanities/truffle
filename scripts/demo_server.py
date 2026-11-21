@@ -12,6 +12,9 @@ HLS transcode (start, the session's playlist and segment, stop).
 
     make demo-library            # covers (Swift) and audio (ffmpeg) into ./demo-library
     scripts/demo_server.py       # http://127.0.0.1:32499
+    DEMO_SLOW_MS=1500 scripts/demo_server.py   # the library answers late, as on a weak signal
+    DEMO_AUDIO_KBPS=250 scripts/demo_server.py # songs arrive at that rate (they play at about 97 kbps)
+    DEMO_FLAC=1 scripts/demo_server.py         # the songs as FLAC, which buffers differently from AAC in MP4
     xcrun simctl launch <udid> com.vanities.truffle -TruffleServerURL http://127.0.0.1:32499
 """
 
@@ -34,6 +37,9 @@ ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "scripts" / "demo-catalog.json"
 LIBRARY = ROOT / "demo-library"
 PORT = int(os.environ.get("DEMO_PORT", "32499"))
+SLOW_MS = int(os.environ.get("DEMO_SLOW_MS", "0"))
+AUDIO_KBPS = int(os.environ.get("DEMO_AUDIO_KBPS", "0"))
+FLAC = bool(os.environ.get("DEMO_FLAC"))
 SECTION = "1"
 STAMP = 1_780_000_000
 
@@ -69,6 +75,11 @@ def make_audio() -> None:
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), "-c", "copy", "-movflags", "+faststart",
                             str(segment)], check=True)
             log.info("[audio] made hls/%s", segment.name)
+        lossless = folder / "flac" / f"song-{index}.flac"
+        if FLAC and not lossless.exists():
+            lossless.parent.mkdir(exist_ok=True)
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), "-c:a", "flac", str(lossless)], check=True)
+            log.info("[audio] made flac/%s (%d kbps)", lossless.name, lossless.stat().st_size * 8 // seconds // 1000)
 
 
 def make_song(target: Path, chords: list[list[float]], seconds: int) -> None:
@@ -223,14 +234,16 @@ class Library:
     def public(self, item: dict, detailed: bool = False) -> dict:
         out = {key: value for key, value in item.items() if not key.startswith("_")}
         if item.get("type") == "track":
-            stream = {"streamType": 2, "codec": "aac", "selected": True}
+            codec, box = ("flac", "flac") if FLAC else ("aac", "mp4")
+            stream = {"streamType": 2, "codec": codec, "selected": True}
             if detailed:
                 stream.update({"loudness": str(item["_loudness"]), "gain": str(item["_gain"]), "albumGain": str(item["_albumGain"]),
                                "peak": "0.98"})
-            part = {"key": f"/library/parts/{item['ratingKey']}/{STAMP}/file.m4a", "container": "mp4", "duration": item["duration"]}
+            part = {"key": f"/library/parts/{item['ratingKey']}/{STAMP}/file.{'flac' if FLAC else 'm4a'}", "container": box,
+                    "duration": item["duration"]}
             if detailed:
                 part["Stream"] = [stream]
-            out["Media"] = [{"container": "mp4", "audioCodec": "aac", "bitrate": 96, "Part": [part]}]
+            out["Media"] = [{"container": box, "audioCodec": codec, "bitrate": 96, "Part": [part]}]
         return out
 
     def playlist_entries(self, playlist: dict) -> list[tuple[int, dict]]:
@@ -369,11 +382,15 @@ class Handler(BaseHTTPRequestHandler):
         if ranged:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         self.end_headers()
+        # DEMO_AUDIO_KBPS=250 sends songs that slowly (the demo's are about 97 kbps), to watch how long a
+        # stream takes to start and whether it keeps up.
+        throttled = AUDIO_KBPS and content_type.startswith("audio/")
+        step = 4096 if throttled else 65536
         with path.open("rb") as handle:
             handle.seek(start)
             remaining = length
             while remaining > 0:
-                chunk = handle.read(min(65536, remaining))
+                chunk = handle.read(min(step, remaining))
                 if not chunk:
                     break
                 try:
@@ -381,6 +398,8 @@ class Handler(BaseHTTPRequestHandler):
                 except (BrokenPipeError, ConnectionResetError):
                     return
                 remaining -= len(chunk)
+                if throttled:
+                    time.sleep(len(chunk) * 8 / (AUDIO_KBPS * 1000))
 
     def do_GET(self) -> None:
         self.route("GET")
@@ -402,6 +421,10 @@ class Handler(BaseHTTPRequestHandler):
         query.pop("X-Plex-Token", None)
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length > 0 else b""
+        # DEMO_SLOW_MS=1500 answers the library late (not the songs or /identity), like a weak signal on the
+        # road: the shuffle's top-up then lands after a few skips, not before them.
+        if SLOW_MS and path != "/identity" and not path.startswith("/library/parts/"):
+            time.sleep(SLOW_MS / 1000)
         try:
             self.dispatch(method, path, query, body)
         except Exception:  # noqa: BLE001 - a demo server should log and answer, not die
@@ -471,9 +494,13 @@ class Handler(BaseHTTPRequestHandler):
             if (match := re.fullmatch(r"/library/metadata/(\d+)/thumb/\d+", thumb)):
                 return self.send_art(match.group(1))
             return self.send_empty(404)
-        if (match := re.fullmatch(r"/library/parts/(\d+)/\d+/file\.m4a", path)):
+        if (match := re.fullmatch(r"/library/parts/(\d+)/\d+/file\.(m4a|flac)", path)):
             track = lib.by_id.get(match.group(1))
-            return self.send_file(LIBRARY / "audio" / f"song-{track['_song']}.m4a", "audio/mp4") if track else self.send_empty(404)
+            if not track:
+                return self.send_empty(404)
+            if match.group(2) == "flac":
+                return self.send_file(LIBRARY / "audio" / "flac" / f"song-{track['_song']}.flac", "audio/flac")
+            return self.send_file(LIBRARY / "audio" / f"song-{track['_song']}.m4a", "audio/mp4")
         if path == "/music/:/transcode/universal/start.m3u8":
             # Like PMS 1.43 without the HLS music profile: "No conversion profile found for protocol hls", a 400.
             # DEMO_TRANSCODE_FAILS=1 turns every transcode down, to watch Data Saver fall back.

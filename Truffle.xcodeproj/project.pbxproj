@@ -58,11 +58,13 @@
 		6805E603144231AE457ECA76 /* IndexLettersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D8A369F913CFCE6EB73296 /* IndexLettersTests.swift */; };
 		686BBB721F3397AED55EB727 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55BCE77079B5E40B5AC503A0 /* HomeView.swift */; };
 		6927588EB0824F5A31421644 /* MusicLibrary+Mixes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A852A0FD04D35C5C5BBAFC3E /* MusicLibrary+Mixes.swift */; };
+		6A2DD6B62AA756B73F215795 /* Buffering.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC057B66295DE10F279A397 /* Buffering.swift */; };
 		6BF77C7CDB6D87478A04D647 /* MusicLibrary+History.swift in Sources */ = {isa = PBXBuildFile; fileRef = D527F835CCF0EB90EB08D9BB /* MusicLibrary+History.swift */; };
 		6D3294F553BED8968569DE86 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450734228257F27E94F2C89C /* MiniPlayerView.swift */; };
 		70A9380F941A71B97271C943 /* PlexDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0585067CF286BD4AACDCB7F7 /* PlexDecodingTests.swift */; };
 		7C2D970949D3B31E6BADB1CA /* AccessibilityAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC55EBCA99EF774B3088582 /* AccessibilityAuditTests.swift */; };
 		8048A65F2227D7D59F63702B /* HolidayMusic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64951E3D73AC98D90EA230F9 /* HolidayMusic.swift */; };
+		8074D628EEA598EE877548CF /* BufferingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F87D33A8F1EAA07EA1B59705 /* BufferingTests.swift */; };
 		84D0222974EDAFDCBD7B1D6B /* SeasonScene+Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25AE988669B509E8FEE8224 /* SeasonScene+Atmosphere.swift */; };
 		87469B94ED7D5B8A87B59976 /* EventSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86F03255A70809AE614FB14 /* EventSchedule.swift */; };
 		89BDB20E9A1BD8F15C4212FB /* MusicLibrary+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8799CD7D69050E486743418B /* MusicLibrary+Browse.swift */; };
@@ -317,7 +319,9 @@
 		F34A01A1ADC0E3A9CC903AD5 /* Routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Routes.swift; sourceTree = "<group>"; };
 		F3C5C015BFD0A51A28D6856E /* DemoLibrary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DemoLibrary; path = Truffle/Resources/DemoLibrary; sourceTree = SOURCE_ROOT; };
 		F7AC97A6725EB5FE03531E1E /* MixMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixMenu.swift; sourceTree = "<group>"; };
+		F87D33A8F1EAA07EA1B59705 /* BufferingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BufferingTests.swift; sourceTree = "<group>"; };
 		FB2B98316C425CB828799899 /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
+		FCC057B66295DE10F279A397 /* Buffering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffering.swift; sourceTree = "<group>"; };
 		FF445A233631BE98C7F3043D /* SiriTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriTests.swift; sourceTree = "<group>"; };
 		FF6014636D16FA12E59D860A /* PlexModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -328,6 +332,7 @@
 			children = (
 				0D045FFB8D3C186290CA9473 /* ArtworkCache.swift */,
 				12B74BA7300D9A4E9E265725 /* AudioSessionManager.swift */,
+				FCC057B66295DE10F279A397 /* Buffering.swift */,
 				E97246DE9F1386157C9A7CD9 /* Crossfade.swift */,
 				6594CABCE96496FAD9F98382 /* DataSaver.swift */,
 				4A4A882B9352F6CF3E327749 /* Loudness.swift */,
@@ -674,6 +679,7 @@
 			isa = PBXGroup;
 			children = (
 				FB2B98316C425CB828799899 /* AppSettingsTests.swift */,
+				F87D33A8F1EAA07EA1B59705 /* BufferingTests.swift */,
 				BB6861EAFF9D79616BF5A87C /* BugReportTests.swift */,
 				AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */,
 				23918BF36C58CF1CA1B755D5 /* CarLogTests.swift */,
@@ -876,6 +882,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				572BD78C5A21D4D6194593BF /* AppSettingsTests.swift in Sources */,
+				8074D628EEA598EE877548CF /* BufferingTests.swift in Sources */,
 				393FCFD98A55D7406EA25E02 /* BugReportTests.swift in Sources */,
 				0B099CE0D1CE2444F544DF4C /* CarAutoplayTests.swift in Sources */,
 				0268C8E3877B3899318B6B72 /* CarLogTests.swift in Sources */,
@@ -934,6 +941,7 @@
 				2E07C69B63F28E8D1017D17C /* ArtworkCache.swift in Sources */,
 				F9C7B6980FF3C9E4F7119977 /* ArtworkView.swift in Sources */,
 				C60589F7BBD8E8FFB1B74DB3 /* AudioSessionManager.swift in Sources */,
+				6A2DD6B62AA756B73F215795 /* Buffering.swift in Sources */,
 				5D7B232D65AB4EEAB5C8FC53 /* BugReport.swift in Sources */,
 				C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */,
 				2D9DC8F61BB3BD571DD835BF /* CarLog.swift in Sources */,

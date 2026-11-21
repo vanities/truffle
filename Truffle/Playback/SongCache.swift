@@ -12,8 +12,8 @@ import os
 final class SongCache: NSObject, @unchecked Sendable {
     static let shared = SongCache()
     static let sessionIdentifier = "com.vanities.truffle.songs"
-    /// The song playing plus this many after it.
-    static let ahead = 3
+    /// The song playing plus this many after it (`PlayerEngine.runway` keeps that many queued).
+    static let ahead = 5
     static let budget: Int64 = 1_000_000_000
     /// A song whose download failed this many times waits for the next launch.
     static let maxFailures = 2
@@ -46,6 +46,9 @@ final class SongCache: NSObject, @unchecked Sendable {
         config.allowsConstrainedNetworkAccess = false
         // Not discretionary: on Wi-Fi it should start now, not whenever iOS gets around to it.
         config.isDiscretionary = false
+        // One at a time, in the order asked (the current song first): several at once shared the connection
+        // with the song that's playing, and each got a fraction.
+        config.httpMaximumConnectionsPerHost = 1
         config.sessionSendsLaunchEvents = true
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
         let summary = self.summary
@@ -88,9 +91,11 @@ final class SongCache: NSObject, @unchecked Sendable {
     // MARK: - Downloading
 
     /// Saves these songs (current first), and stops downloading any song no longer among them. Cheap to call
-    /// often: songs already saved or on their way are left alone.
-    func want(_ tracks: [Track], client: PlexClient) {
+    /// often: songs already saved or on their way are left alone. `notStarting` is wanted but not begun now
+    /// (its download carries on if it's already running).
+    func want(_ tracks: [Track], client: PlexClient, notStarting held: Track? = nil) {
         var wanted: [(name: String, url: URL)] = []
+        let heldName = held.flatMap(Self.fileName(for:))
         for track in tracks {
             guard let name = Self.fileName(for: track), let partKey = track.partKey else { continue }
             wanted.append((name, client.streamURL(partKey: partKey)))
@@ -121,6 +126,7 @@ final class SongCache: NSObject, @unchecked Sendable {
                     guard task.originalRequest?.url?.host() != url.host() else { continue }
                     task.cancel()
                 }
+                if name == heldName { continue }
                 let task = self.session.downloadTask(with: url)
                 task.taskDescription = name
                 task.resume()

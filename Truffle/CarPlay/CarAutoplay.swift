@@ -66,7 +66,7 @@ struct CarAutoplay: Sendable {
     /// shuffle. A queue that played to its end is nothing to pick up.
     static func canResume(_ queue: PlayQueue, at time: TimeInterval, endless: Bool) -> Bool {
         guard queue.current != nil else { return false }
-        return endless || queue.indexForNext() != nil || time >= 1
+        return endless || queue.indexForNext(endless: endless) != nil || time >= 1
     }
 
     mutating func carConnected(_ situation: Situation) -> Decision {
@@ -95,7 +95,9 @@ extension CarAutoplay {
             otherAudio: AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint,
             canResume: Self.canResume(player.queue, at: player.currentTime, endless: player.isEndless))
         let decision = carConnected(situation)
-        CarLog.shared.note("Play in the Car: \(decision.plainText)")
+        // Where it picks up, in numbers: the line to read when a drive starts on the wrong song.
+        let place = decision == .resume ? " (\(player.resumePlace))" : ""
+        CarLog.shared.note("Play in the Car: \(decision.plainText)\(place)")
         if decision.plays {
             CarLog.shared.expectSound(after: "the car screen opened") { environment.player.startState }
         }

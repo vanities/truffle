@@ -65,7 +65,17 @@ extension MusicLibrary {
             saveWalk()
             guard !positions.isEmpty else { break }
             drawn += positions
-            for (position, track) in try await tracks(atPositions: positions) {
+            let fetched: [(position: Int, track: Track?)]
+            do {
+                fetched = try await tracks(atPositions: positions)
+            } catch {
+                // Drawn but never heard: back into the round, or every dead zone on a drive drops songs from it.
+                for position in drawn { walk?.putBack(position, drawnInRound: round) }
+                saveWalk()
+                Logger.shuffle.error("[shuffle] positions \(drawn.map(String.init).joined(separator: ","), privacy: .public) didn't load (\(error.localizedDescription, privacy: .public)); back in the round")
+                throw error
+            }
+            for (position, track) in fetched {
                 guard let track else { continue }
                 guard HolidayMusic.isHoliday(track) else {
                     picked.append(track)

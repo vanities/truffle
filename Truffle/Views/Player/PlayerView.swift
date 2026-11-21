@@ -351,7 +351,7 @@ struct ScrubberView: View {
             .foregroundStyle(PlayerView.quiet)
             .overlay {
                 if player.stream == .dataSaver {
-                    Text("DATA SAVER")
+                    Text(player.lighterForSignal ? "WEAK SIGNAL" : "DATA SAVER")
                         .font(.caption2.weight(.heavy))
                         .tracking(1.2)
                         .foregroundStyle(PlayerView.quiet)
@@ -362,7 +362,7 @@ struct ScrubberView: View {
         // seconds at once instead of going through the slider, which only seeks when a drag ends.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Position")
-        .accessibilityValue("\(shown.clockString) of \(duration.clockString)\(player.stream == .dataSaver ? ", Data Saver" : "")")
+        .accessibilityValue("\(shown.clockString) of \(duration.clockString)\(player.stream == .dataSaver ? (player.lighterForSignal ? ", lighter stream for a weak signal" : ", Data Saver") : "")")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: player.seek(to: min(duration, shown + 15))

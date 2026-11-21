@@ -84,6 +84,9 @@ final class NowPlayingController {
         let state = UIApplication.shared.applicationState.carLogName
         let queue = player.hasTrack ? "\(player.queue.tracks.count) songs queued" : "nothing queued"
         CarLog.shared.note("\(command) command (app \(state), \(queue))")
+        // Already playing: there's no start to time. It used to be written down as "No sound 45 s after Play
+        // command: playing".
+        guard !player.isPlaying else { return }
         CarLog.shared.expectSound(after: "\(command) command") { [player] in player.startState }
     }
 

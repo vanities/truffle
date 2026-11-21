@@ -10,6 +10,13 @@ enum RepeatMode: String, Codable, CaseIterable, Sendable {
         case .one: .off
         }
     }
+
+    /// What the repeat button turns this into. An endless shuffle has nothing to go round, so it only offers
+    /// Repeat One.
+    func next(endless: Bool) -> RepeatMode {
+        guard endless else { return next }
+        return self == .one ? .off : .one
+    }
 }
 
 /// The queue's bookkeeping, kept apart from AVPlayer so the rules are testable.
@@ -29,21 +36,25 @@ struct PlayQueue: Codable, Sendable, Equatable {
     }
 
     /// Where playback goes when the current song ends on its own. Repeat One replays it.
-    func indexAfterEnd() -> Int? {
+    func indexAfterEnd(endless: Bool) -> Int? {
         if repeatMode == .one, current != nil { return index }
-        return indexForNext()
+        return indexForNext(endless: endless)
     }
 
     /// Where Next goes. Repeat One doesn't trap the Next button on one song.
-    func indexForNext() -> Int? {
+    ///
+    /// DO NOT let an endless shuffle go round: its last song is only as far as the top-up has reached. With
+    /// Repeat All left on, Next after a few quick skips on a slow connection went back to the first song
+    /// queued, and the shuffle replayed what it had started with (Adam's truck, 2026-11-21).
+    func indexForNext(endless: Bool) -> Int? {
         if index + 1 < tracks.count { return index + 1 }
-        return repeatMode == .off || tracks.isEmpty ? nil : 0
+        return endless || repeatMode == .off || tracks.isEmpty ? nil : 0
     }
 
     /// Where Previous goes when it isn't restarting the song: nil at the start without repeat.
-    func indexForPrevious() -> Int? {
+    func indexForPrevious(endless: Bool) -> Int? {
         if index > 0 { return index - 1 }
-        return repeatMode == .all && !tracks.isEmpty ? tracks.count - 1 : nil
+        return !endless && repeatMode == .all && !tracks.isEmpty ? tracks.count - 1 : nil
     }
 
     mutating func move(to newIndex: Int) {
