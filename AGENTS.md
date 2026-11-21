@@ -12,6 +12,13 @@ what gets used: Shuffle All, Liked, the season's mixes, playlists and the librar
   one round before any repeat, saved across launches. Nothing weights it: not ratings, plays,
   popularity or artist spacing. (Plex's server-side "smart shuffle" does all of those, which is
   what drove Adam off Plexamp's random.) `ShuffleWalkTests` checks uniformity with chi-square.
+  **Its queue never goes round.** The queue is only as long as the top-up has reached (`PlayerEngine.runway`
+  songs ahead, five more at a time), so `PlayQueue.indexForNext(endless:)` returns nil at its end and Next
+  waits for the top-up (`advanceWhenToppedUp`). With Repeat All left on it used to wrap to the first song
+  queued whenever a few quick skips outran a top-up on a slow connection, which replayed the songs the drive
+  started with (Adam's truck, 2026-11-21; `DEMO_SLOW_MS=1500` and `-TruffleScene shuffle -TruffleSteps 9`
+  show it). Starting an endless shuffle turns Repeat All off, and the repeat button there only offers
+  Repeat One. A fetch that fails puts its positions back in the round.
 - **Only buttons Adam uses.** No stations, no lyrics, no library switcher on screen (the library is
   picked automatically; Settings has the picker only when the server has several), no promos.
 - **Never log a token or a full stream/artwork URL** (those carry `X-Plex-Token`). Log paths.
@@ -28,10 +35,11 @@ Truffle/
   Models/     Track/Album/Artist/Playlist, AppSettings
   Library/    MusicLibrary (+Browse, +Mixes, +Edits), ShuffleWalk, Seasons, Mixes, LibraryStore
   Playback/   PlayerEngine (two AVQueuePlayer decks: gapless preload, crossfades in shuffles), PlayQueue and
-              Crossfade (pure rules), DataSaver (+ NetworkCost), Loudness, PlexReporter (timeline),
+              Crossfade (pure rules), DataSaver (+ NetworkCost), Buffering (+ WeakSignal), Loudness, PlexReporter (timeline),
               NowPlayingController, ArtworkCache, SongCache (songs saved for the car), AudioSessionManager
-  CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library; Now Playing: back 15,
-              heart, repeat, and the album name opens the album), CarAutoplay, CarLog
+  CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library: a grid of letters, each
+              opening its artists, then Recently Added; Now Playing: back 15, heart, repeat, and the album name
+              opens the album), CarLetters, CarAutoplay, CarLog
   Demo/       DemoServer + DemoLibrary: "Take it for a spin", the invented library served on 127.0.0.1
               from inside the app (a port of scripts/demo_server.py; assets in Resources/DemoLibrary)
   Views/      Root, SignIn, Home, Library, Search, Player, Settings, Components, Seasonal (the backdrop,
@@ -65,7 +73,9 @@ make demo                 # build, install, launch against the demo server
 
 The demo server answers the requests Truffle makes the way PMS 1.43 does, so the whole app (mixes,
 history, likes, playlists, artwork, streaming) runs without a Plex account. Screenshots for anything
-public come from it, never from Adam's library.
+public come from it, never from Adam's library. It can also be a bad connection: `DEMO_SLOW_MS=1500` answers
+the library late, `DEMO_AUDIO_KBPS=270` sends songs at that rate, and `DEMO_FLAC=1` serves them as FLAC
+(about 335 kbps; the AAC ones are 97), which is what Adam's library is and buffers nothing like AAC in MP4.
 
 The app carries the same library inside it: "Take it for a spin" on the sign-in screen starts
 `DemoServer` on 127.0.0.1, and that's how App Review gets in (they have no Plex server). Its history runs
@@ -77,7 +87,8 @@ To undo, delete `demo.active` from the app container's `Library/Preferences/com.
 never Sign Out there, which clears the real sign-in.
 
 Debug switches for playback: `-settings.crossfade 6`, `-settings.dataSaver YES`, `-TruffleCellular YES` (acts
-as if on cellular), and `-TruffleScene crossfade|crossfade-cut|album`, which jump near the end of a song so the
+as if on cellular), `-TruffleBufferHands off` (the buffering rules only log, to measure against), and
+`-TruffleScene crossfade|crossfade-cut|album`, which jump near the end of a song so the
 transition shows in the logs within seconds. Taps from simulator automation often don't land; use these.
 
 ## Testing against Adam's real server
@@ -205,9 +216,11 @@ going to the car, and how long until sound ("Sound 0.4 s after Play command, fro
 came within 45 s and what the player was stuck on. It survives relaunches, unlike the unified log, so ask
 Adam to share it when a drive didn't play.
 
-`SongCache` saves the song playing (or paused) and the next three to Caches, through a background
+`SongCache` saves the song playing (or paused) and the next five to Caches, through a background
 URLSession that only uses Wi-Fi: pausing in the car and walking into the house still saves tomorrow's song,
-and a saved song plays with no server at all. `makeItem` plays from disk when the file's there; a saved file
+and a saved song plays with no server at all. Downloads go one at a time, current song first, and a song
+that's playing as a stream isn't downloaded as well until it's paused: four at once plus the stream used to
+share the connection. `makeItem` plays from disk when the file's there; a saved file
 that fails is deleted and the song streams. Least recently used goes first past 1 GB; signing out clears it;
 the demo never saves (its server lives in the app). A download that fails reconnects and tries once more
 (the queued URL may be the public address from the drive home). Playback waits only for an address
@@ -218,6 +231,40 @@ only where it lands; paused, it saves at once. A skip while waiting for an addre
 Debug: `-TruffleScene car` runs the car's connect path; with `-TruffleServerURL` (the demo server, whose
 machine id isn't the in-app demo's) songs save from the simulator too. Watch `[cache]` and `[carlog]`.
 
+A resume writes where it picked up ("song 8 of 15, 1:30 in, endless shuffle, repeat off"), so a drive that
+starts on the wrong song can be read back. A debug build's container comes off Adam's phone with
+`xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.vanities.truffle`
+(`Library/Application Support/Truffle/car-log.json` and `player.json`, the saved queue); the unified log needs
+`sudo log collect`.
+
+## Buffering
+
+AVPlayer decides when a stream starts (`automaticallyWaitsToMinimizeStalling`), and `Buffering` steps in for
+the three waits that cost the most. While the current song waits, `PlayerEngine.watchBuffer` samples it twice
+a second and logs `[buffer]` lines with what it saw:
+
+- **start**: a few seconds are in and more is arriving at 1.3 times the speed it plays, so
+  `playImmediately`. Each early start on a song asks for twice as much in hand.
+- **lighter**: it's arriving slower than it plays. The song carries on from where it is as Plex's 192 kbps
+  stream (Data Saver's transcode, whether or not Data Saver is on; the player says WEAK SIGNAL), and so do
+  new songs for 5 minutes, then 10, then 20 (`WeakSignal`), until a new network or server address.
+- **reconnect**: nothing arrived for 10 s (bytes count, not only buffered time). Find the server again and
+  load the song from where it was, twice a song at most. It never skips the song: with no signal every song
+  would go the same way.
+
+Measured in the simulator against `scripts/demo_server.py` (2026-11-21), which is the only place this has
+run; none of it has been on a phone on a real weak signal yet:
+
+- A FLAC arriving faster than it plays (1.3, 2 and 5 times) starts in 0.5 s with or without the rules.
+- A FLAC arriving at 0.8 times its bitrate plays 10 s and runs dry. Left to AVPlayer it stays silent until
+  about a fifth of the song is in hand. With the rules it moves to the lighter stream after 4 s. The demo's
+  transcode is one whole-song segment, so its restart is slower than a real PMS's short segments.
+- An AAC song in an MP4 whose index is at the end reports nothing buffered while it downloads, and sat
+  silent 19 s arriving at five times its bitrate. Bytes are the only sign of life there, which is why
+  `reconnect` counts them: a first version that didn't kept reloading a healthy download.
+
+`loadedTimeRanges` is the measure for FLAC; `accessLog()` has no indicated bitrate for it.
+
 ## Conventions
 
 - Swift 5 language mode, `SWIFT_STRICT_CONCURRENCY = complete`; `@MainActor @Observable` models,
@@ -225,6 +272,10 @@ machine id isn't the in-app demo's) songs save from the simulator too. Watch `[c
 - Logging: `os.Logger` categories in `Logger+Truffle.swift`, `[scope]`-prefixed, timed with `Stopwatch`.
 - UI is native iOS 26+ Liquid Glass. Colors come from the season (`SeasonTheme`); keep hit targets
   ≥ 44 pt, this is used in cars.
+- CarPlay refuses a push past five templates for an audio app (an exception, not an error). Tabs, a letter,
+  an artist, an album and Now Playing is all five, so everything goes through `CarPlayInterface.push`, which
+  returns to the tabs first when the stack is full; `showNowPlaying` goes back to Now Playing when it's
+  already underneath. The car's screens can't be scripted in the simulator: check them in a car.
 - Artists and Albums carry an A to Z index down the right edge (`IndexBar`, `IndexLetters`): only in name,
   title or artist order, with 40 or more rows and no filter typed, so the demo's short lists never show it
   (look at it on a real library). It files by Plex's `titleSort`.
@@ -288,7 +339,8 @@ prints each screen's accessibility tree.
   Home Screen and shows the sign-in, plus purpose, audience, setup, external services, regional
   differences and third-party material; `REVIEW_NOTES` answers those in Apple's numbering. For an update,
   `REVIEW_NOTES` leads with what changed and where to see it in the sample library, and keeps those
-  answers after it (1.3.0, submitted 2026-11-16, with no recording attached).
+  answers after it (1.3.0, submitted 2026-11-16, with no recording attached, approved and released by
+  2026-11-21; main moved to 1.4.0 with the truck fixes).
 - Store screenshots come from the demo server. Launch a debug build with
   `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
   (2064x2752) simulator, save captures to `marketing/raw/{iphone,ipad}/`, then

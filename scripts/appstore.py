@@ -34,7 +34,7 @@ spec = importlib.util.spec_from_file_location("tf", ROOT / "testflight.py")
 tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 LOCALE = "en-US"
 SITE = "https://am2.biz/truffle"
 
@@ -75,18 +75,14 @@ Likes, artists, albums, search, sorting, Recently Added and Recently Played, a q
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",
     "keywords": "carplay,shuffle,random,flac,lossless,playlist,mixes,seasonal,halloween,christmas,server,nas",
-    "whatsNew": """Thanks for the bug reports. Keep them coming: Settings > About > Report a Bug.
+    "whatsNew": """FIXED
+• Shuffle All never circles back to songs it already played. With Repeat All left on, a few quick skips on a slow connection sent it back to where the drive started.
+• Skipping past the last song queued waits for the next ones instead of doing nothing.
 
 NEW
-• Artists and Albums get A to Z letters down the right edge. Tap or slide to jump.
-• Bigger covers in the album grids and on album and playlist pages.
-• The song you're on and the next three save to your phone over Wi-Fi, so the car has music before it has signal.
-• A Resume shortcut, made for a When CarPlay Connects automation.
-• The app icon is the record now, and it dresses up for the holidays.
-
-FIXED
-• An artist's page shows every release. EPs, live albums, compilations and soundtracks were missing.
-• Skipping while Truffle is still connecting no longer starts the next song partway in.""",
+• In the car, Library opens on a grid of letters. Tap one for its artists.
+• On a weak signal, a song that can't keep up moves to a lighter stream in a few seconds instead of going silent.
+• Five songs ahead are saved for the car, up from three.""",
     "copyright": "2026 AM2 LLC",
     "supportUrl": f"{SITE}/support",
     "marketingUrl": SITE,
@@ -136,18 +132,17 @@ BETA_REVIEW_NOTES = """Truffle is a music player for Plex Media Server. Signing 
 
 Audio keeps playing in the background, on the lock screen and in CarPlay, which is why audio is declared in UIBackgroundModes. The app has no developer-operated backend and collects no data."""
 
-# 1.3.0 is an update, so the notes lead with what changed and where to see it. Sections 2 to 6 are the answers
-# App Review asked a new app for ("Guideline 2.1 - Information Needed - New App Submission", 1.1.0,
-# 2026-10-31); they stay because they are still true and a new reviewer may want them. That request's screen
-# recording was attached to 1.2.0 with `review-attachment`; an update that leaves sign-in alone doesn't need one.
-REVIEW_NOTES = """Truffle 1.3.0 is an update to 1.2.0, which App Review approved on 2026-11-01. Sign-in, accounts, data and external services are unchanged.
+# An update's notes lead with what changed and where to see it. Sections 2 to 6 are the answers App Review
+# asked a new app for ("Guideline 2.1 - Information Needed - New App Submission", 1.1.0, 2026-10-31); they
+# stay because they are still true and a new reviewer may want them. That request's screen recording was
+# attached to 1.2.0 with `review-attachment`; an update that leaves sign-in alone doesn't need one.
+REVIEW_NOTES = """Truffle 1.4.0 is an update to 1.3.0, which is on the App Store. Sign-in, accounts, data and external services are unchanged.
 
-1. WHAT CHANGED IN 1.3.0
-- An artist's page lists every release. It used to leave out EPs, live albums and compilations. In the sample library: Library > Artists > Low Tide Club now shows the EP "A Low Tide Christmas".
-- Larger covers in the album grids and at the top of album and playlist pages.
-- Library > Artists and Library > Albums show A to Z letters down the right edge to jump through a long list. They appear on lists of 40 or more, so the sample library (12 artists, 23 albums) is too short to show them.
-- With a Plex server, the song playing and the next three are saved on the phone over Wi-Fi so playback can start in the car before the server is reachable (not in the sample library). A Resume shortcut picks up where the person left off.
-- The app icon is a record that dresses up for holidays (Settings > Holiday Icons).
+1. WHAT CHANGED IN 1.4.0
+- Shuffle All no longer returns to songs it already played when Repeat was left on All.
+- CarPlay: the Library tab opens on a grid of letters; a letter lists its artists. The sample library shows it too.
+- On a slow connection, a song that can't arrive fast enough continues as a lower-bitrate stream from the same Plex server (the stream Data Saver already uses). No new services.
+- More songs are saved on the phone over Wi-Fi for the next drive (not in the sample library).
 
 2. PURPOSE AND AUDIENCE
 Truffle is for people who keep their own music collection on a Plex Media Server, Plex's free server software for a home computer or NAS. It plays their own songs from their own server on iPhone, iPad and CarPlay. The problem it solves: playing a big home music collection simply, especially while driving. The value: a CarPlay screen with a few big buttons, a Shuffle All that's truly random (every song once before any song twice), seasonal mixes made from the person's own library, likes, playlists they build themselves, and listening stats. Their music stays on their own server, at full quality.
