@@ -117,6 +117,7 @@
 		D753F61EBEE80A8763D3E7E1 /* SortOrders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946860EFD0A5B2F192107B56 /* SortOrders.swift */; };
 		D86A240D99950A933B372591 /* HeaderCoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7970D81C898CD58F471BF0B /* HeaderCoverTests.swift */; };
 		D90AD28B723508C981C6112E /* SeasonColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97AEE170D0E78795C407AFC7 /* SeasonColors.swift */; };
+		DB83CA0B649333CBB7633EFB /* CarLetters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2378DA2165148A0086570CDE /* CarLetters.swift */; };
 		DC3C70D784623E6DCF0F8820 /* Crossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97246DE9F1386157C9A7CD9 /* Crossfade.swift */; };
 		DE5090CA74EAC6D319492A84 /* MusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941D765F06A3A146405A71E3 /* MusicModels.swift */; };
 		DF3B0F277257307A2B2C2674 /* MixMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AC97A6725EB5FE03531E1E /* MixMenu.swift */; };
@@ -129,6 +130,7 @@
 		E8A37BB29ACBA87BA9ECF9C7 /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC9D75A16617DB3DFB87577 /* ListeningStats.swift */; };
 		E9CC9A67004CB8B5FA047EBD /* Glows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6477956440F634268BE9AEEB /* Glows.swift */; };
 		EB20EF9F71EC5DB2DDC4BB4F /* PlexQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8313876A2644C87F5AF9782 /* PlexQuery.swift */; };
+		EBCE43BDAF1A324741282BEA /* CarLettersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D7FF252C15938B6D1140D61 /* CarLettersTests.swift */; };
 		EC48FFE56343696EB5B3657F /* Logger+Truffle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2698F08657BB26BCFBFB3B5 /* Logger+Truffle.swift */; };
 		EC4C3726F5115C37CAFBEABC /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE1D853E8D7A907E6B84272 /* AppEnvironment.swift */; };
 		F02BA428F27F32129B2535D6 /* PlexAccountClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAE1E41BDC9D31BC73536E5 /* PlexAccountClient.swift */; };
@@ -211,11 +213,13 @@
 		1924EFE6A49592C8FEF4DDDC /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		193E78D80BF538C781E0CBC4 /* SeasonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonStyle.swift; sourceTree = "<group>"; };
 		1CE5DF68DCB842D13B3D721D /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		1D7FF252C15938B6D1140D61 /* CarLettersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarLettersTests.swift; sourceTree = "<group>"; };
 		1DB79EE6236E51A46E0E72D5 /* ConnectionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPicker.swift; sourceTree = "<group>"; };
 		1DD09D62F8071E0E7E42DC30 /* PlaylistBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBuilderTests.swift; sourceTree = "<group>"; };
 		1ED8E2B2E1EC50EAF98C243B /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		1FC681831325BFA36ECD7C96 /* PlexIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlexIdentity.swift; sourceTree = "<group>"; };
 		2347B35EC9F89BD3BBBF90BF /* SongCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongCacheTests.swift; sourceTree = "<group>"; };
+		2378DA2165148A0086570CDE /* CarLetters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarLetters.swift; sourceTree = "<group>"; };
 		23918BF36C58CF1CA1B755D5 /* CarLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarLogTests.swift; sourceTree = "<group>"; };
 		2426C033908AF205ABB46E95 /* Mixes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mixes.swift; sourceTree = "<group>"; };
 		24E355597E49656183E679C0 /* StatsParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsParts.swift; sourceTree = "<group>"; };
@@ -459,6 +463,7 @@
 			isa = PBXGroup;
 			children = (
 				8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */,
+				2378DA2165148A0086570CDE /* CarLetters.swift */,
 				58344E666FAB24A317B24FE1 /* CarLog.swift */,
 				8A88F6A0728040BCA6C797FC /* CarPlayInterface.swift */,
 				7C8CD3111915B6E55B0A47B3 /* CarPlaySceneDelegate.swift */,
@@ -682,6 +687,7 @@
 				F87D33A8F1EAA07EA1B59705 /* BufferingTests.swift */,
 				BB6861EAFF9D79616BF5A87C /* BugReportTests.swift */,
 				AFCBEE1951336AD8E5398F61 /* CarAutoplayTests.swift */,
+				1D7FF252C15938B6D1140D61 /* CarLettersTests.swift */,
 				23918BF36C58CF1CA1B755D5 /* CarLogTests.swift */,
 				C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */,
 				CA75FED8C2606B57ED4D81C1 /* ContrastTests.swift */,
@@ -885,6 +891,7 @@
 				8074D628EEA598EE877548CF /* BufferingTests.swift in Sources */,
 				393FCFD98A55D7406EA25E02 /* BugReportTests.swift in Sources */,
 				0B099CE0D1CE2444F544DF4C /* CarAutoplayTests.swift in Sources */,
+				EBCE43BDAF1A324741282BEA /* CarLettersTests.swift in Sources */,
 				0268C8E3877B3899318B6B72 /* CarLogTests.swift in Sources */,
 				E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */,
 				6485718E4F623C7D90F4739E /* ContrastTests.swift in Sources */,
@@ -944,6 +951,7 @@
 				6A2DD6B62AA756B73F215795 /* Buffering.swift in Sources */,
 				5D7B232D65AB4EEAB5C8FC53 /* BugReport.swift in Sources */,
 				C17A0EDE3BCF44C2D8186DC6 /* CarAutoplay.swift in Sources */,
+				DB83CA0B649333CBB7633EFB /* CarLetters.swift in Sources */,
 				2D9DC8F61BB3BD571DD835BF /* CarLog.swift in Sources */,
 				636CF61F84EC8FF36E0F4C1C /* CarLogView.swift in Sources */,
 				2D8DAEC6FDC331AE6F5146F4 /* CarPlayInterface.swift in Sources */,

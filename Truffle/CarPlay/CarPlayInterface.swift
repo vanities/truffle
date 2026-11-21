@@ -119,27 +119,74 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         playlistsTemplate?.updateSections([CPListSection(items: playlistItems)])
 
         var sections: [CPListSection] = []
+        let letters = letterRows()
+        if !letters.isEmpty { sections.append(CPListSection(items: letters, header: "Artists", sectionIndexTitle: nil)) }
         let recent = library.recentlyAdded.prefix(12).map { album in
             let item = listItem(title: album.title, detail: album.artist, symbol: "square.stack.fill") { [weak self] in self?.open(album) }
             loadArtwork(album.thumb, into: item)
             return item
         }
         if !recent.isEmpty { sections.append(CPListSection(items: Array(recent), header: "Recently Added", sectionIndexTitle: nil)) }
-        var remaining = limit - recent.count
-        let byLetter = Dictionary(grouping: library.artists) { String($0.title.prefix(1)).uppercased() }
-        for letter in byLetter.keys.sorted() where remaining > 0 && sections.count < CPListTemplate.maximumSectionCount {
-            let artists = Array((byLetter[letter] ?? []).prefix(remaining))
-            remaining -= artists.count
-            let items = artists.map { artist in
-                listItem(title: artist.title, detail: artist.albumCount.map { $0.counted("album") }, symbol: "music.mic") { [weak self] in
-                    self?.open(artist)
-                }
-            }
-            sections.append(CPListSection(items: items, header: letter, sectionIndexTitle: letter))
-        }
         libraryTemplate?.updateSections(sections)
         Logger.carplay.debug("[carplay] lists refreshed in \(sw.ms, format: .fixed(precision: 0))ms")
     }
+
+    /// The artists' first letters as a grid of tiles that wraps to the car's screen.
+    private func letterRows() -> [CPListImageRowItem] {
+        let groups = CarLetters.groups(library.artists)
+        let size = CPListImageRowItemGridElement.maximumImageSize
+        let scale = interfaceController.carTraitCollection.displayScale
+        let color = UIColor(season.theme.accentColor)
+        return CarLetters.rows(groups, atMost: Int(CPMaximumNumberOfGridImages)).map { row in
+            let elements = row.map { group in
+                let element = CPListImageRowItemGridElement(image: CarLetters.tile(group.letter, size: size, scale: scale, color: color))
+                if #available(iOS 26.4, *) {
+                    element.accessibilityLabel = group.letter == IndexLetters.other
+                        ? "Artists filed under numbers and symbols" : "Artists starting with \(group.letter)"
+                }
+                return element
+            }
+            let item = CPListImageRowItem(text: nil, gridElements: elements, allowsMultipleLines: true)
+            item.listImageRowHandler = { [weak self] _, index, completion in
+                MainActor.assumeIsolated {
+                    if row.indices.contains(index) { self?.open(row[index]) }
+                }
+                completion()
+            }
+            // The row itself (not a tile) does nothing.
+            item.handler = { _, completion in completion() }
+            return item
+        }
+    }
+
+    /// One letter's artists.
+    private func open(_ group: CarLetters.Group) {
+        Logger.carplay.info("[carplay] artists under \(group.letter, privacy: .public): \(group.artists.count)")
+        let items = group.artists.prefix(CPListTemplate.maximumItemCount).map { artist in
+            listItem(title: artist.title, detail: artist.albumCount.map { $0.counted("album") }, symbol: "music.mic") { [weak self] in
+                self?.open(artist)
+            }
+        }
+        let template = CPListTemplate(title: group.letter == IndexLetters.other ? "0–9 and symbols" : group.letter,
+                                      sections: [CPListSection(items: Array(items))])
+        push(template)
+    }
+
+    /// CarPlay lets an audio app go `maximumDepth` templates deep and refuses the next. Letter, artist,
+    /// album and Now Playing under the tabs is all of it, so a push from there (the album button on Now
+    /// Playing) goes back to the tabs first.
+    private func push(_ template: CPTemplate) {
+        guard interfaceController.templates.count >= Self.maximumDepth else {
+            interfaceController.pushTemplate(template, animated: true, completion: nil)
+            return
+        }
+        Logger.carplay.info("[carplay] \(self.interfaceController.templates.count) templates deep; back to the tabs before going on")
+        interfaceController.popToRootTemplate(animated: false) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.interfaceController.pushTemplate(template, animated: true, completion: nil) }
+        }
+    }
+
+    private static let maximumDepth = 5
 
     private func listItem(title: String, detail: String?, symbol: String, action: @escaping () -> Void) -> CPListItem {
         let item = CPListItem(text: title, detailText: detail, image: UIImage(systemName: symbol))
@@ -176,7 +223,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
     private func open(_ artist: Artist) {
         let template = CPListTemplate(title: artist.title, sections: [])
         template.emptyViewTitleVariants = ["Loading…"]
-        interfaceController.pushTemplate(template, animated: true, completion: nil)
+        push(template)
         Task { [weak self] in
             guard let self else { return }
             let albums = (try? await library.albums(of: artist)) ?? []
@@ -203,7 +250,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
     private func pushSongs(title: String, shuffle: (() -> Void)?, load: @escaping () async throws -> [Track], source: PlaySource) {
         let template = CPListTemplate(title: title, sections: [])
         template.emptyViewTitleVariants = ["Loading…"]
-        interfaceController.pushTemplate(template, animated: true, completion: nil)
+        push(template)
         Task { [weak self] in
             guard let self else { return }
             let tracks = (try? await load()) ?? []
@@ -283,8 +330,14 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
     }
 
     func showNowPlaying() {
-        guard interfaceController.topTemplate !== CPNowPlayingTemplate.shared else { return }
-        interfaceController.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
+        let nowPlaying = CPNowPlayingTemplate.shared
+        guard interfaceController.topTemplate !== nowPlaying else { return }
+        // Already under what's showing (an album opened from Now Playing): go back to it, don't stack another.
+        if interfaceController.templates.contains(where: { $0 === nowPlaying }) {
+            interfaceController.pop(to: nowPlaying, animated: true, completion: nil)
+            return
+        }
+        push(nowPlaying)
     }
 
     nonisolated func nowPlayingTemplateUpNextButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {
@@ -309,7 +362,10 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.player.jump(to: self.player.queue.index + 1 + offset)
-                    self.interfaceController.popTemplate(animated: true, completion: nil)
+                    // Back to Now Playing, wherever Up Next was pushed from (`push` may have gone via the tabs).
+                    self.interfaceController.popTemplate(animated: true) { [weak self] _, _ in
+                        MainActor.assumeIsolated { self?.showNowPlaying() }
+                    }
                 }
                 completion()
             }
@@ -317,7 +373,7 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
         }
         let template = CPListTemplate(title: "Up Next", sections: [CPListSection(items: items)])
         template.emptyViewTitleVariants = ["Nothing up next"]
-        interfaceController.pushTemplate(template, animated: true, completion: nil)
+        push(template)
     }
 
     // MARK: - Observation
@@ -346,6 +402,8 @@ final class CarPlayInterface: NSObject, CPNowPlayingTemplateObserver {
             Task { @MainActor [weak self] in
                 guard let self, self.observing else { return }
                 self.homeTemplate?.updateGridButtons(self.homeButtons())
+                // The letter tiles wear the season's color too.
+                self.refreshLists()
                 self.observeSeason()
             }
         }
