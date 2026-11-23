@@ -327,8 +327,9 @@ prints each screen's accessibility tree.
   Connect, not in this repo; the first one has to be created from Xcode (Integrate → Create Workflow),
   because the API can't create an Xcode Cloud product.
 - The listing: `uv run --script scripts/appstore.py setup` (idempotent), `screenshots marketing/iphone`,
-  `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `release` (an approved version held for a
-  manual release), `accessibility [--publish]` (the store page's Accessibility labels, from `ACCESSIBILITY`;
+  `screenshots marketing/ipad`, `attach-build`, `submit`, `cancel` (pull it back out of review), `release` (only for a version held with
+  `RELEASE_TYPE = "MANUAL"`; the default, `AFTER_APPROVAL`, puts an approved version on the App Store by itself,
+  so submitting is the last step and nothing goes to review that isn't ready for everyone), `accessibility [--publish]` (the store page's Accessibility labels, from `ACCESSIBILITY`;
   VoiceOver and Voice Control stay off until they're checked on a phone), `status`. App Privacy ("Data Not Collected")
   can only be set on the web.
 - App Review's messages are only in App Store Connect (the app's App Review page, or the App Store Connect

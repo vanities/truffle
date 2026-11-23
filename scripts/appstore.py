@@ -16,7 +16,7 @@ Idempotent: safe to re-run. Reads credentials like scripts/testflight.py.
   uv run --script scripts/appstore.py beta-review           # TestFlight's beta review notes: the demo, no sign-in
   uv run --script scripts/appstore.py submit [--dry-run]    # send the editable version to App Review, or resubmit a rejected one
   uv run --script scripts/appstore.py cancel                # pull it back out ("Remove from Review"), to change it
-  uv run --script scripts/appstore.py release               # put an approved version (manual release) on the App Store
+  uv run --script scripts/appstore.py release               # put an approved version on the App Store, if it was held (RELEASE_TYPE "MANUAL")
   uv run --script scripts/appstore.py accessibility [--publish]  # the store's Accessibility labels, per device (ACCESSIBILITY)
 """
 from __future__ import annotations
@@ -35,6 +35,8 @@ tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
 VERSION = "1.4.0"
+# An approved version goes to the App Store by itself. "MANUAL" holds it for `release`.
+RELEASE_TYPE = "AFTER_APPROVAL"
 LOCALE = "en-US"
 SITE = "https://am2.biz/truffle"
 
@@ -197,8 +199,8 @@ def editable_version(asc: Store, app_id: str, create: bool) -> dict | None:
             return version
     if not create:
         return None
-    created = asc.post("/v1/appStoreVersions", {"data": {"type": "appStoreVersions", "attributes": {"platform": "IOS", "versionString": VERSION, "releaseType": "MANUAL"}, "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}})
-    print(f"  ✓ created version {VERSION} (manual release)")
+    created = asc.post("/v1/appStoreVersions", {"data": {"type": "appStoreVersions", "attributes": {"platform": "IOS", "versionString": VERSION, "releaseType": RELEASE_TYPE}, "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}})
+    print(f"  ✓ created version {VERSION} (release: {RELEASE_TYPE})")
     return created["data"]
 
 
@@ -299,7 +301,7 @@ def cmd_setup(asc: Store, phone: str | None) -> None:
             attrs.pop("whatsNew")  # not editable on an app's first version
             result = asc.patch_ok(f"/v1/appStoreVersionLocalizations/{loc['id']}", {"data": {"type": "appStoreVersionLocalizations", "id": loc["id"], "attributes": attrs}})
         report(f"version {version['attributes']['versionString']} copy (description, keywords, URLs)", result)
-        report(f"version {VERSION}: manual release, copyright", asc.patch_ok(f"/v1/appStoreVersions/{version['id']}", {"data": {"type": "appStoreVersions", "id": version["id"], "attributes": {"versionString": VERSION, "releaseType": "MANUAL", "copyright": COPY["copyright"]}}}))
+        report(f"version {VERSION}: release {RELEASE_TYPE}, copyright", asc.patch_ok(f"/v1/appStoreVersions/{version['id']}", {"data": {"type": "appStoreVersions", "id": version["id"], "attributes": {"versionString": VERSION, "releaseType": RELEASE_TYPE, "copyright": COPY["copyright"]}}}))
 
         set_review_details(asc, version["id"], phone)
 
@@ -478,7 +480,7 @@ def cmd_cancel(asc: Store) -> None:
 
 
 def cmd_release(asc: Store) -> None:
-    """Release the version App Review approved and is holding for us (release=MANUAL)."""
+    """Release a version App Review approved and is holding (only when it was set to MANUAL)."""
     app = asc.app() or sys.exit("no app record")
     versions = asc.get(f"/v1/apps/{app['id']}/appStoreVersions", {"filter[platform]": "IOS", "filter[appVersionState]": "PENDING_DEVELOPER_RELEASE", "fields[appStoreVersions]": "versionString,appVersionState"})["data"]
     if not versions:
