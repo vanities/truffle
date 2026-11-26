@@ -227,9 +227,9 @@ happening" came with three drives in the log that all started in under 2 s, and 
 
 `SongCache` saves the song playing (or paused) and the next five to Caches, through a background
 URLSession: pausing in the car and walking into the house still saves tomorrow's song,
-and a saved song plays with no server at all. Each download waits for Wi-Fi unless Save Ahead on Cellular is
-on (Settings, CarPlay; off by default, because every song skipped past is data spent, and ignored while
-Data Saver is on). Never in Low Data Mode. With it on, a drive longer than the six songs saved at home keeps
+and a saved song plays with no server at all. Each download may use cellular unless Save Ahead on Cellular is turned
+off (Settings, CarPlay; on by default since 1.5.0, Adam's call on 2026-11-26, though every song skipped past
+is data spent; it stands down while Data Saver is on). Never in Low Data Mode. With it on, a drive longer than the six songs saved at home keeps
 playing from the phone instead of streaming FLAC through every dead zone. Downloads stand aside
 (`SongCache.yield`) while the song that's playing waits on the same connection, and a song saved after its
 stream was readied behind the one playing is readied again from the file (`onSaved`). Checked in the

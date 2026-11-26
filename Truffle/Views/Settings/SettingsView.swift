@@ -82,7 +82,7 @@ struct SettingsView: View {
                 } header: {
                     Text("CarPlay")
                 } footer: {
-                    Text("Hop in and it picks up where you left off. On Wi-Fi, the next few songs save to your phone, so it starts even in the garage. Save Ahead on Cellular keeps saving on the road, so a dead zone doesn't stop the music. Songs you skip still use data.")
+                    Text("Hop in and it picks up where you left off. The next few songs save to your phone, so it starts even in the garage and a dead zone doesn't stop the music. Turn off Save Ahead on Cellular to save on Wi-Fi only; on cellular, songs you skip still use data.")
                 }
                 .id("car")
                 .onAppear { savedSongs = Self.savedSongsText() }

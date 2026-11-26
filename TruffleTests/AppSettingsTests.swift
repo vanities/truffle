@@ -20,4 +20,16 @@ final class AppSettingsTests: XCTestCase {
         argued.playInTheCar = true
         XCTAssertTrue(AppSettings(defaults: defaults).playInTheCar, "a toggle in Settings sticks")
     }
+
+    @MainActor
+    func testSavingAheadOnCellularStartsOnAndStaysOffOnceTurnedOff() throws {
+        let suite = "AppSettingsTests.cellular"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let fresh = AppSettings(defaults: defaults)
+        XCTAssertTrue(fresh.saveOnCellular, "on for someone who never touched it, including everyone updating")
+        fresh.saveOnCellular = false
+        XCTAssertFalse(AppSettings(defaults: defaults).saveOnCellular, "turned off, it stays off")
+    }
 }

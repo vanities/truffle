@@ -79,7 +79,7 @@ Source code: github.com/vanities/truffle""",
     "keywords": "carplay,shuffle,random,flac,lossless,playlist,mixes,seasonal,halloween,christmas,server,nas",
     "whatsNew": """NEW
 • In the player, tap the song's name for its album, or "Playing from" for the playlist: cover on top, every song, and Play becomes Pause while it's the one playing.
-• Save Ahead on Cellular (Settings, CarPlay): the next five songs save to your phone on the road too, so a dead zone doesn't stop the music. Off until you turn it on. Songs you skip still use data.
+• The next five songs now save to your phone on cellular too, not only on Wi-Fi, so a dead zone doesn't stop the music. Songs you skip still use data: Settings, CarPlay, Save Ahead on Cellular turns it off, and it stands down with Data Saver on.
 • Mixes Truffle makes on the spot wear an AUTO badge.
 • The Car Log writes down every silence on a drive: how long, what it was streaming, and what Truffle did about it.""",
     "copyright": "2026 AM2 LLC",
@@ -140,7 +140,7 @@ REVIEW_NOTES = """Truffle 1.5.0 is an update to 1.4.0, which is on the App Store
 1. WHAT CHANGED IN 1.5.0
 - Player: tapping the song's name opens its album as a sheet (cover, songs, Play/Pause, Shuffle); tapping "Playing from" opens that playlist or album. To see it in the sample library: Library > Albums > any album > Play, open the player, tap the song's name.
 - Home: mixes that Truffle assembles automatically show an "AUTO" badge. The sample library's hand-picked mix has none.
-- Settings > CarPlay > Save Ahead on Cellular (off by default): when on, the next five songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. Not used in the sample library, which needs no network.
+- Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next five songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. It never runs in Low Data Mode or with Data Saver on. Not used in the sample library, which needs no network.
 - Settings > CarPlay > Car Log now also records pauses in playback (durations and connection type only; no song names, nothing leaves the device).
 
 2. PURPOSE AND AUDIENCE
