@@ -35,7 +35,8 @@ Truffle/
   Models/     Track/Album/Artist/Playlist, AppSettings
   Library/    MusicLibrary (+Browse, +Mixes, +Edits), ShuffleWalk, Seasons, Mixes, LibraryStore
   Playback/   PlayerEngine (two AVQueuePlayer decks: gapless preload, crossfades in shuffles), PlayQueue and
-              Crossfade (pure rules), DataSaver (+ NetworkCost), Buffering (+ WeakSignal), Loudness, PlexReporter (timeline),
+              Crossfade (pure rules), DataSaver (+ NetworkCost), Buffering (+ WeakSignal), Silence (the car log's line for
+              a stretch with no sound), Loudness, PlexReporter (timeline),
               NowPlayingController, ArtworkCache, SongCache (songs saved for the car), AudioSessionManager
   CarPlay/    CarPlaySceneDelegate, CarPlayInterface (Home grid, Playlists, Library: a grid of letters, each
               opening its artists, then Recently Added; Now Playing: back 15, heart, repeat, and the album name
@@ -216,9 +217,24 @@ going to the car, and how long until sound ("Sound 0.4 s after Play command, fro
 came within 45 s and what the player was stuck on. It survives relaunches, unlike the unified log, so ask
 Adam to share it when a drive didn't play.
 
+It also writes down every silence during a drive (`Silence`, from `PlayerEngine.noteSilence`): "Silent 11 s
+mid-song (0:08 in, song 1 of 6): streaming the original on cellular; moved to the lighter stream; 2 of the
+next 5 saved". A song that stops mid-way is written from 1 s, a slow start from 3 s, and a wait still going
+at 30 s gets a line then, in case the app never sees it end. Pause commands, other audio taking over (a call,
+Siri) and the speaker going away each get a line too, so a pause someone made can be told from a song that
+ran dry. Until 2026-11-26 the log only timed how a drive starts: "that pausing thing while driving is still
+happening" came with three drives in the log that all started in under 2 s, and nothing about the pauses.
+
 `SongCache` saves the song playing (or paused) and the next five to Caches, through a background
-URLSession that only uses Wi-Fi: pausing in the car and walking into the house still saves tomorrow's song,
-and a saved song plays with no server at all. Downloads go one at a time, current song first, and a song
+URLSession: pausing in the car and walking into the house still saves tomorrow's song,
+and a saved song plays with no server at all. Each download waits for Wi-Fi unless Save Ahead on Cellular is
+on (Settings, CarPlay; off by default, because every song skipped past is data spent, and ignored while
+Data Saver is on). Never in Low Data Mode. With it on, a drive longer than the six songs saved at home keeps
+playing from the phone instead of streaming FLAC through every dead zone. Downloads stand aside
+(`SongCache.yield`) while the song that's playing waits on the same connection, and a song saved after its
+stream was readied behind the one playing is readied again from the file (`onSaved`). Checked in the
+simulator only (`-TruffleCellular YES -settings.saveOnCellular YES` against `DEMO_FLAC=1 DEMO_AUDIO_KBPS=1500`):
+the simulator has no cellular, so the per-download permission itself has not been seen to work on a phone. Downloads go one at a time, current song first, and a song
 that's playing as a stream isn't downloaded as well until it's paused: four at once plus the stream used to
 share the connection. `makeItem` plays from disk when the file's there; a saved file
 that fails is deleted and the song streams. Least recently used goes first past 1 GB; signing out clears it;
@@ -276,6 +292,16 @@ run; none of it has been on a phone on a real weak signal yet:
   an artist, an album and Now Playing is all five, so everything goes through `CarPlayInterface.push`, which
   returns to the tabs first when the stack is full; `showNowPlaying` goes back to Now Playing when it's
   already underneath. The car's screens can't be scripted in the simulator: check them in a car.
+- The player pulls up a sheet (`AppRouter.playerPage`, `PlayerPage`): the "Playing from" name opens that
+  playlist, album, artist or Liked (a shuffle or a mix Truffle made has no page, so it opens the queue), and
+  the song's name, artist and album are one button for its album. The sheet is the same `AlbumView` /
+  `PlaylistView` the Library pushes. `PlayShuffleButtons(source:)` turns Play into Pause while that source is
+  what's playing. Add to Playlist and the editor present from whatever is on top (`appSheets(onTop:)` on the
+  root, the player and that sheet): from the root alone they silently did nothing under two sheets.
+  `-TruffleScene playerAlbum|playerPlaylist` opens it; add `-TruffleThenEdit YES` to open the editor from it.
+- A mix card with no hand-picked playlist behind it (`curatedPlaylist(for:)` is nil) wears an AUTO badge on
+  Home: it's drawn at random from mood tags or play history each time. The seasonal-mix skill makes the
+  hand-picked ones on the server.
 - Artists and Albums carry an A to Z index down the right edge (`IndexBar`, `IndexLetters`): only in name,
   title or artist order, with 40 or more rows and no filter typed, so the demo's short lists never show it
   (look at it on a real library). It files by Plex's `titleSort`.
@@ -341,7 +367,7 @@ prints each screen's accessibility tree.
   differences and third-party material; `REVIEW_NOTES` answers those in Apple's numbering. For an update,
   `REVIEW_NOTES` leads with what changed and where to see it in the sample library, and keeps those
   answers after it (1.3.0, submitted 2026-11-16, with no recording attached, approved and released by
-  2026-11-21; main moved to 1.4.0 with the truck fixes).
+  2026-11-21; 1.4.0, build 18, submitted 2026-11-21 and live by 2026-11-23; main is 1.5.0).
 - Store screenshots come from the demo server. Launch a debug build with
   `-TruffleScene home|mixes|player|albums|icons` on a 6.9" iPhone (1320x2868) and a 13" iPad
   (2064x2752) simulator, save captures to `marketing/raw/{iphone,ipad}/`, then

@@ -34,7 +34,7 @@ spec = importlib.util.spec_from_file_location("tf", ROOT / "testflight.py")
 tf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tf)  # type: ignore[union-attr]
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 # An approved version goes to the App Store by itself. "MANUAL" holds it for `release`.
 RELEASE_TYPE = "AFTER_APPROVAL"
 LOCALE = "en-US"
@@ -77,14 +77,11 @@ Likes, artists, albums, search, sorting, Recently Added and Recently Played, a q
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",
     "keywords": "carplay,shuffle,random,flac,lossless,playlist,mixes,seasonal,halloween,christmas,server,nas",
-    "whatsNew": """FIXED
-• Shuffle All never circles back to songs it already played. With Repeat All left on, a few quick skips on a slow connection sent it back to where the drive started.
-• Skipping past the last song queued waits for the next ones instead of doing nothing.
-
-NEW
-• In the car, Library opens on a grid of letters. Tap one for its artists.
-• On a weak signal, a song that can't keep up moves to a lighter stream in a few seconds instead of going silent.
-• Five songs ahead are saved for the car, up from three.""",
+    "whatsNew": """NEW
+• In the player, tap the song's name for its album, or "Playing from" for the playlist: cover on top, every song, and Play becomes Pause while it's the one playing.
+• Save Ahead on Cellular (Settings, CarPlay): the next five songs save to your phone on the road too, so a dead zone doesn't stop the music. Off until you turn it on. Songs you skip still use data.
+• Mixes Truffle makes on the spot wear an AUTO badge.
+• The Car Log writes down every silence on a drive: how long, what it was streaming, and what Truffle did about it.""",
     "copyright": "2026 AM2 LLC",
     "supportUrl": f"{SITE}/support",
     "marketingUrl": SITE,
@@ -138,13 +135,13 @@ Audio keeps playing in the background, on the lock screen and in CarPlay, which 
 # asked a new app for ("Guideline 2.1 - Information Needed - New App Submission", 1.1.0, 2026-10-31); they
 # stay because they are still true and a new reviewer may want them. That request's screen recording was
 # attached to 1.2.0 with `review-attachment`; an update that leaves sign-in alone doesn't need one.
-REVIEW_NOTES = """Truffle 1.4.0 is an update to 1.3.0, which is on the App Store. Sign-in, accounts, data and external services are unchanged.
+REVIEW_NOTES = """Truffle 1.5.0 is an update to 1.4.0, which is on the App Store. Sign-in, accounts, data and external services are unchanged.
 
-1. WHAT CHANGED IN 1.4.0
-- Shuffle All no longer returns to songs it already played when Repeat was left on All.
-- CarPlay: the Library tab opens on a grid of letters; a letter lists its artists. The sample library shows it too.
-- On a slow connection, a song that can't arrive fast enough continues as a lower-bitrate stream from the same Plex server (the stream Data Saver already uses). No new services.
-- More songs are saved on the phone over Wi-Fi for the next drive (not in the sample library).
+1. WHAT CHANGED IN 1.5.0
+- Player: tapping the song's name opens its album as a sheet (cover, songs, Play/Pause, Shuffle); tapping "Playing from" opens that playlist or album. To see it in the sample library: Library > Albums > any album > Play, open the player, tap the song's name.
+- Home: mixes that Truffle assembles automatically show an "AUTO" badge. The sample library's hand-picked mix has none.
+- Settings > CarPlay > Save Ahead on Cellular (off by default): when on, the next five songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. Not used in the sample library, which needs no network.
+- Settings > CarPlay > Car Log now also records pauses in playback (durations and connection type only; no song names, nothing leaves the device).
 
 2. PURPOSE AND AUDIENCE
 Truffle is for people who keep their own music collection on a Plex Media Server, Plex's free server software for a home computer or NAS. It plays their own songs from their own server on iPhone, iPad and CarPlay. The problem it solves: playing a big home music collection simply, especially while driving. The value: a CarPlay screen with a few big buttons, a Shuffle All that's truly random (every song once before any song twice), seasonal mixes made from the person's own library, likes, playlists they build themselves, and listening stats. Their music stays on their own server, at full quality.
