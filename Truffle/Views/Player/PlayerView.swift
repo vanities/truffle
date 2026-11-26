@@ -24,6 +24,26 @@ struct PlayerView: View {
         }
         .background { PlayerBackdrop(thumb: player.current?.thumb) }
         .sheet(isPresented: $showsQueue) { QueueView() }
+        .sheet(item: Binding(get: { router.playerPage }, set: { router.playerPage = $0 })) { page in
+            NavigationStack {
+                Group {
+                    switch page {
+                    case .album(let album): AlbumView(album: album)
+                    case .artist(let artist): ArtistView(artist: artist)
+                    case .playlist(let playlist): PlaylistView(playlist: playlist)
+                    case .liked: LikedView()
+                    }
+                }
+                .libraryDestinations()
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close", systemImage: "chevron.down") { router.playerPage = nil }
+                    }
+                }
+            }
+            .appSheets(onTop: true)
+        }
+        .appSheets(onTop: router.playerPage == nil && !showsQueue)
         .presentationDragIndicator(.visible)
     }
 
@@ -133,23 +153,62 @@ struct PlayerView: View {
         }
     }
 
+    /// Tap it for what's playing from: the playlist, album or artist with its songs, or, for a shuffle or a
+    /// mix Truffle put together (which have no page), the queue.
     @ViewBuilder
     private var sourceLabel: some View {
         if let source = player.source {
-            VStack(spacing: 1) {
-                Text(source.kind == .shuffleAll ? "TRUE SHUFFLE" : "PLAYING FROM")
-                    .font(.caption2.weight(.heavy))
-                    .tracking(1.2)
-                    .foregroundStyle(Self.quiet)
-                Text(source.kind == .shuffleAll ? "All \(library.trackCount.grouped) Songs" : source.title)
-                    .font(.footnote.weight(.semibold))
-                    .lineLimit(1, atAccessibilitySizes: nil)
+            Button {
+                open(source)
+            } label: {
+                VStack(spacing: 1) {
+                    Text(source.kind == .shuffleAll ? "TRUE SHUFFLE" : "PLAYING FROM")
+                        .font(.caption2.weight(.heavy))
+                        .tracking(1.2)
+                        .foregroundStyle(Self.quiet)
+                    Text(source.kind == .shuffleAll ? "All \(library.trackCount.grouped) Songs" : source.title)
+                        .font(.footnote.weight(.semibold))
+                        .lineLimit(1, atAccessibilitySizes: nil)
+                }
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .multilineTextAlignment(.center)
+            .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(source.kind == .shuffleAll ? "True shuffle of all \(library.trackCount.grouped) songs"
                                                            : "Playing from \(source.title)")
+            .accessibilityHint(page(for: source) == nil ? "Shows the queue" : "Shows its songs")
+            .accessibilityAddTraits(.isButton)
         }
+    }
+
+    private func page(for source: PlaySource) -> PlayerPage? {
+        switch source.kind {
+        case .album: source.id.flatMap(library.album(id:)).map(PlayerPage.album)
+        case .artist: source.id.flatMap(library.artist(id:)).map(PlayerPage.artist)
+        case .playlist: library.playlists.first { $0.id == source.id }.map(PlayerPage.playlist)
+        case .liked: .liked
+        case .mix, .shuffleAll, .search, .songs: nil
+        }
+    }
+
+    private func open(_ source: PlaySource) {
+        if let page = page(for: source) {
+            Logger.ui.info("[player] open \(page.id, privacy: .public) from the source label")
+            router.playerPage = page
+        } else {
+            showsQueue = true
+        }
+    }
+
+    /// The song's album, with its cover and songs. An album the saved lists don't have yet opens from what
+    /// the song knows of it.
+    private func openAlbum(of track: Track) {
+        guard let id = track.albumID else { return }
+        Logger.ui.info("[player] open album \(id, privacy: .public) from the song's name")
+        router.playerPage = .album(library.album(id: id)
+            ?? Album(id: id, title: track.album, artist: track.artist, artistID: track.artistID, year: track.year, thumb: track.thumb))
     }
 
     private func artwork(for track: Track) -> some View {
@@ -170,25 +229,35 @@ struct PlayerView: View {
             let titleRow = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
                                                         : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
             titleRow {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(track.title)
-                        .font(.title2.weight(.bold))
-                        .lineLimit(1, atAccessibilitySizes: nil)
-                    Text(track.artist)
-                        .font(.title3)
-                        .foregroundStyle(Self.quiet)
-                        .lineLimit(1, atAccessibilitySizes: nil)
-                    if !track.album.isEmpty {
-                        Text(track.year.map { "\(track.album) · \(String($0))" } ?? track.album)
-                            .font(.footnote)
+                // The words are one button for the album: the album's own line is too small to aim at.
+                Button {
+                    openAlbum(of: track)
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(track.title)
+                            .font(.title2.weight(.bold))
+                            .lineLimit(1, atAccessibilitySizes: nil)
+                        Text(track.artist)
+                            .font(.title3)
                             .foregroundStyle(Self.quiet)
                             .lineLimit(1, atAccessibilitySizes: nil)
+                        if !track.album.isEmpty {
+                            Text(track.year.map { "\(track.album) · \(String($0))" } ?? track.album)
+                                .font(.footnote)
+                                .foregroundStyle(Self.quiet)
+                                .lineLimit(1, atAccessibilitySizes: nil)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
+                .disabled(track.albumID == nil)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([track.title, track.artist, track.album, track.year.map { String($0) } ?? ""]
                     .filter { !$0.isEmpty }.joined(separator: ", "))
+                .accessibilityHint(track.albumID == nil ? "" : "Shows the album")
+                .accessibilityAddTraits(track.albumID == nil ? [] : .isButton)
                 LikeButton(track: track)
             }
             ScrubberView()

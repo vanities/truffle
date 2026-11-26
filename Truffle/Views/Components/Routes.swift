@@ -11,6 +11,23 @@ enum Route: Hashable {
     case playlists
 }
 
+/// A page pulled up over the player: what it's playing from, or the song's album.
+enum PlayerPage: Identifiable, Hashable {
+    case album(Album)
+    case artist(Artist)
+    case playlist(Playlist)
+    case liked
+
+    var id: String {
+        switch self {
+        case .album(let album): "album-\(album.id)"
+        case .artist(let artist): "artist-\(artist.id)"
+        case .playlist(let playlist): "playlist-\(playlist.id)"
+        case .liked: "liked"
+        }
+    }
+}
+
 /// App-wide things any screen can ask for: the Add to Playlist sheet, the playlist editor, the player,
 /// a short message.
 @MainActor @Observable
@@ -19,6 +36,8 @@ final class AppRouter {
     /// The playlist editor. Set while Add to Playlist is up, it takes that sheet's place.
     var editingPlaylist: PlaylistDraft?
     var showsPlayer = false
+    /// The sheet over the player (`PlayerView`). Here so a debug scene can open it.
+    var playerPage: PlayerPage?
     var toast: String?
     var libraryPath: [Route] = []
     /// Asks a screen to scroll to a marked spot (store screenshots).

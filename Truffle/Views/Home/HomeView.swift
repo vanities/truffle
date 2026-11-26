@@ -397,6 +397,7 @@ struct MixCard: View {
                 }
                 Spacer()
                 if isStarting { ProgressView().tint(.white) }
+                if curated == nil { AutoBadge() }
             }
             Spacer(minLength: 0)
             Text(curated?.title ?? mix.title)
@@ -436,6 +437,23 @@ struct MixCard: View {
         .shadow(color: colors[1].opacity(0.35), radius: 12, y: 6)
         .seasonalPerch(theme, spot: .mix(variant), cornerRadius: 24)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Marks a mix Truffle puts together itself, from mood tags or play history, new each time it's played. A
+/// hand-picked one (a playlist the seasonal-mix skill made) has none.
+private struct AutoBadge: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        Label("Auto", systemImage: "sparkles")
+            .font(.caption2.weight(.heavy))
+            .textCase(.uppercase)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(.black.opacity(contrast == .increased ? 0.85 : 0.6), in: Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Auto-generated")
     }
 }
 

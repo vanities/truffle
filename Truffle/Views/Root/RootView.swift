@@ -27,15 +27,7 @@ struct RootView: View {
         }
         .animation(.smooth, value: library.phase == .signedOut)
         .modifier(PlayerPresentation(isPresented: $router.showsPlayer))
-        .sheet(item: Binding(get: { router.sheet }, set: { if $0 == nil { router.dismissSheet() } })) { sheet in
-            switch sheet {
-            case .addToPlaylist(let tracks):
-                AddToPlaylistSheet(tracks: tracks)
-                    .presentationDetents([.medium, .large])
-            case .editPlaylist(let draft):
-                PlaylistEditorView(draft: draft)
-            }
-        }
+        .appSheets(onTop: !router.showsPlayer)
         .overlay(alignment: .top) { toast }
         .onChange(of: player.errorMessage) { _, message in
             guard let message else { return }
@@ -62,7 +54,7 @@ struct RootView: View {
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|library|albums|icons|stats|settings|search|album|artist`: opens straight to a
+    /// `-TruffleScene mixes|player|playerAlbum|playerPlaylist|library|albums|icons|stats|settings|search|album|artist`: opens straight to a
     /// screen, for store screenshots and the accessibility audit; `car` and `shuffle` run checks that
     /// can't be tapped through in the simulator.
     /// With `stats` or `settings`, `-TruffleScroll <id>` scrolls down to a card or section.
@@ -134,6 +126,30 @@ struct RootView: View {
             if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
             try? await Task.sleep(for: .seconds(2))
             router.showsPlayer = true
+        case "playerAlbum", "playerPlaylist":
+            // The sheet the player pulls up for the song's album, or for the playlist it's playing from.
+            if scene == "playerAlbum" {
+                guard let album = library.albums.first(where: { ($0.trackCount ?? 0) > 1 }),
+                      let tracks = try? await library.tracks(of: album) else { return true }
+                player.play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
+                try? await Task.sleep(for: .seconds(2))
+                router.showsPlayer = true
+                try? await Task.sleep(for: .seconds(2))
+                router.playerPage = .album(album)
+            } else {
+                guard let playlist = library.playlists.first(where: { !$0.isSmart }),
+                      let tracks = try? await library.allTracks(of: playlist) else { return true }
+                player.play(tracks, source: PlaySource(kind: .playlist, title: playlist.title, id: playlist.id))
+                try? await Task.sleep(for: .seconds(2))
+                router.showsPlayer = true
+                try? await Task.sleep(for: .seconds(2))
+                router.playerPage = .playlist(playlist)
+                // `-TruffleThenEdit YES`: Edit from that sheet, which has the player and the sheet under it.
+                if UserDefaults.standard.bool(forKey: "TruffleThenEdit") {
+                    try? await Task.sleep(for: .seconds(2))
+                    router.editingPlaylist = .editing(playlist)
+                }
+            }
         case "car":
             await connectCarTwice()
         case "shuffle":
@@ -272,6 +288,30 @@ struct RootView: View {
                 .accessibilityAddTraits(.isStaticText)
         }
     }
+}
+
+/// Add to Playlist and the playlist editor. iOS only presents from whatever is on top, so the root, the
+/// player and the page pulled up over the player each carry this, and only the one on top presents. From the
+/// root alone, Edit on a playlist opened over the player did nothing.
+private struct AppSheets: ViewModifier {
+    let onTop: Bool
+    @Environment(AppRouter.self) private var router
+
+    func body(content: Content) -> some View {
+        content.sheet(item: Binding(get: { onTop ? router.sheet : nil }, set: { if $0 == nil, onTop { router.dismissSheet() } })) { sheet in
+            switch sheet {
+            case .addToPlaylist(let tracks):
+                AddToPlaylistSheet(tracks: tracks)
+                    .presentationDetents([.medium, .large])
+            case .editPlaylist(let draft):
+                PlaylistEditorView(draft: draft)
+            }
+        }
+    }
+}
+
+extension View {
+    func appSheets(onTop: Bool) -> some View { modifier(AppSheets(onTop: onTop)) }
 }
 
 /// A sheet on a phone; full screen where there's room (iPad, an open iPhone Duo), so the player's

@@ -219,7 +219,7 @@ struct LikedView: View {
     var body: some View {
         List {
             if !tracks.isEmpty {
-                PlayShuffleButtons(play: { player.play(tracks, source: source) },
+                PlayShuffleButtons(source: source, play: { player.play(tracks, source: source) },
                                    shuffle: { player.play(tracks, source: source, shuffled: true) })
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)

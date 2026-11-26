@@ -50,7 +50,7 @@ struct AlbumView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                PlayShuffleButtons(play: { player.play(tracks, source: source) },
+                PlayShuffleButtons(source: source, play: { player.play(tracks, source: source) },
                                    shuffle: { player.play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id), shuffled: true) })
                     .disabled(tracks.isEmpty)
             }
@@ -208,7 +208,7 @@ struct PlaylistView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                PlayShuffleButtons(play: { player.play(shown, source: source) },
+                PlayShuffleButtons(source: source, play: { player.play(shown, source: source) },
                                    shuffle: { Task { await player.shuffle(current) } })
                     .disabled(tracks.isEmpty)
             }

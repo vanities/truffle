@@ -187,17 +187,25 @@ extension ShelfHeader where Trailing == EmptyView {
 
 /// Play and Shuffle, side by side, at the top of an album, artist or playlist.
 struct PlayShuffleButtons: View {
+    /// What Play would start. While that's what's playing, the button pauses and resumes it instead of
+    /// starting it over.
+    var source: PlaySource?
     let play: () -> Void
     let shuffle: () -> Void
+    @Environment(PlayerEngine.self) private var player
     @Environment(\.onTintColor) private var onTint
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         // Side by side there's only room for "P-lay" at the accessibility text sizes.
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        let isThis = source.map { $0.kind == player.source?.kind && $0.id == player.source?.id } ?? false
+        let sounding = isThis && (player.isPlaying || player.isLoading)
         layout {
-            Button(action: play) {
-                Label("Play", systemImage: "play.fill")
+            Button {
+                if isThis, player.hasTrack { player.togglePlayPause() } else { play() }
+            } label: {
+                Label(sounding ? "Pause" : "Play", systemImage: sounding ? "pause.fill" : "play.fill")
                     .font(.headline)
                     .foregroundStyle(onTint)
                     .frame(maxWidth: .infinity, minHeight: 34)
