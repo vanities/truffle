@@ -75,6 +75,10 @@ final class PlayerEngine {
     @ObservationIgnored private var bufferTries: (song: String, starts: Int, reconnects: Int)?
     /// Set when an original couldn't keep up: new songs stream the lighter copy for a while.
     @ObservationIgnored private var weakSignal = WeakSignal()
+    /// No sound though it should be playing; the car log gets a line when it ends (`Silence`).
+    @ObservationIgnored private var silence: (began: ContinuousClock.Instant, record: Silence, stream: Silence.Stream.Kind, watch: Task<Void, Never>)?
+    /// The item that last made a sound, to tell a song that stopped mid-way from one that hasn't started.
+    @ObservationIgnored private var lastSounding: ObjectIdentifier?
     @ObservationIgnored private var toppingUp = false
     /// Next, or the end of a song, reached the last song queued in an endless shuffle: the top-up moves on
     /// to its first song when it lands. Any other load (a jump, a new queue) takes that over.
@@ -167,6 +171,8 @@ final class PlayerEngine {
                 self.cacheAhead()
             }
         }
+        // A song saved while its stream sat readied behind the one playing: play the file instead.
+        SongCache.shared.onSaved = { [weak self] in self?.preloadNext() }
         library.onSignedOut = { [weak self] in
             self?.stop(clearing: true)
             SongCache.shared.removeAll()
@@ -341,7 +347,8 @@ final class PlayerEngine {
 
     /// Crossfade or Data Saver changed in Settings: the next song gets readied again under the new rules.
     func playbackSettingsChanged() {
-        Logger.player.info("[player] settings: crossfade \(self.settings.crossfadeSeconds)s, data saver \(self.settings.dataSaver)")
+        Logger.player.info("[player] settings: crossfade \(self.settings.crossfadeSeconds)s, data saver \(self.settings.dataSaver), save ahead on cellular \(self.settings.saveOnCellular)")
+        cacheAhead()
         guard player.currentItem != nil else { return }
         preloadNext()
     }
@@ -368,6 +375,7 @@ final class PlayerEngine {
     func pause() {
         // A pause mid-blend ends the blend: on Play, the new song carries on alone.
         endFade(.cut)
+        endSilence(.paused)
         playWhenReady = false
         player.pause()
         if let track = current { reporter.report(.paused, track: track, time: currentTime) }
@@ -471,6 +479,9 @@ final class PlayerEngine {
         nextItem = nil
         playingItem = nil
         retireLeftovers()
+        silence?.watch.cancel()
+        silence = nil
+        SongCache.shared.yield(false)
         playWhenReady = false
         isPlaying = false
         isLoading = false
@@ -656,6 +667,9 @@ final class PlayerEngine {
     private func isFresh(_ item: AVPlayerItem, for track: Track) -> Bool {
         guard item.status != .failed, let info = itemInfo[ObjectIdentifier(item)] else { return false }
         if info.onPhone { return info.track.id == track.id }
+        // Saved since it was readied as a stream: the file needs no signal. Not in the current song's last
+        // seconds, where swapping what comes next could open a gap.
+        if info.track.id == track.id, duration - currentTime > 15, SongCache.shared.contains(track) { return false }
         return info.track.id == track.id && info.endpoint == library.endpoint && info.mode == newSongMode(for: track)
     }
 
@@ -989,6 +1003,7 @@ final class PlayerEngine {
     private func advanceWhenToppedUp(reason: String) {
         Logger.player.info("[player] \(reason, privacy: .public): nothing queued past this song, moving on when the shuffle tops up")
         advanceAfterTopUp = true
+        silence?.record.did("waited for more shuffle songs")
         isLoading = playWhenReady
         notify()
         Task { await topUp() }
@@ -1112,18 +1127,21 @@ final class PlayerEngine {
             // A saved file that won't play goes, and the song streams from the same spot.
             Logger.player.error("[cache] saved \"\(info.track.title, privacy: .public)\" failed: \(error?.localizedDescription ?? "unknown error", privacy: .public); streaming it")
             SongCache.shared.remove(info.track)
+            silence?.record.did("the saved file wouldn't play")
             load(autoplay: playWhenReady, startTime: currentTime)
             return
         }
         if let info = itemInfo[ObjectIdentifier(item)], DataSaver.onFailure(of: info.mode) == .playOriginal {
             // Data Saver never costs a song: the original takes over from the same spot.
             transcodeFailed(info.track, error: error ?? item.error)
+            silence?.record.did("the lighter stream failed")
             load(autoplay: playWhenReady, startTime: currentTime)
             return
         }
         let message = error?.localizedDescription ?? "unknown error"
         Logger.player.error("[player] item failed (attempt \(self.recoveryAttempts + 1)): \(message, privacy: .public)")
         recoveryAttempts += 1
+        silence?.record.did("the stream failed")
         guard recoveryAttempts <= 2 else {
             errorMessage = "\(current?.title ?? "That song") wouldn't play. Skipped it."
             recoveryAttempts = 0
@@ -1196,6 +1214,7 @@ final class PlayerEngine {
                 // Headphones out, or the car disconnected: stop, like every music app.
                 guard reason == .oldDeviceUnavailable, let self, self.playWhenReady else { return }
                 Logger.player.info("[player] audio route lost, pausing")
+                CarLog.shared.note("The speaker it was playing through went away; paused")
                 self.pause()
             }
         })
@@ -1243,6 +1262,7 @@ final class PlayerEngine {
         let playing = status == .playing
         let loading = status == .waitingToPlayAtSpecifiedRate
         watchBuffer()
+        noteSilence(playing: playing)
         guard playing != isPlaying || ((loading || advanceAfterTopUp) && playWhenReady) != isLoading else { return }
         isPlaying = playing
         isLoading = (loading || advanceAfterTopUp) && playWhenReady
@@ -1254,6 +1274,59 @@ final class PlayerEngine {
         }
         Logger.player.debug("[player] status playing=\(playing) loading=\(loading)\(loading ? " (\(self.player.reasonForWaitingToPlay?.rawValue ?? "no reason"))" : "", privacy: .public)")
         notify()
+    }
+
+    // MARK: - Silences
+
+    private func noteSilence(playing: Bool) {
+        if playing {
+            lastSounding = player.currentItem.map(ObjectIdentifier.init)
+            endSilence(.sound)
+        } else if playWhenReady, silence == nil, queue.current != nil {
+            let item = player.currentItem.map(ObjectIdentifier.init)
+            let record = Silence(moment: item != nil && item == lastSounding ? .midSong(at: currentTime) : .songStart)
+            // A stream that ran dry gets the whole connection back from the songs saving behind it.
+            if streamKind != .onPhone { SongCache.shared.yield(true) }
+            let watch = Task { [weak self] in
+                try? await Task.sleep(for: Silence.longWait)
+                guard !Task.isCancelled, let self, let silence = self.silence else { return }
+                // Stopped without a pause (the queue ran out): nothing was waiting to play.
+                guard self.playWhenReady, !self.isPlaying else {
+                    self.silence = nil
+                    return
+                }
+                self.writeSilence(silence.record, began: silence.began, stream: silence.stream, ending: .stillWaiting)
+            }
+            silence = (.now, record, streamKind, watch)
+        }
+    }
+
+    private func endSilence(_ ending: Silence.Ending) {
+        guard let silence else { return }
+        self.silence = nil
+        silence.watch.cancel()
+        SongCache.shared.yield(false)
+        writeSilence(silence.record, began: silence.began, stream: silence.stream, ending: ending)
+    }
+
+    /// What the current song is coming from.
+    private var streamKind: Silence.Stream.Kind {
+        guard let info = playingItem.flatMap({ itemInfo[ObjectIdentifier($0)] }) else { return .nothingLoaded }
+        return info.onPhone ? .onPhone : info.mode == .dataSaver ? .lighter : .original
+    }
+
+    /// `stream` is what the song was coming from when the sound stopped; the steps say what changed after.
+    private func writeSilence(_ record: Silence, began: ContinuousClock.Instant, stream: Silence.Stream.Kind, ending: Silence.Ending) {
+        let elapsed = ContinuousClock.now - began
+        let lasted = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+        // A start the car log is already timing gets that line ("Sound 41.2 s after the car screen opened").
+        guard record.isWorthNoting(lasted: lasted), !(record.moment == .songStart && CarLog.shared.isExpectingSound) else { return }
+        // Nothing was loaded when it began (a start waiting on an address): say what it turned out to be.
+        let kind = stream == .nothingLoaded ? streamKind : stream
+        let ahead = queue.upcoming.prefix(SongCache.ahead)
+        CarLog.shared.note(record.line(lasted: lasted, ending: ending, song: queue.index + 1, of: queue.tracks.count,
+                                       stream: Silence.Stream(kind: kind, cellular: network.isMetered),
+                                       savedAhead: ahead.filter(SongCache.shared.contains).count, ofNext: ahead.count))
     }
 
     // MARK: - Buffering
@@ -1321,6 +1394,7 @@ final class PlayerEngine {
                 case .wait:
                     continue
                 case .start:
+                    self.silence?.record.did("started with \(Int(sample.ahead)) s in hand")
                     self.bufferTries = (track.id, tries.starts + 1, tries.reconnects)
                     self.player.playImmediately(atRate: 1)
                 case .lighter:
@@ -1340,6 +1414,7 @@ final class PlayerEngine {
     /// stream, and so do the next ones, until the connection has had time to change (`WeakSignal`).
     private func playLighterStream(of track: Track) {
         let rest = weakSignal.fellBehind(at: .now)
+        silence?.record.did("moved to the lighter stream")
         Logger.player.info("[buffer] \"\(track.title, privacy: .public)\" can't keep up as \(track.codec ?? "the original", privacy: .public); lighter stream from \(Int(self.currentTime))s, and for the next \(Int(rest / 60)) min")
         load(autoplay: true, startTime: currentTime)
     }
@@ -1368,10 +1443,12 @@ final class PlayerEngine {
             await library.reconnect(reason: "playback stuck")
             guard playingItem === item, playWhenReady else { return }
             guard library.client != nil else {
+                silence?.record.did("nothing arrived for \(Int(Buffering.patience)) s and no server address answered")
                 Logger.player.error("[buffer] no address answered in \(sw.ms, format: .fixed(precision: 0))ms; the song keeps waiting")
                 return
             }
             Logger.player.info("[buffer] reconnected in \(sw.ms, format: .fixed(precision: 0))ms; loading the song again from \(Int(resumeAt))s")
+            silence?.record.did("nothing arrived for \(Int(Buffering.patience)) s, found the server again")
             load(autoplay: true, startTime: resumeAt)
         }
     }
@@ -1380,10 +1457,14 @@ final class PlayerEngine {
         switch type {
         case .began:
             Logger.player.info("[player] interruption began (playing=\(self.playWhenReady))")
+            if playWhenReady { CarLog.shared.note("Other audio took over (a call, Siri, another app); paused") }
             wasPlayingBeforeInterruption = playWhenReady
             pause()
         case .ended:
             Logger.player.info("[player] interruption ended shouldResume=\(options.contains(.shouldResume))")
+            if wasPlayingBeforeInterruption {
+                CarLog.shared.note(options.contains(.shouldResume) ? "Other audio finished; playing again" : "Other audio finished; iOS didn't ask to resume, still paused")
+            }
             if wasPlayingBeforeInterruption, options.contains(.shouldResume) { play() }
             wasPlayingBeforeInterruption = false
         default:
@@ -1431,7 +1512,9 @@ final class PlayerEngine {
         // A song that's playing as a stream is already coming down once; saving it too would halve what the
         // stream gets. Paused, it's saved: it's what the car starts on tomorrow.
         let streaming = playWhenReady && playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }?.onPhone == false
-        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client, notStarting: streaming ? current : nil)
+        // Data Saver is someone watching their data: originals don't come down over cellular for them.
+        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client, notStarting: streaming ? current : nil,
+                              overCellular: settings.saveOnCellular && !settings.dataSaver)
     }
 
     /// For the car log: where a resume picks up, without naming the song.

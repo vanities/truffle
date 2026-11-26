@@ -48,6 +48,7 @@
 		5216B45C37EE09C172D281E2 /* PlexIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC681831325BFA36ECD7C96 /* PlexIdentity.swift */; };
 		54BE4F28339A2CE8719C8044 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED8E2B2E1EC50EAF98C243B /* Keychain.swift */; };
 		551D41950908CB3C76FE0EE2 /* PlexReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C89ED237CF5FF9F021C05866 /* PlexReporter.swift */; };
+		55A6E28904C2A5E26C3DAA4D /* SilenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DFF31124B581501B7A077F /* SilenceTests.swift */; };
 		572BD78C5A21D4D6194593BF /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2B98316C425CB828799899 /* AppSettingsTests.swift */; };
 		599D1103C408D64377E27C06 /* Loudness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A882B9352F6CF3E327749 /* Loudness.swift */; };
 		5AA26471E4783D007FF08AF4 /* Mixes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2426C033908AF205ABB46E95 /* Mixes.swift */; };
@@ -127,6 +128,7 @@
 		E2741E72CF4608960D669E81 /* ConnectionPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C168462122E77FEDDE1CD02B /* ConnectionPickerTests.swift */; };
 		E387909B40E9BBF2D21992D8 /* TruffleWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C795073324498EC00466CD /* TruffleWidgets.swift */; };
 		E44F8441A407EACF71E6B6F9 /* ListeningStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0951FE990A6C60857AF47035 /* ListeningStatsTests.swift */; };
+		E7DE78091E7AB127C1FA7DD4 /* Silence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F40D2ADF028E1C62042A2AB /* Silence.swift */; };
 		E8A37BB29ACBA87BA9ECF9C7 /* ListeningStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC9D75A16617DB3DFB87577 /* ListeningStats.swift */; };
 		E9CC9A67004CB8B5FA047EBD /* Glows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6477956440F634268BE9AEEB /* Glows.swift */; };
 		EB20EF9F71EC5DB2DDC4BB4F /* PlexQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8313876A2644C87F5AF9782 /* PlexQuery.swift */; };
@@ -268,6 +270,8 @@
 		8A88F6A0728040BCA6C797FC /* CarPlayInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayInterface.swift; sourceTree = "<group>"; };
 		8B2D5C6B34E8D1B2C642C069 /* CarAutoplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarAutoplay.swift; sourceTree = "<group>"; };
 		8EB080B6E81A3E406A38AA24 /* PlayIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayIntents.swift; sourceTree = "<group>"; };
+		8F40D2ADF028E1C62042A2AB /* Silence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Silence.swift; sourceTree = "<group>"; };
+		92DFF31124B581501B7A077F /* SilenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceTests.swift; sourceTree = "<group>"; };
 		941D765F06A3A146405A71E3 /* MusicModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicModels.swift; sourceTree = "<group>"; };
 		946860EFD0A5B2F192107B56 /* SortOrders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortOrders.swift; sourceTree = "<group>"; };
 		94D8A369F913CFCE6EB73296 /* IndexLettersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexLettersTests.swift; sourceTree = "<group>"; };
@@ -345,6 +349,7 @@
 				12C4467DDE075AF53657BE39 /* PlayQueue.swift */,
 				7D10FB64FB796DDF3670EF2D /* PlaySource.swift */,
 				C89ED237CF5FF9F021C05866 /* PlexReporter.swift */,
+				8F40D2ADF028E1C62042A2AB /* Silence.swift */,
 				EA1D8BF6A386578F6FDC495C /* SongCache.swift */,
 			);
 			path = Playback;
@@ -708,6 +713,7 @@
 				32F540EBBB6880DBB068427C /* PlexQueryTests.swift */,
 				97A55201F3C7196B21A92BB8 /* SeasonsTests.swift */,
 				D2204D083129C9B501443D97 /* ShuffleWalkTests.swift */,
+				92DFF31124B581501B7A077F /* SilenceTests.swift */,
 				FF445A233631BE98C7F3043D /* SiriTests.swift */,
 				2347B35EC9F89BD3BBBF90BF /* SongCacheTests.swift */,
 				89E692082592629C05878D43 /* WidgetTests.swift */,
@@ -912,6 +918,7 @@
 				048417D4082666EAF7FA2373 /* PlexQueryTests.swift in Sources */,
 				9EECFE5FD99E90839FA8230E /* SeasonsTests.swift in Sources */,
 				4F60AD47C5B997EE1242AD01 /* ShuffleWalkTests.swift in Sources */,
+				55A6E28904C2A5E26C3DAA4D /* SilenceTests.swift in Sources */,
 				F3BA2A382EB699E207170610 /* SiriTests.swift in Sources */,
 				A663E6FBC7E7FFAAEACC9B01 /* SongCacheTests.swift in Sources */,
 				F6C1631210B431BAB78F207D /* WidgetTests.swift in Sources */,
@@ -1023,6 +1030,7 @@
 				2E5CC9D37619F33C0A003A0E /* SettingsView.swift in Sources */,
 				0BB4CC8F98C951FF0E25F178 /* ShuffleWalk.swift in Sources */,
 				FD70C7DD0DB4E88413962B70 /* SignInView.swift in Sources */,
+				E7DE78091E7AB127C1FA7DD4 /* Silence.swift in Sources */,
 				01F1EF16049C89D96DD72970 /* SiriSetup.swift in Sources */,
 				CAB1166046CF7930E742A5D1 /* SongCache.swift in Sources */,
 				0B6B314B42474B155BB58E5D /* SongPickerView.swift in Sources */,
@@ -1242,7 +1250,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1343,7 +1351,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.5.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

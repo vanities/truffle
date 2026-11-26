@@ -5,8 +5,9 @@ import os
 /// Songs saved on the phone: the one playing (or paused) and the next few, so the car starts from disk in
 /// the garage instead of waiting on the server, and a dead zone doesn't stall the next song.
 ///
-/// Downloads run in a background session that only uses Wi-Fi: iOS carries them on while Truffle is
-/// suspended, so pausing in the car and walking into the house still saves tomorrow's song. Originals
+/// Downloads run in a background session: iOS carries them on while Truffle is suspended, so pausing in the
+/// car and walking into the house still saves tomorrow's song. Each download says whether it may use
+/// cellular (Save Ahead on Cellular); without that it waits for Wi-Fi. Never in Low Data Mode. Originals
 /// only (Data Saver's transcodes are per-session and expire). Files live in Caches, which iOS may purge
 /// under storage pressure; a missing file just streams.
 final class SongCache: NSObject, @unchecked Sendable {
@@ -21,6 +22,8 @@ final class SongCache: NSObject, @unchecked Sendable {
     let directory: URL
     /// A download failed; the player finds the server again and asks once more (`PlayerEngine`).
     @MainActor var onFailure: (() -> Void)?
+    /// A song landed on the phone; the player swaps a stream it had readied for the file.
+    @MainActor var onSaved: (() -> Void)?
 
     /// Unchecked for `finishEvents`: iOS's handler isn't Sendable, and it's taken out once and called on main.
     private struct State: @unchecked Sendable {
@@ -29,6 +32,8 @@ final class SongCache: NSObject, @unchecked Sendable {
         var failures: [String: Int] = [:]
         /// `urlSessionDidFinishEvents` hands this back so iOS can suspend the app again.
         var finishEvents: (() -> Void)?
+        /// Downloads stand aside while the song that's playing waits on the same connection.
+        var yielding = false
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -41,8 +46,9 @@ final class SongCache: NSObject, @unchecked Sendable {
         try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
         super.init()
         let config = URLSessionConfiguration.background(withIdentifier: Self.sessionIdentifier)
-        config.allowsCellularAccess = false
-        config.allowsExpensiveNetworkAccess = false
+        // Cellular and hotspots are each download's own call (`want`); the session only rules out Low Data Mode.
+        config.allowsCellularAccess = true
+        config.allowsExpensiveNetworkAccess = true
         config.allowsConstrainedNetworkAccess = false
         // Not discretionary: on Wi-Fi it should start now, not whenever iOS gets around to it.
         config.isDiscretionary = false
@@ -92,8 +98,9 @@ final class SongCache: NSObject, @unchecked Sendable {
 
     /// Saves these songs (current first), and stops downloading any song no longer among them. Cheap to call
     /// often: songs already saved or on their way are left alone. `notStarting` is wanted but not begun now
-    /// (its download carries on if it's already running).
-    func want(_ tracks: [Track], client: PlexClient, notStarting held: Track? = nil) {
+    /// (its download carries on if it's already running). `overCellular` lets these downloads use cellular
+    /// or a hotspot; one already waiting for Wi-Fi starts over with the new permission, and the other way round.
+    func want(_ tracks: [Track], client: PlexClient, notStarting held: Track? = nil, overCellular: Bool = false) {
         var wanted: [(name: String, url: URL)] = []
         let heldName = held.flatMap(Self.fileName(for:))
         for track in tracks {
@@ -101,9 +108,9 @@ final class SongCache: NSObject, @unchecked Sendable {
             wanted.append((name, client.streamURL(partKey: partKey)))
         }
         let names = Set(wanted.map(\.name))
-        let failures = state.withLock { state in
+        let (failures, yielding) = state.withLock { state in
             state.pinned = names
-            return state.failures
+            return (state.failures, state.yielding)
         }
         session.getAllTasks { [weak self] tasks in
             guard let self else { return }
@@ -123,17 +130,43 @@ final class SongCache: NSObject, @unchecked Sendable {
                       (failures[name] ?? 0) < Self.maxFailures else { continue }
                 if let task = running[name] {
                     // The server's address changed since (left home, came back): that download would go nowhere.
-                    guard task.originalRequest?.url?.host() != url.host() else { continue }
+                    // One asked for under the other cellular setting would wait for Wi-Fi on the road, or not wait.
+                    guard task.originalRequest?.url?.host() != url.host()
+                        || task.originalRequest?.allowsCellularAccess != overCellular else {
+                        // Left standing aside by a launch that has since ended: nothing else would wake it.
+                        if !yielding, task.state == .suspended { task.resume() }
+                        continue
+                    }
                     task.cancel()
                 }
                 if name == heldName { continue }
-                let task = self.session.downloadTask(with: url)
+                var request = URLRequest(url: url)
+                request.allowsCellularAccess = overCellular
+                request.allowsExpensiveNetworkAccess = overCellular
+                let task = self.session.downloadTask(with: request)
                 task.taskDescription = name
-                task.resume()
+                if !yielding { task.resume() }
                 started += 1
             }
             if started > 0 {
-                Logger.player.info("[cache] saving \(started) song(s) when on Wi-Fi (\(names.count) wanted, \(running.count) already on the way)")
+                Logger.player.info("[cache] saving \(started) song(s) \(overCellular ? "on any connection" : "when on Wi-Fi", privacy: .public) (\(names.count) wanted, \(running.count) already on the way\(yielding ? ", waiting for the song that's playing" : "", privacy: .public))")
+            }
+        }
+    }
+
+    /// The song that's playing ran dry: downloads stop taking its connection until it sounds again.
+    func yield(_ yielding: Bool) {
+        let changed = state.withLock { state in
+            defer { state.yielding = yielding }
+            return state.yielding != yielding
+        }
+        guard changed else { return }
+        session.getAllTasks { tasks in
+            for task in tasks {
+                if yielding { task.suspend() } else { task.resume() }
+            }
+            if !tasks.isEmpty {
+                Logger.player.info("[cache] \(tasks.count) download(s) \(yielding ? "stand aside for the song that's playing" : "carry on", privacy: .public)")
             }
         }
     }
@@ -207,6 +240,7 @@ extension SongCache: URLSessionDownloadDelegate {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: location, to: destination)
             Logger.player.info("[cache] saved \(name, privacy: .public), \(bytes / 1_000_000) MB")
+            Task { @MainActor in self.onSaved?() }
         } catch {
             Logger.player.error("[cache] keeping \(name, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
         }

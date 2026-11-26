@@ -24,6 +24,9 @@ final class AppSettings {
     var crossfadeSeconds: Int { didSet { defaults.set(crossfadeSeconds, forKey: Keys.crossfade) } }
     /// On cellular, new songs stream as Plex's 192 kbps transcode instead of the original file.
     var dataSaver: Bool { didSet { defaults.set(dataSaver, forKey: Keys.dataSaver) } }
+    /// The next few songs save to the phone on cellular too, not only on Wi-Fi (`SongCache`). Off unless
+    /// asked for: every song skipped past is data spent.
+    var saveOnCellular: Bool { didSet { defaults.set(saveOnCellular, forKey: Keys.saveOnCellular) } }
 
     private enum Keys {
         static let evenOutVolume = "settings.evenOutVolume"
@@ -36,6 +39,7 @@ final class AppSettings {
         static let holidayIcons = "settings.seasonalIcon"
         static let crossfade = "settings.crossfade"
         static let dataSaver = "settings.dataSaver"
+        static let saveOnCellular = "settings.saveOnCellular"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -51,6 +55,7 @@ final class AppSettings {
         let fade = defaults.integer(forKey: Keys.crossfade)
         crossfadeSeconds = Crossfade.choices.contains(fade) ? fade : 0
         dataSaver = defaults.bool(forKey: Keys.dataSaver)
+        saveOnCellular = defaults.bool(forKey: Keys.saveOnCellular)
     }
 
     var isSouthern: Bool { hemisphere.isSouthern() }

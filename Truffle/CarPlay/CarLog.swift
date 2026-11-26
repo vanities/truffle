@@ -11,7 +11,8 @@ import os
 @MainActor @Observable
 final class CarLog {
     static let shared = CarLog()
-    static let limit = 300
+    /// A long drive on a bad signal writes a line per silence.
+    static let limit = 500
     /// How long a start may take before it's written down as silent.
     static let patience: Duration = .seconds(45)
 
@@ -48,6 +49,9 @@ final class CarLog {
         }
         waiting = (trigger, .now, watch)
     }
+
+    /// A start is being timed; it gets its own line when sound comes (or doesn't).
+    var isExpectingSound: Bool { waiting != nil }
 
     func soundStarted(fromPhone: Bool) {
         guard let waiting else { return }

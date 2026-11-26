@@ -75,12 +75,14 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Play in the Car", isOn: $settings.playInTheCar)
+                    Toggle("Save Ahead on Cellular", isOn: $settings.saveOnCellular)
+                        .onChange(of: settings.saveOnCellular) { player.playbackSettingsChanged() }
                     LabeledContent("Saved on This Phone", value: savedSongs)
                     NavigationLink("Car Log") { CarLogView() }
                 } header: {
                     Text("CarPlay")
                 } footer: {
-                    Text("Hop in and it picks up where you left off. On Wi-Fi, the next few songs save to your phone, so it starts even in the garage.")
+                    Text("Hop in and it picks up where you left off. On Wi-Fi, the next few songs save to your phone, so it starts even in the garage. Save Ahead on Cellular keeps saving on the road, so a dead zone doesn't stop the music. Songs you skip still use data.")
                 }
                 .id("car")
                 .onAppear { savedSongs = Self.savedSongsText() }

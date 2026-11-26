@@ -38,13 +38,17 @@ final class NowPlayingController {
             return .success
         }
         center.pauseCommand.addTarget { [weak self] _ in
-            MainActor.assumeIsolated { self?.player.pause() }
+            MainActor.assumeIsolated {
+                // Written down so a pause the car sent can be told from a song that ran dry.
+                if self?.player.isPlaying == true { CarLog.shared.note("Pause command") }
+                self?.player.pause()
+            }
             return .success
         }
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                if !self.player.isPlaying { self.notePlayCommand("Play/Pause") }
+                if self.player.isPlaying { CarLog.shared.note("Play/Pause command: pausing") } else { self.notePlayCommand("Play/Pause") }
                 self.player.togglePlayPause()
             }
             return .success
