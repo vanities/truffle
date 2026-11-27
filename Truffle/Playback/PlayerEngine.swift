@@ -21,6 +21,13 @@ final class PlayerEngine {
     private(set) var stream: StreamMode = .original
     /// The lighter stream is on because the original couldn't keep up, not because Data Saver asked.
     private(set) var lighterForSignal = false
+    /// How much of the current song is in hand, 0 to 1: all of it when it plays from the phone, otherwise
+    /// how far its stream has buffered. The player draws it under the scrubber.
+    private(set) var bufferedFraction: Double = 0
+    /// The current song plays from a file saved on the phone (`SongCache`), not a stream.
+    private(set) var playsFromPhone = false
+    /// Goes up each time a song lands on the phone, so rows that mark saved songs look again.
+    private(set) var savedRevision = 0
     /// Shuffle All (or a big playlist's shuffle): the queue tops itself up as it runs low.
     private(set) var feed: ShuffleFeed?
     var isEndless: Bool { feed != nil }
@@ -79,6 +86,11 @@ final class PlayerEngine {
     @ObservationIgnored private var silence: (began: ContinuousClock.Instant, record: Silence, stream: Silence.Stream.Kind, watch: Task<Void, Never>)?
     /// The item that last made a sound, to tell a song that stopped mid-way from one that hasn't started.
     @ObservationIgnored private var lastSounding: ObjectIdentifier?
+    /// Whether songs may save right now (`playerHasWhatItNeeds`), to act only when it changes.
+    @ObservationIgnored private var savingIsFree = true
+    /// Readies the next song again after it failed while waiting (`readiedItemChanged`).
+    @ObservationIgnored private var readyAgain: Task<Void, Never>?
+    private static let readyAgainAfter: TimeInterval = 8
     @ObservationIgnored private var toppingUp = false
     /// Next, or the end of a song, reached the last song queued in an endless shuffle: the top-up moves on
     /// to its first song when it lands. Any other load (a jump, a new queue) takes that over.
@@ -114,7 +126,7 @@ final class PlayerEngine {
         let endpoint: PlexEndpoint?
         /// The transcode session, for Data Saver.
         let session: String?
-        /// A transcode's status, watched while it waits its turn.
+        /// A stream's status, watched while it waits its turn behind the song playing.
         let watch: NSKeyValueObservation?
         /// The lighter stream, chosen for a weak signal rather than by Data Saver.
         var forSignal = false
@@ -172,7 +184,10 @@ final class PlayerEngine {
             }
         }
         // A song saved while its stream sat readied behind the one playing: play the file instead.
-        SongCache.shared.onSaved = { [weak self] in self?.preloadNext() }
+        SongCache.shared.onSaved = { [weak self] in
+            self?.savedRevision += 1
+            self?.preloadNext()
+        }
         library.onSignedOut = { [weak self] in
             self?.stop(clearing: true)
             SongCache.shared.removeAll()
@@ -481,12 +496,13 @@ final class PlayerEngine {
         retireLeftovers()
         silence?.watch.cancel()
         silence = nil
-        SongCache.shared.yield(false)
         playWhenReady = false
+        updateSaving()
         isPlaying = false
         isLoading = false
         stream = .original
         lighterForSignal = false
+        refreshBuffered()
         if clearing {
             queue = PlayQueue()
             source = nil
@@ -548,6 +564,7 @@ final class PlayerEngine {
         pendingSeek = startTime > 1 ? startTime : nil
         stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
         lighterForSignal = itemInfo[ObjectIdentifier(item)]?.forSignal ?? false
+        refreshBuffered()
         applyVolume()
         preloadNext()
         recoveryAttempts = 0
@@ -586,9 +603,9 @@ final class PlayerEngine {
         }
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
         item.preferredForwardBufferDuration = 30
-        let watch = mode == .dataSaver ? item.observe(\.status, options: [.new]) { [weak self] item, _ in
+        let watch = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor [weak self] in self?.readiedItemChanged(item) }
-        } : nil
+        }
         itemInfo[ObjectIdentifier(item)] = ItemInfo(track: track, mode: mode, endpoint: client.endpoint, session: session, watch: watch,
                                                     forSignal: mode == .dataSaver && !(settings.dataSaver && network.isMetered))
         return item
@@ -599,13 +616,43 @@ final class PlayerEngine {
                        song: track.id, health: transcodes, now: .now)
     }
 
-    /// A transcode readied ahead (preloaded or staged) failed before its turn: its song is readied again
-    /// from the original, so the queue never reaches a dead item.
+    /// A song readied ahead (preloaded or staged) failed before its turn, so the queue never reaches a dead
+    /// item. A transcode is readied again from the original. An original failed because nothing answered (a
+    /// dead zone outlasting its request): it's readied again every few seconds until something does.
+    ///
+    /// DO NOT leave a failed item readied: the queue player drops it when the song playing ends, moves on to
+    /// nothing, and the music stops for good, signal or no signal (`scripts/road_test.py "0:lte 150:dead
+    /// 570:lte 600:end" --save-ahead NO`, 2026-11-26: silent from the end of song 3 on, 30 s past the dead zone).
     private func readiedItemChanged(_ item: AVPlayerItem) {
         guard item.status == .failed, item === nextItem?.item || item === staged?.item,
-              let track = itemInfo[ObjectIdentifier(item)]?.track else { return }
-        transcodeFailed(track, error: item.error)
-        preloadNext()
+              let info = itemInfo[ObjectIdentifier(item)] else { return }
+        if info.mode == .dataSaver {
+            transcodeFailed(info.track, error: item.error)
+            preloadNext()
+            return
+        }
+        let nsError = item.error.map { $0 as NSError }
+        Logger.player.error("[player] \"\(info.track.title, privacy: .public)\", readied next, failed before its turn (\(nsError?.domain ?? "no error", privacy: .public) \(nsError?.code ?? 0)); readying it again in \(Int(Self.readyAgainAfter)) s")
+        readyAgain?.cancel()
+        readyAgain = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.readyAgainAfter))
+            guard !Task.isCancelled, let self else { return }
+            self.preloadNext()
+        }
+    }
+
+    /// The song playing ended and the one readied behind it should have taken over (`currentItemChanged`). If
+    /// it failed while it waited, the queue player dropped it instead: load it now, and the usual waiting
+    /// (the buffer watch, finding the server again) carries on until it plays.
+    private func moveOnIfStranded(after ended: ObjectIdentifier) {
+        guard playWhenReady, playingItem.map(ObjectIdentifier.init) == ended,
+              let index = nextItem?.index ?? queue.indexAfterEnd(endless: isEndless) else { return }
+        Logger.player.error("[player] the song readied next never took over; loading \(index + 1) now")
+        silence?.record.moment = .songStart
+        silence?.record.did("the next song had failed while it waited")
+        dropPreloaded()
+        queue.move(to: index)
+        load(autoplay: true)
     }
 
     /// The song plays its original from now on, and a run of failures rests Data Saver. The error's domain
@@ -697,6 +744,8 @@ final class PlayerEngine {
     private func settle(on item: AVPlayerItem, how: String) {
         failedItem = nil
         playingItem = item
+        // A silence that began as the last song ran out is this song not starting.
+        silence?.record.moment = .songStart
         let info = itemInfo[ObjectIdentifier(item)]
         currentItemBase = info?.onPhone == true ? nil : (info?.endpoint?.baseURL ?? library.endpoint?.baseURL)
         observe(item)
@@ -706,6 +755,7 @@ final class PlayerEngine {
         pendingSeek = nil
         stream = itemInfo[ObjectIdentifier(item)]?.mode ?? .original
         lighterForSignal = itemInfo[ObjectIdentifier(item)]?.forSignal ?? false
+        refreshBuffered()
         applyVolume()
         // Before preloading: trimming shifts the queue's positions, and the preload remembers one.
         trimHistory()
@@ -729,9 +779,15 @@ final class PlayerEngine {
         // already let go (skipped, or a fade that just finished) has nothing left to do.
         guard let track = itemInfo[ObjectIdentifier(item)]?.track else { return }
         reporter.report(.stopped, track: track, time: track.duration)
-        // With a song preloaded, the queue player has already moved on (currentItemChanged).
+        // With a song preloaded, the queue player moves on by itself (currentItemChanged), unless that song
+        // failed while it waited.
         guard nextItem == nil else {
             retire(item)
+            let ended = ObjectIdentifier(item)
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                self?.moveOnIfStranded(after: ended)
+            }
             return
         }
         if queue.repeatMode == .one {
@@ -1248,6 +1304,8 @@ final class PlayerEngine {
         guard player.currentItem != nil, seconds.isFinite, pendingSeek == nil else { return }
         currentTime = seconds
         ticks += 1
+        refreshBuffered()
+        updateSaving()
         if isPlaying, let track = current {
             // While the last song fades out, its "stopped" goes to Plex first, as between gapless songs.
             if fading == nil { reporter.report(.playing, track: track, time: seconds) }
@@ -1285,8 +1343,6 @@ final class PlayerEngine {
         } else if playWhenReady, silence == nil, queue.current != nil {
             let item = player.currentItem.map(ObjectIdentifier.init)
             let record = Silence(moment: item != nil && item == lastSounding ? .midSong(at: currentTime) : .songStart)
-            // A stream that ran dry gets the whole connection back from the songs saving behind it.
-            if streamKind != .onPhone { SongCache.shared.yield(true) }
             let watch = Task { [weak self] in
                 try? await Task.sleep(for: Silence.longWait)
                 guard !Task.isCancelled, let self, let silence = self.silence else { return }
@@ -1298,6 +1354,8 @@ final class PlayerEngine {
                 self.writeSilence(silence.record, began: silence.began, stream: silence.stream, ending: .stillWaiting)
             }
             silence = (.now, record, streamKind, watch)
+            // A stream that ran dry gets the whole connection back from the songs saving behind it.
+            updateSaving()
         }
     }
 
@@ -1305,7 +1363,7 @@ final class PlayerEngine {
         guard let silence else { return }
         self.silence = nil
         silence.watch.cancel()
-        SongCache.shared.yield(false)
+        updateSaving()
         writeSilence(silence.record, began: silence.began, stream: silence.stream, ending: ending)
     }
 
@@ -1351,6 +1409,7 @@ final class PlayerEngine {
             let sw = Stopwatch()
             var ends: [(at: TimeInterval, end: TimeInterval)] = []
             var lastGain = 0.0
+            var arrivingSince = 0.0
             var lastBytes: Int64 = 0
             var lastLogged = -5.0
             while !Task.isCancelled {
@@ -1365,17 +1424,26 @@ final class PlayerEngine {
                     continue
                 }
                 let buffered = Self.buffered(item)
+                self.refreshBuffered()
                 // Bytes count as arriving too: an MP4 with its index at the end reports nothing buffered
                 // until AVPlayer decides to start, while the file comes in.
                 let bytes = item.accessLog()?.events.last?.numberOfBytesTransferred ?? 0
-                if let last = ends.last, buffered.end > last.end + 0.01 { lastGain = now }
-                if bytes > lastBytes { lastGain = now }
+                if (ends.last.map { buffered.end > $0.end + 0.01 } ?? false) || bytes > lastBytes {
+                    // The first of it after a gap: the rate starts over from here. Measured across the gap, a
+                    // song whose connection had just come back read as arriving at 0.1 times its speed, and
+                    // went to the lighter stream for five minutes on a good signal.
+                    if now - lastGain > 1.5 {
+                        ends = []
+                        arrivingSince = now
+                    }
+                    lastGain = now
+                }
                 lastBytes = bytes
                 ends.append((now, buffered.end))
                 ends.removeAll { now - $0.at > 4 }
                 let length = Self.length(of: item, track: track)
                 let sample = Buffering.Sample(waited: now, ahead: buffered.ahead, fill: Buffering.fill(ends), idle: now - lastGain,
-                                              complete: length > 0 && buffered.end >= length - 1)
+                                              arriving: now - arrivingSince, complete: length > 0 && buffered.end >= length - 1)
                 let tries = self.bufferTries ?? (track.id, 0, 0)
                 let canLighten = mode == .original && buffered.end > 0
                     && DataSaver.mode(enabled: true, metered: true, song: track.id, health: self.transcodes, now: .now) == .dataSaver
@@ -1417,6 +1485,23 @@ final class PlayerEngine {
         silence?.record.did("moved to the lighter stream")
         Logger.player.info("[buffer] \"\(track.title, privacy: .public)\" can't keep up as \(track.codec ?? "the original", privacy: .public); lighter stream from \(Int(self.currentTime))s, and for the next \(Int(rest / 60)) min")
         load(autoplay: true, startTime: currentTime)
+    }
+
+    /// Twice a second while the song plays or waits. Written only when it moves a whole percent, so the
+    /// player isn't redrawn for nothing.
+    private func refreshBuffered() {
+        let info = playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }
+        var fraction = 0.0
+        if let info, info.onPhone {
+            fraction = 1
+        } else if let item = playingItem, let info {
+            let length = Self.length(of: item, track: info.track)
+            if length > 0 { fraction = min(1, max(0, Self.buffered(item).end / length)) }
+            // The last second or so never reports as loaded.
+            if length > 0, Self.buffered(item).end >= length - 1 { fraction = 1 }
+        }
+        if playsFromPhone != (info?.onPhone ?? false) { playsFromPhone = info?.onPhone ?? false }
+        if abs(fraction - bufferedFraction) >= 0.01 || (fraction == 1) != (bufferedFraction == 1) { bufferedFraction = fraction }
     }
 
     /// How far the song is buffered: seconds past where it will play from, and the time it's buffered up to.
@@ -1511,10 +1596,48 @@ final class PlayerEngine {
         guard !library.isDemo, let client = library.client, let current = queue.current else { return }
         // A song that's playing as a stream is already coming down once; saving it too would halve what the
         // stream gets. Paused, it's saved: it's what the car starts on tomorrow.
-        let streaming = playWhenReady && playingItem.flatMap { itemInfo[ObjectIdentifier($0)] }?.onPhone == false
+        var streamed: [Track] = []
+        if playWhenReady, playingItem.flatMap({ itemInfo[ObjectIdentifier($0)] })?.onPhone == false { streamed.append(current) }
+        // On cellular the same goes for the song readied behind it, which the player is loading itself. Saving
+        // it too fetched it twice: the songs saved are the ones after that, and each plays from its file.
+        if playWhenReady, network.isMetered, let next = readiedNext.flatMap({ itemInfo[ObjectIdentifier($0)] }), !next.onPhone {
+            streamed.append(next.track)
+        }
+        updateSaving()
         // Data Saver is someone watching their data: originals don't come down over cellular for them.
-        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client, notStarting: streaming ? current : nil,
-                              overCellular: settings.saveOnCellular && !settings.dataSaver)
+        SongCache.shared.want([current] + queue.upcoming.prefix(SongCache.ahead), client: client, notStarting: streamed,
+                              droppingThose: network.isMetered, overCellular: settings.saveOnCellular && !settings.dataSaver)
+    }
+
+    /// The song readied behind the one playing, on either deck.
+    private var readiedNext: AVPlayerItem? { nextItem?.item ?? staged?.item }
+
+    /// On cellular the player eats first. Songs save behind it only while it has all it needs: the song
+    /// playing and the one readied after it are in hand to their ends, nothing is waiting to play, and the
+    /// signal isn't too weak for originals at all. Saving at the same time as the player loads split the
+    /// connection, and in the simulator a drive with it on had more silence than one with it off
+    /// (`scripts/road_test.py`, 2026-11-26: LTE then a dead zone, 3.6 s against 0 s). Wi-Fi has room for both.
+    private var playerHasWhatItNeeds: Bool {
+        guard playWhenReady, network.isMetered else { return true }
+        if silence != nil || weakSignal.isWeak(at: .now) { return false }
+        return isInHand(playingItem) && isInHand(readiedNext)
+    }
+
+    private func isInHand(_ item: AVPlayerItem?) -> Bool {
+        guard let item, let info = itemInfo[ObjectIdentifier(item)], !info.onPhone else { return true }
+        // The lighter stream comes a few segments at a time, never whole.
+        guard info.mode == .original else { return false }
+        let length = Self.length(of: item, track: info.track)
+        return length > 0 && Self.buffered(item).end >= length - 1
+    }
+
+    private func updateSaving() {
+        let free = playerHasWhatItNeeds
+        guard free != savingIsFree else { return }
+        savingIsFree = free
+        Logger.player.info("[cache] \(free ? "the player has what it needs; songs can save behind it" : "the player needs the connection; saving waits", privacy: .public)")
+        SongCache.shared.yield(!free)
+        if free { cacheAhead() }
     }
 
     /// For the car log: where a resume picks up, without naming the song.

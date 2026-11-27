@@ -97,12 +97,15 @@ final class SongCache: NSObject, @unchecked Sendable {
     // MARK: - Downloading
 
     /// Saves these songs (current first), and stops downloading any song no longer among them. Cheap to call
-    /// often: songs already saved or on their way are left alone. `notStarting` is wanted but not begun now
-    /// (its download carries on if it's already running). `overCellular` lets these downloads use cellular
-    /// or a hotspot; one already waiting for Wi-Fi starts over with the new permission, and the other way round.
-    func want(_ tracks: [Track], client: PlexClient, notStarting held: Track? = nil, overCellular: Bool = false) {
+    /// often: songs already saved or on their way are left alone. `notStarting` are wanted but not begun now:
+    /// the player is streaming them itself. Their downloads carry on if already running, unless
+    /// `droppingThose` (on cellular, where fetching a song twice costs data and the stream's speed).
+    /// `overCellular` lets these downloads use cellular or a hotspot; one already waiting for Wi-Fi starts
+    /// over with the new permission, and the other way round.
+    func want(_ tracks: [Track], client: PlexClient, notStarting held: [Track] = [], droppingThose: Bool = false,
+              overCellular: Bool = false) {
         var wanted: [(name: String, url: URL)] = []
-        let heldName = held.flatMap(Self.fileName(for:))
+        let heldNames = Set(held.compactMap(Self.fileName(for:)))
         for track in tracks {
             guard let name = Self.fileName(for: track), let partKey = track.partKey else { continue }
             wanted.append((name, client.streamURL(partKey: partKey)))
@@ -128,6 +131,11 @@ final class SongCache: NSObject, @unchecked Sendable {
             for (name, url) in wanted {
                 guard !FileManager.default.fileExists(atPath: self.directory.appending(path: name).path()),
                       (failures[name] ?? 0) < Self.maxFailures else { continue }
+                if droppingThose, heldNames.contains(name), let task = running[name] {
+                    task.cancel()
+                    Logger.player.debug("[cache] dropped a download of a song the player is streaming itself")
+                    continue
+                }
                 if let task = running[name] {
                     // The server's address changed since (left home, came back): that download would go nowhere.
                     // One asked for under the other cellular setting would wait for Wi-Fi on the road, or not wait.
@@ -139,7 +147,12 @@ final class SongCache: NSObject, @unchecked Sendable {
                     }
                     task.cancel()
                 }
-                if name == heldName { continue }
+                if heldNames.contains(name) { continue }
+                #if DEBUG
+                // `-TruffleCellular YES` in the simulator, which has no cellular to keep a download waiting for
+                // Wi-Fi: act it out, so a run with Save Ahead on Cellular off saves nothing.
+                if !overCellular, UserDefaults.standard.bool(forKey: "TruffleCellular") { continue }
+                #endif
                 var request = URLRequest(url: url)
                 request.allowsCellularAccess = overCellular
                 request.allowsExpensiveNetworkAccess = overCellular

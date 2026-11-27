@@ -7,6 +7,15 @@ final class BufferingTests: XCTestCase {
         Buffering.Sample(waited: waited, ahead: ahead, fill: fill, idle: idle, complete: complete)
     }
 
+    func testASongWhoseConnectionJustCameBackIsNotCalledSlow() {
+        // A minute of nothing, then its first half second: over the whole wait that's a crawl, but it has only
+        // been arriving for a moment.
+        var back = Buffering.Sample(waited: 51.5, ahead: 0.5, fill: 0.1, idle: 0, arriving: 0.5)
+        XCTAssertEqual(verdict(back), .wait, "the rate isn't judged until it has been arriving a few seconds")
+        back.arriving = 4.5
+        XCTAssertEqual(verdict(back), .lighter, "still that slow after arriving steadily: the lighter stream")
+    }
+
     private func verdict(_ sample: Buffering.Sample, earlyStarts: Int = 0, canLighten: Bool = true) -> Buffering.Verdict {
         Buffering.verdict(for: sample, earlyStarts: earlyStarts, canLighten: canLighten)
     }

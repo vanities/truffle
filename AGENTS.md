@@ -75,8 +75,10 @@ make demo                 # build, install, launch against the demo server
 The demo server answers the requests Truffle makes the way PMS 1.43 does, so the whole app (mixes,
 history, likes, playlists, artwork, streaming) runs without a Plex account. Screenshots for anything
 public come from it, never from Adam's library. It can also be a bad connection: `DEMO_SLOW_MS=1500` answers
-the library late, `DEMO_AUDIO_KBPS=270` sends songs at that rate, and `DEMO_FLAC=1` serves them as FLAC
+the library late, `DEMO_AUDIO_KBPS=270` sends songs at that rate (one link, shared by every song being sent),
+`/demo/network?profile=3g` changes it while a song plays, and `DEMO_FLAC=1` serves the songs as FLAC
 (about 335 kbps; the AAC ones are 97), which is what Adam's library is and buffers nothing like AAC in MP4.
+`DEMO_FLAC=cd` makes them the size of a CD rip (about 990 kbps, 20 MB a song).
 
 The app carries the same library inside it: "Take it for a spin" on the sign-in screen starts
 `DemoServer` on 127.0.0.1, and that's how App Review gets in (they have no Plex server). Its history runs
@@ -229,12 +231,25 @@ happening" came with three drives in the log that all started in under 2 s, and 
 URLSession: pausing in the car and walking into the house still saves tomorrow's song,
 and a saved song plays with no server at all. Each download may use cellular unless Save Ahead on Cellular is turned
 off (Settings, CarPlay; on by default since 1.5.0, Adam's call on 2026-11-26, though every song skipped past
-is data spent; it stands down while Data Saver is on). Never in Low Data Mode. With it on, a drive longer than the six songs saved at home keeps
-playing from the phone instead of streaming FLAC through every dead zone. Downloads stand aside
-(`SongCache.yield`) while the song that's playing waits on the same connection, and a song saved after its
-stream was readied behind the one playing is readied again from the file (`onSaved`). Checked in the
-simulator only (`-TruffleCellular YES -settings.saveOnCellular YES` against `DEMO_FLAC=1 DEMO_AUDIO_KBPS=1500`):
-the simulator has no cellular, so the per-download permission itself has not been seen to work on a phone. Downloads go one at a time, current song first, and a song
+is data spent; it stands down while Data Saver is on). Never in Low Data Mode.
+
+**On cellular the player eats first** (`PlayerEngine.playerHasWhatItNeeds`). AVPlayer loads the song playing and
+the one readied behind it by itself, as fast as the connection allows, and that alone carries a drive through
+a dead zone as long as those two songs. Saving is for the songs after them, and it only runs while the player
+has both of its own in hand to their ends, nothing is waiting to play, and the signal isn't too weak for
+originals (`WeakSignal`); otherwise the downloads are suspended (`SongCache.yield`). The song readied next is
+never saved while the player streams it (that fetched it twice). A song saved after its stream was readied is
+readied again from the file (`onSaved`). The first version saved alongside the player, and in the simulator
+a drive with it on had more silence than with it off: LTE then a dead zone, 3.6 s against 0 s; 3G, 12.5 s
+against 8.4 s (`scripts/road_test.py`, 2026-11-26, CD-size FLAC, one run each).
+
+`scripts/road_test.py "0:lte 150:dead 570:lte 600:end" --save-ahead YES` is a drive in the simulator: an
+album streams as if on cellular (`-TruffleScene road`) while the demo server's connection changes under it
+(`/demo/network`: 5g, lte, 3g, edge, dead, or a rate; one link shared by every song, so a stream and the
+downloads behind it compete as they do on a phone). It prints the car log and the silence it adds up to.
+Use `DEMO_FLAC=cd` songs (the default there, about 990 kbps): the small ones are in the player's hands whole
+before a slow connection can matter, and every drive looks fine. The simulator has no cellular, so the
+per-download permission itself has not been seen to work on a phone. Downloads go one at a time, current song first, and a song
 that's playing as a stream isn't downloaded as well until it's paused: four at once plus the stream used to
 share the connection. `makeItem` plays from disk when the file's there; a saved file
 that fails is deleted and the song streams. Least recently used goes first past 1 GB; signing out clears it;
@@ -281,6 +296,18 @@ run; none of it has been on a phone on a real weak signal yet:
 
 `loadedTimeRanges` is the measure for FLAC; `accessLog()` has no indicated bitrate for it.
 
+Two faults `scripts/road_test.py` found on 2026-11-26, both with a 7 minute dead zone after 2.5 minutes of LTE:
+
+- **A song readied next that fails must not stay readied.** In a dead zone its request times out
+  (AVFoundationErrorDomain -11800, about two minutes in). The queue player drops a failed item when the song
+  playing ends, moves on to nothing, and the music stayed stopped for good, signal or no signal. Every readied
+  stream's status is watched now (`readiedItemChanged` readies it again every 8 s), and a second after a
+  song ends `moveOnIfStranded` loads the next one if nothing took over. The drive then goes silent only
+  for what's left of the dead zone (206 s of it) and plays within a second of the signal's return.
+- **The rate is only measured while the song is arriving** (`Buffering.Sample.arriving`). Measured across the
+  dead zone, the first half second after the signal came back read as 0.1 times the song's speed, and the
+  player moved to the lighter stream for five minutes on a good LTE connection.
+
 ## Conventions
 
 - Swift 5 language mode, `SWIFT_STRICT_CONCURRENCY = complete`; `@MainActor @Observable` models,
@@ -299,6 +326,9 @@ run; none of it has been on a phone on a real weak signal yet:
   what's playing. Add to Playlist and the editor present from whatever is on top (`appSheets(onTop:)` on the
   root, the player and that sheet): from the root alone they silently did nothing under two sheets.
   `-TruffleScene playerAlbum|playerPlaylist` opens it; add `-TruffleThenEdit YES` to open the editor from it.
+- The scrubber says how much of the song is in hand (`PlayerEngine.bufferedFraction`, `playsFromPhone`): a paler
+  stretch of the track, and between the two times "ON THIS PHONE", "BUFFERED 42%", or the percent beside WEAK
+  SIGNAL / DATA SAVER. Rows mark songs saved on the phone with a small download arrow (`TrackRow.isSaved`).
 - A mix card with no hand-picked playlist behind it (`curatedPlaylist(for:)` is nil) wears an AUTO badge on
   Home: it's drawn at random from mood tags or play history each time. The seasonal-mix skill makes the
   hand-picked ones on the server.

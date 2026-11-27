@@ -77,11 +77,16 @@ Likes, artists, albums, search, sorting, Recently Added and Recently Played, a q
 Needs a Plex account and a Plex Media Server with music. Free and open source. No ads, no tracking, no rating nags.
 Source code: github.com/vanities/truffle""",
     "keywords": "carplay,shuffle,random,flac,lossless,playlist,mixes,seasonal,halloween,christmas,server,nas",
-    "whatsNew": """NEW
-• In the player, tap the song's name for its album, or "Playing from" for the playlist: cover on top, every song, and Play becomes Pause while it's the one playing.
-• The next five songs now save to your phone on cellular too, not only on Wi-Fi, so a dead zone doesn't stop the music. Songs you skip still use data: Settings, CarPlay, Save Ahead on Cellular turns it off, and it stands down with Data Saver on.
+    "whatsNew": """FIXED
+• After a stretch with no signal, the music could stop at the end of a song and stay stopped. It now picks up by itself when the signal returns.
+• A connection that has just come back is no longer mistaken for a weak one.
+
+NEW
+• The next songs save to your phone on cellular too, not only on Wi-Fi, so a dead zone doesn't stop the music. Songs you skip still use data: Settings, CarPlay, Save Ahead on Cellular turns it off.
+• The player shows how much of the song is in hand: ON THIS PHONE, or how far it has buffered. Saved songs wear a small arrow in lists.
+• Tap the song's name in the player for its album, or "Playing from" for the playlist.
 • Mixes Truffle makes on the spot wear an AUTO badge.
-• The Car Log writes down every silence on a drive: how long, what it was streaming, and what Truffle did about it.""",
+• The Car Log writes down every silence on a drive.""",
     "copyright": "2026 AM2 LLC",
     "supportUrl": f"{SITE}/support",
     "marketingUrl": SITE,
@@ -142,6 +147,8 @@ REVIEW_NOTES = """Truffle 1.5.0 is an update to 1.4.0, which is on the App Store
 - Home: mixes that Truffle assembles automatically show an "AUTO" badge. The sample library's hand-picked mix has none.
 - Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next five songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. It never runs in Low Data Mode or with Data Saver on. Not used in the sample library, which needs no network.
 - Settings > CarPlay > Car Log now also records pauses in playback (durations and connection type only; no song names, nothing leaves the device).
+- Player: the line under the scrubber says how much of the song is loaded ("BUFFERED 100%" in the sample library).
+- Fixed: after a period with no connection, playback could stop at the end of a song and not resume.
 
 2. PURPOSE AND AUDIENCE
 Truffle is for people who keep their own music collection on a Plex Media Server, Plex's free server software for a home computer or NAS. It plays their own songs from their own server on iPhone, iPad and CarPlay. The problem it solves: playing a big home music collection simply, especially while driving. The value: a CarPlay screen with a few big buttons, a Shuffle All that's truly random (every song once before any song twice), seasonal mixes made from the person's own library, likes, playlists they build themselves, and listening stats. Their music stays on their own server, at full quality.

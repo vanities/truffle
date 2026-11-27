@@ -411,6 +411,17 @@ struct ScrubberView: View {
                     dragging = nil
                 }
             }
+            // How much of the song is in hand, as a paler stretch of the track ahead of the thumb.
+            .background {
+                GeometryReader { geometry in
+                    Capsule()
+                        .fill(Color.primary.opacity(0.28))
+                        .frame(width: max(0, geometry.size.width * player.bufferedFraction), height: 6)
+                        .frame(maxHeight: .infinity, alignment: .center)
+                        .animation(.easeOut(duration: 0.4), value: player.bufferedFraction)
+                }
+                .accessibilityHidden(true)
+            }
             HStack {
                 Text(shown.clockString)
                 Spacer()
@@ -419,19 +430,17 @@ struct ScrubberView: View {
             .font(.caption.monospacedDigit())
             .foregroundStyle(PlayerView.quiet)
             .overlay {
-                if player.stream == .dataSaver {
-                    Text(player.lighterForSignal ? "WEAK SIGNAL" : "DATA SAVER")
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(PlayerView.quiet)
-                }
+                Label(inHand, systemImage: player.playsFromPhone ? "arrow.down.circle.fill" : "antenna.radiowaves.left.and.right")
+                    .font(.caption2.weight(.heavy))
+                    .tracking(1.2)
+                    .foregroundStyle(PlayerView.quiet)
             }
         }
         // One element for the bar and both times ("Position, 1:23 of 4:05"). Swiping up or down seeks 15
         // seconds at once instead of going through the slider, which only seeks when a drag ends.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Position")
-        .accessibilityValue("\(shown.clockString) of \(duration.clockString)\(player.stream == .dataSaver ? (player.lighterForSignal ? ", lighter stream for a weak signal" : ", Data Saver") : "")")
+        .accessibilityValue("\(shown.clockString) of \(duration.clockString)\(player.stream == .dataSaver ? (player.lighterForSignal ? ", lighter stream for a weak signal" : ", Data Saver") : ""), \(player.playsFromPhone ? "saved on this phone" : "\(percent) percent buffered")")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: player.seek(to: min(duration, shown + 15))
@@ -439,6 +448,18 @@ struct ScrubberView: View {
             @unknown default: break
             }
         }
+    }
+}
+
+extension ScrubberView {
+    fileprivate var percent: Int { Int((player.bufferedFraction * 100).rounded(.down)) }
+
+    /// Where the song is coming from and how much of it is in hand: "ON THIS PHONE", "BUFFERED 42%", or the
+    /// lighter stream's name with its percent.
+    fileprivate var inHand: String {
+        if player.playsFromPhone { return "ON THIS PHONE" }
+        if player.stream == .dataSaver { return "\(player.lighterForSignal ? "WEAK SIGNAL" : "DATA SAVER") \(percent)%" }
+        return "BUFFERED \(percent)%"
     }
 }
 

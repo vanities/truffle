@@ -29,6 +29,9 @@ enum Buffering {
         var fill: Double?
         /// How long since any more of it arrived.
         var idle: TimeInterval
+        /// How long it has been arriving without a break; nil is the whole wait. The rate only means anything
+        /// over this: a song that got nothing for a minute and then its first half second isn't slow.
+        var arriving: TimeInterval?
         /// The whole rest of the song is in.
         var complete = false
     }
@@ -59,7 +62,9 @@ enum Buffering {
         if sample.ahead >= plenty { return .start }
         if sample.ahead >= needed(earlyStarts: earlyStarts), let fill = sample.fill, fill >= keepingUp { return .start }
         if sample.idle >= patience { return .reconnect }
-        if canLighten, sample.waited >= settle, let fill = sample.fill, fill > trickle, fill < fallingBehind { return .lighter }
+        if canLighten, (sample.arriving ?? sample.waited) >= settle, let fill = sample.fill, fill > trickle, fill < fallingBehind {
+            return .lighter
+        }
         return .wait
     }
 

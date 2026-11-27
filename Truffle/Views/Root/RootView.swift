@@ -62,7 +62,7 @@ struct RootView: View {
     /// name, cover and songs; add `-TrufflePickerQuery light` for Add Songs), `playlistCreated` (saves
     /// that draft for real and opens it), `addToNewPlaylist` (Add to Playlist handing its songs to the
     /// editor), `liked`, `artists`, `playlist` (the first of yours). A sort comes from launch arguments:
-    /// `-sort.liked mostPlayed`. Playback: `crossfade`, `crossfade-cut` and `albumEnd` jump near the end
+    /// `-sort.liked mostPlayed`. Playback: `road` (a drive: see below), `crossfade`, `crossfade-cut` and `albumEnd` jump near the end
     /// of a Shuffle All song or an album's first song, so the transition shows up in the logs within seconds.
     private func openDebugScene() async {
         guard let scene = UserDefaults.standard.string(forKey: "TruffleScene") else { return }
@@ -80,7 +80,8 @@ struct RootView: View {
             try? await Task.sleep(for: .seconds(1))
             router.scrollTarget = "appIcon"
         case "stats", "settings":
-            // `-TruffleScroll`: a Stats card, or a Settings section (shuffle, car, holidays, appIcon).
+            // `-TruffleScroll`: a Stats card, or a Settings section (shuffle, car, holidays, appIcon), or
+            // `carLog` for the Car Log screen.
             tab = scene == "stats" ? .stats : .settings
             guard let target = UserDefaults.standard.string(forKey: "TruffleScroll") else { break }
             try? await Task.sleep(for: .seconds(3))
@@ -150,6 +151,19 @@ struct RootView: View {
                     router.editingPlaylist = .editing(playlist)
                 }
             }
+        case "road":
+            // A drive: an album from its first song, then Next after `-TruffleSteps` seconds (40 if not given),
+            // by when the songs behind it have had time to save. The connection changes from outside
+            // (`scripts/demo_server.py`'s /demo/network); the car log says what was heard.
+            guard let album = library.albums.first(where: { ($0.trackCount ?? 0) > 2 }),
+                  let tracks = try? await library.tracks(of: album) else { return true }
+            player.play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
+            router.showsPlayer = true
+            let wait = UserDefaults.standard.integer(forKey: "TruffleSteps")
+            try? await Task.sleep(for: .seconds(wait > 0 ? wait : 40))
+            let saved = tracks.dropFirst().prefix(SongCache.ahead).filter(SongCache.shared.contains).count
+            Logger.ui.info("[debug] road: Next, with \(saved) of the next \(min(SongCache.ahead, tracks.count - 1)) songs on the phone")
+            player.next()
         case "car":
             await connectCarTwice()
         case "shuffle":

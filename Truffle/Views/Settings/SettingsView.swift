@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var confirmingSignOut = false
     @State private var confirmingNewRound = false
     @State private var savedSongs = ""
+    @State private var showsCarLog = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -128,9 +129,11 @@ struct SettingsView: View {
             }
             .onChange(of: router.scrollTarget) { _, target in
                 guard let target else { return }
-                proxy.scrollTo(target, anchor: .top)
+                // `-TruffleScroll carLog`: the Car Log itself, to look at what a test drive wrote.
+                if target == "carLog" { showsCarLog = true } else { proxy.scrollTo(target, anchor: .top) }
             }
             }
+            .navigationDestination(isPresented: $showsCarLog) { CarLogView() }
             .navigationTitle("Settings")
             .onChange(of: settings.hemisphere) { season.refresh() }
             .confirmationDialog("Sign out of Plex?", isPresented: $confirmingSignOut, titleVisibility: .visible) {

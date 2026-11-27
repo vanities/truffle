@@ -55,8 +55,21 @@ struct TrackRow: View {
         }
     }
 
+    /// On the phone already (`SongCache`): it plays with no signal. `savedRevision` is read so the mark
+    /// appears when a download lands.
+    private var isSaved: Bool {
+        _ = player.savedRevision
+        return SongCache.shared.contains(track)
+    }
+
     @ViewBuilder
     private var trailing: some View {
+        if isSaved {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Saved on this phone")
+        }
         if library.isLiked(track) {
             Image(systemName: "heart.fill")
                 .font(.caption)
