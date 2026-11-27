@@ -85,7 +85,7 @@ NEW
 • The next songs save to your phone on cellular too, not only on Wi-Fi, so a dead zone doesn't stop the music. Songs you skip still use data: Settings, CarPlay, Save Ahead on Cellular turns it off.
 • The player shows how much of the song is in hand: ON THIS PHONE, or how far it has buffered. Saved songs wear a small arrow in lists.
 • Tap the song's name in the player for its album, or "Playing from" for the playlist.
-• Mixes Truffle makes on the spot wear an AUTO badge.
+• Mixes Truffle makes wear an AUTO badge and are made once, not redrawn on every tap. Tap one to play it and see its songs; Regenerate draws it again.
 • The Car Log writes down every silence on a drive.""",
     "copyright": "2026 AM2 LLC",
     "supportUrl": f"{SITE}/support",
@@ -143,11 +143,11 @@ Audio keeps playing in the background, on the lock screen and in CarPlay, which 
 REVIEW_NOTES = """Truffle 1.5.0 is an update to 1.4.0, which is on the App Store. Sign-in, accounts, data and external services are unchanged.
 
 1. WHAT CHANGED IN 1.5.0
-- Player: tapping the song's name opens its album as a sheet (cover, songs, Play/Pause, Shuffle); "Playing from" opens that playlist. In the sample library: play any album, open the player, tap the song's name.
+- Player: tapping the song's name opens its album as a sheet; "Playing from" opens that playlist. In the sample library: play any album, open the player, tap the song's name.
 - Player: the line under the scrubber says how much of the song is loaded.
-- Home: mixes Truffle assembles automatically show an "AUTO" badge.
-- Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. Never in Low Data Mode or with Data Saver on. Not used in the sample library.
-- Settings > CarPlay > Car Log also records pauses in playback (durations and connection type; nothing leaves the device).
+- Home: mixes Truffle assembles automatically show an "AUTO" badge. Tapping one plays it and opens its song list, with a Regenerate button (top right). Try "Fall Mix" in the sample library.
+- Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. Never in Low Data Mode or with Data Saver on.
+- Car Log (Settings > CarPlay) also records pauses in playback; nothing leaves the device.
 - Fixed: after a period with no connection, playback could stop at the end of a song and not resume.
 
 2. PURPOSE AND AUDIENCE
