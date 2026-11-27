@@ -55,6 +55,10 @@ final class MusicLibrary {
     @ObservationIgnored private let keychain: Keychain
     @ObservationIgnored private(set) var userToken: String?
     @ObservationIgnored var walk: ShuffleWalk?
+    /// The mixes Truffle made, as drawn (`SavedMix`), by `MixBuilder.saveKey`.
+    var savedMixes: [String: SavedMix] = [:]
+    /// A mix being made, so Home's tap and the mix's page asking at once draw it once.
+    @ObservationIgnored var mixesBeingMade: [String: Task<SavedMix, any Error>] = [:]
     /// The holiday songs: how many (Settings), and where the shuffle found them (MusicLibrary+Holidays).
     var holidays = HolidayIndex()
     /// Big playlists' shuffles, for this session only.
@@ -216,6 +220,7 @@ final class MusicLibrary {
             keychain.delete(key)
         }
         store.removeAll()
+        savedMixes = [:]
         userToken = nil
         userName = nil
         server = nil
@@ -543,6 +548,7 @@ final class MusicLibrary {
 
     private func loadWalk() {
         walk = store.load(ShuffleWalk.self, from: walkName)
+        loadSavedMixes()
         loadHolidays()
         publishWalk()
     }

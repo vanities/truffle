@@ -145,6 +145,42 @@ extension MusicLibrary {
         return tracks
     }
 
+    // MARK: - Made once
+
+    private var mixesName: String { "mixes-\(section?.id ?? "none").json" }
+
+    func loadSavedMixes() {
+        savedMixes = store.load([String: SavedMix].self, from: mixesName) ?? [:]
+        if !savedMixes.isEmpty { Logger.mixes.info("[mixes] \(self.savedMixes.count) made mix(es) on the phone") }
+    }
+
+    func savedMix(for mix: Mix, now: Date = SeasonCalendar.now) -> SavedMix? {
+        MixBuilder.saveKey(for: mix, on: now).flatMap { savedMixes[$0] }
+    }
+
+    /// The mix as it was made, or made now if it never was (or `regenerate` asks for a new draw). An empty
+    /// draw isn't kept: the next ask tries again.
+    func madeMix(_ mix: Mix, theme: SeasonTheme, regenerate: Bool = false, now: Date = SeasonCalendar.now) async throws -> SavedMix {
+        guard let key = MixBuilder.saveKey(for: mix, on: now) else {
+            return SavedMix(tracks: try await tracks(for: mix, theme: theme, now: now), madeAt: now)
+        }
+        if !regenerate, let saved = savedMixes[key] { return saved }
+        if let making = mixesBeingMade[key] { return try await making.value }
+        let making = Task { [weak self] () throws -> SavedMix in
+            guard let self else { throw CancellationError() }
+            let made = SavedMix(tracks: try await self.tracks(for: mix, theme: theme, now: now), madeAt: .now)
+            guard !made.tracks.isEmpty else { return made }
+            self.savedMixes[key] = made
+            self.savedMixes = self.savedMixes.filter { now.timeIntervalSince($0.value.madeAt) < MixBuilder.keptFor }
+            self.store.save(self.savedMixes, to: self.mixesName)
+            Logger.mixes.info("[mixes] \(regenerate ? "regenerated" : "made", privacy: .public) \(key, privacy: .public): \(made.tracks.count) songs, kept until made again")
+            return made
+        }
+        mixesBeingMade[key] = making
+        defer { mixesBeingMade[key] = nil }
+        return try await making.value
+    }
+
     // MARK: - Moods
 
     func moodMix(_ recipe: MoodRecipe, limit: Int = 100) async throws -> [Track] {

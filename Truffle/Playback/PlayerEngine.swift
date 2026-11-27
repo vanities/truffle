@@ -293,7 +293,8 @@ final class PlayerEngine {
                 play(tracks, source: PlaySource(kind: .album, title: album.title, id: album.id, albumInOrder: true))
                 return
             }
-            let tracks = try await library.tracks(for: mix, theme: theme)
+            // A mix Truffle makes is made once and kept (`SavedMix`): the same songs until Regenerate.
+            let tracks = try await library.madeMix(mix, theme: theme).tracks
             guard !tracks.isEmpty else {
                 isLoading = false
                 errorMessage = "\(mix.title) came up empty."

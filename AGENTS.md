@@ -330,8 +330,14 @@ Two faults `scripts/road_test.py` found on 2026-11-26, both with a 7 minute dead
   stretch of the track, and between the two times "ON THIS PHONE", "BUFFERED 42%", or the percent beside WEAK
   SIGNAL / DATA SAVER. Rows mark songs saved on the phone with a small download arrow (`TrackRow.isSaved`).
 - A mix card with no hand-picked playlist behind it (`curatedPlaylist(for:)` is nil) wears an AUTO badge on
-  Home: it's drawn at random from mood tags or play history each time. The seasonal-mix skill makes the
-  hand-picked ones on the server.
+  Home: Truffle draws it from mood tags or play history. It's made once and kept (`SavedMix`,
+  `MusicLibrary.madeMix`, `mixes-<section>.json`): a season's or holiday's mix for the year, This Time Last
+  Year for the week, Night Drive until it's made again. Tapping a mix on Home plays it and opens its page
+  (`MixView`, or the playlist for a hand-picked one) with the songs as drawn and Regenerate, which draws again
+  without touching what's playing. The player's "Playing from" opens the same page. Shuffle All and Album
+  Roulette are never kept. `-TruffleScene mix` opens the page; `-TruffleThenRegenerate YES` redraws it.
+  The seasonal-mix skill makes the hand-picked ones on the server (2026-11-26: Thanksgiving 2026, Christmas
+  2026 and New Year 2027 joined Halloween 2026).
 - Artists and Albums carry an A to Z index down the right edge (`IndexBar`, `IndexLetters`): only in name,
   title or artist order, with 40 or more rows and no filter typed, so the demo's short lists never show it
   (look at it on a real library). It files by Plex's `titleSort`.

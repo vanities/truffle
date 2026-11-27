@@ -5,6 +5,8 @@ enum Route: Hashable {
     case album(Album)
     case artist(Artist)
     case playlist(Playlist)
+    /// A mix Truffle made (`MixView`).
+    case mix(Mix)
     case liked
     case artists
     case albums
@@ -16,6 +18,7 @@ enum PlayerPage: Identifiable, Hashable {
     case album(Album)
     case artist(Artist)
     case playlist(Playlist)
+    case mix(Mix)
     case liked
 
     var id: String {
@@ -23,6 +26,7 @@ enum PlayerPage: Identifiable, Hashable {
         case .album(let album): "album-\(album.id)"
         case .artist(let artist): "artist-\(artist.id)"
         case .playlist(let playlist): "playlist-\(playlist.id)"
+        case .mix(let mix): "mix-\(mix.id)"
         case .liked: "liked"
         }
     }
@@ -86,6 +90,7 @@ extension View {
             case .album(let album): AlbumView(album: album)
             case .artist(let artist): ArtistView(artist: artist)
             case .playlist(let playlist): PlaylistView(playlist: playlist)
+            case .mix(let mix): MixView(mix: mix)
             case .liked: LikedView()
             case .artists: ArtistsView()
             case .albums: AlbumsView()

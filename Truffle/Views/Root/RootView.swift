@@ -54,7 +54,7 @@ struct RootView: View {
     }
 
     #if DEBUG
-    /// `-TruffleScene mixes|player|playerAlbum|playerPlaylist|library|albums|icons|stats|settings|search|album|artist`: opens straight to a
+    /// `-TruffleScene mixes|mix|player|playerAlbum|playerPlaylist|library|albums|icons|stats|settings|search|album|artist`: opens straight to a
     /// screen, for store screenshots and the accessibility audit; `car` and `shuffle` run checks that
     /// can't be tapped through in the simulator.
     /// With `stats` or `settings`, `-TruffleScroll <id>` scrolls down to a card or section.
@@ -150,6 +150,18 @@ struct RootView: View {
                     try? await Task.sleep(for: .seconds(2))
                     router.editingPlaylist = .editing(playlist)
                 }
+            }
+        case "mix":
+            // A mix Truffle made, started the way Home's tap starts it, on its page. `-TruffleThenRegenerate YES`
+            // draws it again five seconds later.
+            guard let mix = season.mixes.first(where: { library.curatedPlaylist(for: $0) == nil }) else { return true }
+            await player.play(mix, theme: season.theme)
+            tab = .library
+            router.libraryPath = [.mix(mix)]
+            if UserDefaults.standard.bool(forKey: "TruffleThenRegenerate") {
+                try? await Task.sleep(for: .seconds(5))
+                let made = try? await library.madeMix(mix, theme: season.theme, regenerate: true)
+                Logger.ui.info("[debug] regenerated \(mix.title, privacy: .public): \(made?.tracks.count ?? 0) songs")
             }
         case "road":
             // A drive: an album from its first song, then Next after `-TruffleSteps` seconds (40 if not given),

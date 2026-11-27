@@ -9,6 +9,7 @@ struct PlayerView: View {
     @Environment(PlayerEngine.self) private var player
     @Environment(MusicLibrary.self) private var library
     @Environment(AppRouter.self) private var router
+    @Environment(SeasonClock.self) private var season
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -31,6 +32,7 @@ struct PlayerView: View {
                     case .album(let album): AlbumView(album: album)
                     case .artist(let artist): ArtistView(artist: artist)
                     case .playlist(let playlist): PlaylistView(playlist: playlist)
+                    case .mix(let mix): MixView(mix: mix)
                     case .liked: LikedView()
                     }
                 }
@@ -153,8 +155,8 @@ struct PlayerView: View {
         }
     }
 
-    /// Tap it for what's playing from: the playlist, album or artist with its songs, or, for a shuffle or a
-    /// mix Truffle put together (which have no page), the queue.
+    /// Tap it for what's playing from: the playlist, album, artist or mix with its songs, or, for a shuffle
+    /// (which has no page), the queue.
     @ViewBuilder
     private var sourceLabel: some View {
         if let source = player.source {
@@ -189,7 +191,9 @@ struct PlayerView: View {
         case .artist: source.id.flatMap(library.artist(id:)).map(PlayerPage.artist)
         case .playlist: library.playlists.first { $0.id == source.id }.map(PlayerPage.playlist)
         case .liked: .liked
-        case .mix, .shuffleAll, .search, .songs: nil
+        // A mix Truffle made has a page while it's still on offer (the season's, or Night Drive).
+        case .mix: (season.mixes + [MixPlanner.nightDrive]).first { $0.id == source.id }.map(PlayerPage.mix)
+        case .shuffleAll, .search, .songs: nil
         }
     }
 

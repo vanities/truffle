@@ -93,4 +93,24 @@ final class MixesTests: XCTestCase {
                        "every other theme goes by the calendar")
         XCTAssertEqual(MixBuilder.mixYear(theme: "thanksgiving", on: date(2026, 11, 26), calendar: calendar), 2026)
     }
+
+    func testAMadeMixIsKeptForItsSeasonAndTheRandomOnesAreNot() {
+        let fall = Mix(kind: .season, title: "Fall Mix", subtitle: "", symbol: "leaf", art: "fall")
+        let thanksgiving = Mix(kind: .moment, title: "Thanksgiving Mix", subtitle: "", symbol: "fork.knife", art: "thanksgiving")
+        let key = MixBuilder.saveKey(for: fall, on: date(2026, 11, 26), calendar: calendar)
+        XCTAssertEqual(key, MixBuilder.saveKey(for: fall, on: date(2026, 9, 30), calendar: calendar), "one draw for the whole season")
+        XCTAssertNotEqual(key, MixBuilder.saveKey(for: fall, on: date(2027, 10, 1), calendar: calendar), "next fall gets its own")
+        XCTAssertNotEqual(key, MixBuilder.saveKey(for: thanksgiving, on: date(2026, 11, 26), calendar: calendar))
+        XCTAssertNil(MixBuilder.saveKey(for: .shuffleAll, on: date(2026, 11, 26), calendar: calendar), "Shuffle All is never the same twice")
+        XCTAssertNil(MixBuilder.saveKey(for: .randomAlbum, on: date(2026, 11, 26), calendar: calendar))
+        XCTAssertNil(MixBuilder.saveKey(for: .liked, on: date(2026, 11, 26), calendar: calendar))
+    }
+
+    func testThisTimeLastYearIsMadeAgainEachWeek() {
+        let lastYear = Mix(kind: .lastYear, title: "This Time Last Year", subtitle: "", symbol: "clock")
+        let monday = MixBuilder.saveKey(for: lastYear, on: date(2026, 11, 23), calendar: calendar)
+        XCTAssertEqual(monday, MixBuilder.saveKey(for: lastYear, on: date(2026, 11, 26), calendar: calendar))
+        XCTAssertNotEqual(monday, MixBuilder.saveKey(for: lastYear, on: date(2026, 12, 3), calendar: calendar),
+                          "its two weeks either side of today have moved on")
+    }
 }

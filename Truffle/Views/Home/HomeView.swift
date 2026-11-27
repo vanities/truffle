@@ -9,6 +9,9 @@ struct HomeView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var startingMix: String?
+    /// The mix just tapped, shown as it starts playing: what's in it, and Regenerate if it's one Truffle made.
+    @State private var shownMix: Mix?
+    @State private var shownPlaylist: Playlist?
     /// Whether any of the header's backdrop is still on screen (the cards with props sit inside it).
     @State private var backdropInView = true
     @ScaledMetric(relativeTo: .largeTitle) private var greetingSize: CGFloat = 38
@@ -78,6 +81,8 @@ struct HomeView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .libraryDestinations()
+            .navigationDestination(item: $shownMix) { MixView(mix: $0) }
+            .navigationDestination(item: $shownPlaylist) { PlaylistView(playlist: $0) }
         }
     }
 
@@ -257,6 +262,12 @@ struct HomeView: View {
         guard startingMix == nil else { return }
         startingMix = mix.id
         Logger.ui.info("[home] start \(mix.title, privacy: .public)")
+        // One tap still plays it; the page comes up alongside so what's playing can be seen (and redrawn).
+        if let curated = library.curatedPlaylist(for: mix) {
+            shownPlaylist = curated
+        } else if MixBuilder.saveKey(for: mix, on: SeasonCalendar.now) != nil {
+            shownMix = mix
+        }
         Task {
             await player.play(mix, theme: season.theme)
             startingMix = nil
