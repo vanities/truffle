@@ -13,8 +13,11 @@ HLS transcode (start, the session's playlist and segment, stop).
     make demo-library            # covers (Swift) and audio (ffmpeg) into ./demo-library
     scripts/demo_server.py       # http://127.0.0.1:32499
     DEMO_SLOW_MS=1500 scripts/demo_server.py   # the library answers late, as on a weak signal
-    DEMO_AUDIO_KBPS=250 scripts/demo_server.py # songs arrive at that rate (they play at about 97 kbps)
+    DEMO_AUDIO_KBPS=250 scripts/demo_server.py # songs arrive at that rate, shared between them (they play at about 97 kbps)
+    curl '127.0.0.1:32499/demo/network?profile=3g'   # change the connection while it plays: 5g, lte, 3g, edge,
+                                                     # dead (nothing answers until the next change), wifi (no limit), or kbps=600
     DEMO_FLAC=1 scripts/demo_server.py         # the songs as FLAC, which buffers differently from AAC in MP4
+    DEMO_FLAC=cd scripts/demo_server.py        # FLAC the size of a CD rip (about 900 kbps, 20 MB a song)
     xcrun simctl launch <udid> com.vanities.truffle -TruffleServerURL http://127.0.0.1:32499
 """
 
@@ -40,10 +43,56 @@ PORT = int(os.environ.get("DEMO_PORT", "32499"))
 SLOW_MS = int(os.environ.get("DEMO_SLOW_MS", "0"))
 AUDIO_KBPS = int(os.environ.get("DEMO_AUDIO_KBPS", "0"))
 FLAC = bool(os.environ.get("DEMO_FLAC"))
+# The pads compress to a third of a real album's bitrate, and a 6 MB song is in the player's hands whole
+# before a slow connection can matter. A noise floor under them (inaudible next to the pads, different in
+# each ear so the encoder can't fold it) brings the files up to a CD rip's size.
+FLAC_CD = os.environ.get("DEMO_FLAC") == "cd"
+FLAC_FOLDER = "flac-cd" if FLAC_CD else "flac"
 SECTION = "1"
 STAMP = 1_780_000_000
 
 log = logging.getLogger("demo")
+
+# Round figures for a phone on the road, not measurements: the 3G and Edge ones are Network Link Conditioner's.
+PROFILES = {"wifi": 0, "5g": 50_000, "lte": 10_000, "3g": 780, "edge": 240}
+
+
+class Link:
+    """The one connection every song shares: a stream and the downloads saving songs behind it split its
+    rate, as they do on a phone (a rate per connection hid that the downloads starve the stream). 0 kbps is
+    no limit. Dead holds every request, as a dead zone does, until the next change."""
+
+    def __init__(self, kbps: int) -> None:
+        self.kbps = kbps
+        self.dead = False
+        self.name = f"{kbps} kbps" if kbps else "no limit"
+        self._lock = threading.Lock()
+        self._free_at = time.monotonic()
+
+    def set(self, name: str, kbps: int, dead: bool = False) -> None:
+        with self._lock:
+            self.kbps, self.dead, self.name = kbps, dead, name
+            self._free_at = time.monotonic()
+        log.info("[demo] network: %s", name)
+
+    def wait_while_dead(self) -> None:
+        while self.dead:
+            time.sleep(0.2)
+
+    def send(self, nbytes: int) -> None:
+        """Blocks for this chunk's turn on the link."""
+        self.wait_while_dead()
+        with self._lock:
+            if not self.kbps:
+                return
+            now = time.monotonic()
+            start = max(now, self._free_at)
+            self._free_at = start + nbytes * 8 / (self.kbps * 1000)
+            delay = self._free_at - now
+        time.sleep(delay)
+
+
+LINK = Link(AUDIO_KBPS)
 
 # Chord progressions (Hz) and lengths for the generated songs; each song uses one of these.
 PROGRESSIONS = [
@@ -75,11 +124,17 @@ def make_audio() -> None:
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), "-c", "copy", "-movflags", "+faststart",
                             str(segment)], check=True)
             log.info("[audio] made hls/%s", segment.name)
-        lossless = folder / "flac" / f"song-{index}.flac"
+        lossless = folder / FLAC_FOLDER / f"song-{index}.flac"
         if FLAC and not lossless.exists():
             lossless.parent.mkdir(exist_ok=True)
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), "-c:a", "flac", str(lossless)], check=True)
-            log.info("[audio] made flac/%s (%d kbps)", lossless.name, lossless.stat().st_size * 8 // seconds // 1000)
+            noise = ("anoisesrc=color=white:amplitude=0.02:sample_rate=44100:seed=1[l];"
+                     "anoisesrc=color=white:amplitude=0.02:sample_rate=44100:seed=2[r];"
+                     "[l][r]join=inputs=2:channel_layout=stereo[n];"
+                     "[0:a]aresample=44100,aformat=sample_fmts=s16:channel_layouts=stereo[a];"
+                     "[a][n]amix=inputs=2:duration=first:normalize=0[out]")
+            shape = ["-filter_complex", noise, "-map", "[out]", "-sample_fmt", "s16"] if FLAC_CD else []
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(target), *shape, "-c:a", "flac", str(lossless)], check=True)
+            log.info("[audio] made %s/%s (%d kbps)", FLAC_FOLDER, lossless.name, lossless.stat().st_size * 8 // seconds // 1000)
 
 
 def make_song(target: Path, chords: list[list[float]], seconds: int) -> None:
@@ -382,10 +437,10 @@ class Handler(BaseHTTPRequestHandler):
         if ranged:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         self.end_headers()
-        # DEMO_AUDIO_KBPS=250 sends songs that slowly (the demo's are about 97 kbps), to watch how long a
-        # stream takes to start and whether it keeps up.
-        throttled = AUDIO_KBPS and content_type.startswith("audio/")
-        step = 4096 if throttled else 65536
+        # Songs take turns on the link (DEMO_AUDIO_KBPS, /demo/network), to watch how long a stream takes to
+        # start and whether it keeps up. Covers don't: they'd only blur what the songs are doing.
+        throttled = content_type.startswith("audio/")
+        step = 4096 if throttled and 0 < LINK.kbps <= 2000 else 65536
         with path.open("rb") as handle:
             handle.seek(start)
             remaining = length
@@ -399,7 +454,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 remaining -= len(chunk)
                 if throttled:
-                    time.sleep(len(chunk) * 8 / (AUDIO_KBPS * 1000))
+                    LINK.send(len(chunk))
 
     def do_GET(self) -> None:
         self.route("GET")
@@ -421,6 +476,9 @@ class Handler(BaseHTTPRequestHandler):
         query.pop("X-Plex-Token", None)
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length > 0 else b""
+        if path == "/demo/network":
+            return self.set_network(query)
+        LINK.wait_while_dead()
         # DEMO_SLOW_MS=1500 answers the library late (not the songs or /identity), like a weak signal on the
         # road: the shuffle's top-up then lands after a few skips, not before them.
         if SLOW_MS and path != "/identity" and not path.startswith("/library/parts/"):
@@ -432,6 +490,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_empty(500)
         log.info("[demo] %s %s %s%s in %.0fms", method, path, ",".join(sorted(query)), f" +{len(body)}B" if body else "",
                  (time.monotonic() - started) * 1000)
+
+    def set_network(self, query: dict) -> None:
+        profile = query.get("profile", "")
+        if profile == "dead":
+            LINK.set("dead zone", LINK.kbps, dead=True)
+        elif profile in PROFILES:
+            LINK.set(f"{profile} ({PROFILES[profile]} kbps)" if PROFILES[profile] else "wifi (no limit)", PROFILES[profile])
+        elif query.get("kbps", "").isdigit():
+            LINK.set(f"{query['kbps']} kbps", int(query["kbps"]))
+        else:
+            return self.send_json({"error": f"profile is one of {', '.join([*PROFILES, 'dead'])}, or kbps=<n>"}, status=400)
+        self.send_json({"network": LINK.name})
 
     def dispatch(self, method: str, path: str, query: dict, body: bytes = b"") -> None:
         lib = LIB
@@ -499,7 +569,7 @@ class Handler(BaseHTTPRequestHandler):
             if not track:
                 return self.send_empty(404)
             if match.group(2) == "flac":
-                return self.send_file(LIBRARY / "audio" / "flac" / f"song-{track['_song']}.flac", "audio/flac")
+                return self.send_file(LIBRARY / "audio" / FLAC_FOLDER / f"song-{track['_song']}.flac", "audio/flac")
             return self.send_file(LIBRARY / "audio" / f"song-{track['_song']}.m4a", "audio/mp4")
         if path == "/music/:/transcode/universal/start.m3u8":
             # Like PMS 1.43 without the HLS music profile: "No conversion profile found for protocol hls", a 400.
