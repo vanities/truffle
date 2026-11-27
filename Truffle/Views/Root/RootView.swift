@@ -120,13 +120,9 @@ struct RootView: View {
         }
     }
 
-    /// The scenes that start something playing; false for any other scene.
-    private func openPlaybackScene(_ scene: String) async -> Bool {
+    /// The scenes that play something and put a page over or beside it: the player's sheet, a made mix, a drive.
+    private func openPageScene(_ scene: String) async -> Bool {
         switch scene {
-        case "player":
-            if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
-            try? await Task.sleep(for: .seconds(2))
-            router.showsPlayer = true
         case "playerAlbum", "playerPlaylist":
             // The sheet the player pulls up for the song's album, or for the playlist it's playing from.
             if scene == "playerAlbum" {
@@ -176,6 +172,20 @@ struct RootView: View {
             let saved = tracks.dropFirst().prefix(SongCache.ahead).filter(SongCache.shared.contains).count
             Logger.ui.info("[debug] road: Next, with \(saved) of the next \(min(SongCache.ahead, tracks.count - 1)) songs on the phone")
             player.next()
+        default:
+            return false
+        }
+        return true
+    }
+
+    /// The scenes that start something playing; false for any other scene.
+    private func openPlaybackScene(_ scene: String) async -> Bool {
+        if await openPageScene(scene) { return true }
+        switch scene {
+        case "player":
+            if let mix = season.mixes.first { await player.play(mix, theme: season.theme) }
+            try? await Task.sleep(for: .seconds(2))
+            router.showsPlayer = true
         case "car":
             await connectCarTwice()
         case "shuffle":
