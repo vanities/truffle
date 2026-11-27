@@ -84,4 +84,13 @@ final class MixesTests: XCTestCase {
         XCTAssertEqual(mixes.first?.art, "stPatricks")
         XCTAssertEqual(mixes[1].title, "Spring Mix")
     }
+
+    func testTheNewYearMixIsFiledUnderTheYearItRingsIn() {
+        XCTAssertEqual(MixBuilder.mixYear(theme: "newyear", on: date(2026, 12, 29), calendar: calendar), 2027,
+                       "New Year's Eve plays the mix named for next year")
+        XCTAssertEqual(MixBuilder.mixYear(theme: "newyear", on: date(2027, 1, 1), calendar: calendar), 2027)
+        XCTAssertEqual(MixBuilder.mixYear(theme: "christmas", on: date(2026, 12, 20), calendar: calendar), 2026,
+                       "every other theme goes by the calendar")
+        XCTAssertEqual(MixBuilder.mixYear(theme: "thanksgiving", on: date(2026, 11, 26), calendar: calendar), 2026)
+    }
 }

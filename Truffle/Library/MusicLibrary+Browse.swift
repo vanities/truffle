@@ -130,8 +130,9 @@ extension MusicLibrary {
     }
 
     /// This year's skill-made playlist for a mix's theme ("halloween", "fall"…), if there is one.
-    func curatedPlaylist(for mix: Mix, year: Int = Calendar.current.component(.year, from: .now)) -> Playlist? {
+    func curatedPlaylist(for mix: Mix, now: Date = SeasonCalendar.now) -> Playlist? {
         guard mix.kind == .moment || mix.kind == .season, let theme = mix.art?.lowercased() else { return nil }
+        let year = MixBuilder.mixYear(theme: theme, on: now)
         return playlists.first { $0.mixTag?.theme == theme && $0.mixTag?.year == year }
     }
 

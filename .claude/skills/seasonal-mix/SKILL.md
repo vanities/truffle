@@ -16,7 +16,9 @@ to `THEMES` in that script for anything new.
 
 ## Steps
 
-1. **Theme and year.** From the request; the year defaults to this year. `scripts/plex_mix.py existing`
+1. **Theme and year.** From the request; the year defaults to this year. New Year is the exception: it's
+   named for the year it rings in (`newyear --year 2027` for the mix that plays from December 27, 2026 to
+   January 2, 2027), and Truffle looks for it that way. `scripts/plex_mix.py existing`
    shows what's already made.
 2. **Candidates.** `uv run --script scripts/plex_mix.py candidates <theme> --year <year>` prints one
    line per song with why it's there: `mood` (album mood tags), `word:<w>` (a seasonal word in the

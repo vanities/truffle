@@ -64,6 +64,13 @@ enum MixBuilder {
         return order.sorted { (counts[$0]!, -rank[$0]!) > (counts[$1]!, -rank[$1]!) }.prefix(limit).map { $0 }
     }
 
+    /// The year a theme's hand-picked mix is filed under on `date`. New Year's shows from December 27, and its
+    /// mix is named for the year it rings in ("New Year 2027"), so those last days of December look ahead.
+    static func mixYear(theme: String, on date: Date, calendar: Calendar = .current) -> Int {
+        let year = calendar.component(.year, from: date)
+        return theme == "newyear" && calendar.component(.month, from: date) == 12 ? year + 1 : year
+    }
+
     static func distinct(_ ids: [String]) -> [String] {
         var seen = Set<String>()
         return ids.filter { seen.insert($0).inserted }
