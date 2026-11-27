@@ -143,11 +143,11 @@ Audio keeps playing in the background, on the lock screen and in CarPlay, which 
 REVIEW_NOTES = """Truffle 1.5.0 is an update to 1.4.0, which is on the App Store. Sign-in, accounts, data and external services are unchanged.
 
 1. WHAT CHANGED IN 1.5.0
-- Player: tapping the song's name opens its album as a sheet (cover, songs, Play/Pause, Shuffle); tapping "Playing from" opens that playlist or album. To see it in the sample library: Library > Albums > any album > Play, open the player, tap the song's name.
-- Home: mixes that Truffle assembles automatically show an "AUTO" badge. The sample library's hand-picked mix has none.
-- Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next five songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. It never runs in Low Data Mode or with Data Saver on. Not used in the sample library, which needs no network.
-- Settings > CarPlay > Car Log now also records pauses in playback (durations and connection type only; no song names, nothing leaves the device).
-- Player: the line under the scrubber says how much of the song is loaded ("BUFFERED 100%" in the sample library).
+- Player: tapping the song's name opens its album as a sheet (cover, songs, Play/Pause, Shuffle); "Playing from" opens that playlist. In the sample library: play any album, open the player, tap the song's name.
+- Player: the line under the scrubber says how much of the song is loaded.
+- Home: mixes Truffle assembles automatically show an "AUTO" badge.
+- Settings > CarPlay > Save Ahead on Cellular (on by default, a switch turns it off): the next songs download from the person's own Plex server over cellular as well as Wi-Fi, so playback survives gaps in coverage. Never in Low Data Mode or with Data Saver on. Not used in the sample library.
+- Settings > CarPlay > Car Log also records pauses in playback (durations and connection type; nothing leaves the device).
 - Fixed: after a period with no connection, playback could stop at the end of a song and not resume.
 
 2. PURPOSE AND AUDIENCE
